@@ -1,0 +1,164 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@/lib/supabase/server";
+import { buildSystemPrompt } from "@/lib/ai/prompt";
+import { skillTreeTools } from "@/lib/ai/tools";
+import type { SkillNode } from "@/types/skill-tree";
+
+export const runtime = "nodejs";
+
+export async function POST(request: Request) {
+  const { treeId, message } = await request.json();
+
+  if (!treeId || !message) {
+    return new Response("Missing treeId or message", { status: 400 });
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Load tree data
+  const [treeRes, nodesRes, messagesRes] = await Promise.all([
+    supabase.from("skill_trees").select("*").eq("id", treeId).single(),
+    supabase.from("skill_nodes").select("*").eq("tree_id", treeId),
+    supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("tree_id", treeId)
+      .order("created_at", { ascending: true })
+      .limit(20),
+  ]);
+
+  if (!treeRes.data) {
+    return new Response("Tree not found", { status: 404 });
+  }
+
+  const nodes: SkillNode[] = nodesRes.data ?? [];
+  const systemPrompt = buildSystemPrompt(treeRes.data.name, nodes);
+
+  // Build conversation history
+  const history = (messagesRes.data ?? []).map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
+  history.push({ role: "user", content: message });
+
+  // Save user message
+  await supabase.from("chat_messages").insert({
+    tree_id: treeId,
+    role: "user",
+    content: message,
+  });
+
+  const anthropic = new Anthropic();
+
+  // Stream response
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: history,
+          tools: skillTreeTools,
+          stream: true,
+        });
+
+        let fullContent = "";
+        const toolCalls: Array<{ id: string; name: string; input: string }> = [];
+        let currentToolId = "";
+        let currentToolName = "";
+        let currentToolInput = "";
+
+        for await (const event of response) {
+          if (event.type === "content_block_start") {
+            if (event.content_block.type === "text") {
+              // text block starting
+            } else if (event.content_block.type === "tool_use") {
+              currentToolId = event.content_block.id;
+              currentToolName = event.content_block.name;
+              currentToolInput = "";
+            }
+          } else if (event.type === "content_block_delta") {
+            if (event.delta.type === "text_delta") {
+              fullContent += event.delta.text;
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "text", data: event.delta.text })}\n\n`
+                )
+              );
+            } else if (event.delta.type === "input_json_delta") {
+              currentToolInput += event.delta.partial_json;
+            }
+          } else if (event.type === "content_block_stop") {
+            if (currentToolName) {
+              const toolCall = {
+                id: currentToolId,
+                name: currentToolName,
+                input: currentToolInput,
+              };
+              toolCalls.push(toolCall);
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: "tool_use",
+                    data: {
+                      id: currentToolId,
+                      name: currentToolName,
+                      input: JSON.parse(currentToolInput || "{}"),
+                    },
+                  })}\n\n`
+                )
+              );
+              currentToolId = "";
+              currentToolName = "";
+              currentToolInput = "";
+            }
+          }
+        }
+
+        // Save assistant message
+        await supabase.from("chat_messages").insert({
+          tree_id: treeId,
+          role: "assistant",
+          content: fullContent,
+          tool_calls: toolCalls.length
+            ? toolCalls.map((t) => ({
+                id: t.id,
+                name: t.name,
+                input: JSON.parse(t.input || "{}"),
+              }))
+            : null,
+        });
+
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
+        );
+        controller.close();
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "Unknown error";
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", data: errMsg })}\n\n`
+          )
+        );
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
