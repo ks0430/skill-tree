@@ -97,16 +97,24 @@ function CameraController() {
 
     // --- Tracking mode: lock on star + auto-orbit around it ---
     if (trackingNodeId) {
+      const storeNode = nodes.find((n) => n.id === trackingNodeId);
       const livePos = worldPositions.get(trackingNodeId);
-      if (livePos) {
-        // Keep target locked on the star
-        controls.target.set(livePos.x, livePos.y, livePos.z);
-      }
 
-      // Auto-rotate: slowly orbit the camera around the star
-      controls.autoRotate = true;
-      controls.autoRotateSpeed = 1.0;
+      // Get the star's current world position
+      const starX = livePos?.x ?? storeNode?.position[0] ?? 0;
+      const starY = livePos?.y ?? storeNode?.position[1] ?? 0;
+      const starZ = livePos?.z ?? storeNode?.position[2] ?? 0;
+
+      // Auto-orbit: camera circles the star in XZ plane
+      const time = performance.now() * 0.0003; // slow orbit
+      const orbitDist = camera.position.distanceTo(controls.target) || 12;
+      const camHeight = camera.position.y - controls.target.y;
+
+      // Set orbit center to the star
+      controls.target.set(starX, starY, starZ);
       controls.enablePan = false;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 1.5;
     } else {
       controls.autoRotate = false;
       controls.enablePan = true;
