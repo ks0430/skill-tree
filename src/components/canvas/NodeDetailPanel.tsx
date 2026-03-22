@@ -46,7 +46,7 @@ export function NodeDetailPanel({ node }: { node: Node3D }) {
       <div className="mt-3">
         <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
           <span>{status.label}</span>
-          <span>Double-click to advance</span>
+          <span>Press Space to advance</span>
         </div>
         <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
           <div

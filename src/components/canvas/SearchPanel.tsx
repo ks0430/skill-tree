@@ -21,9 +21,7 @@ export function SearchPanel() {
   const inputRef = useRef<HTMLInputElement>(null);
   const nodes = useTreeStore((s) => s.nodes);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
-  const setHoveredNode = useTreeStore((s) => s.setHoveredNode);
 
-  // Keyboard shortcut: / to open search
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
@@ -53,7 +51,6 @@ export function SearchPanel() {
     );
   }, [nodes, query]);
 
-  // Group by hierarchy for display
   const grouped = useMemo(() => {
     const stellars = filtered.filter((n) => n.data.role === "stellar");
     const planets = filtered.filter((n) => n.data.role === "planet");
@@ -62,18 +59,10 @@ export function SearchPanel() {
   }, [filtered]);
 
   function handleSelect(node: Node3D) {
-    // Find the stellar ancestor to fly to
-    let targetId = node.id;
-    if (node.data.role === "planet" && node.data.parent_id) {
-      targetId = node.data.parent_id;
-    } else if (node.data.role === "satellite" && node.data.parent_id) {
-      const parent = nodes.find((n) => n.id === node.data.parent_id);
-      if (parent?.data.parent_id) targetId = parent.data.parent_id;
-      else if (parent) targetId = parent.id;
-    }
-    setFocusTarget(targetId);
-    setHoveredNode(node.id);
-    setTimeout(() => setHoveredNode(null), 3000);
+    // Zoom directly to the clicked node, not its parent
+    setFocusTarget(node.id);
+    setOpen(false);
+    setQuery("");
   }
 
   const statusDot: Record<string, string> = {
@@ -103,7 +92,6 @@ export function SearchPanel() {
   return (
     <div className="absolute top-4 right-4 z-10 w-72">
       <div className="glass rounded-xl overflow-hidden">
-        {/* Search input */}
         <div className="p-2 border-b border-glass-border">
           <div className="flex items-center gap-2">
             <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -125,7 +113,6 @@ export function SearchPanel() {
           </div>
         </div>
 
-        {/* Results */}
         <div className="max-h-64 overflow-y-auto">
           {grouped.length === 0 ? (
             <div className="p-3 text-xs text-slate-500 text-center">
@@ -159,7 +146,6 @@ export function SearchPanel() {
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-3 py-1.5 border-t border-glass-border text-[9px] text-slate-600">
           {grouped.length} node{grouped.length !== 1 ? "s" : ""}
           {query && ` matching "${query}"`}

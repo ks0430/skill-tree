@@ -23,7 +23,8 @@ interface TreeState {
   pendingChanges: PendingChange[];
   selectedNodeId: string | null;
   hoveredNodeId: string | null;
-  focusTargetId: string | null; // stellar ID to fly camera to
+  focusTargetId: string | null; // node ID to fly camera to (one-shot)
+  trackingNodeId: string | null; // node ID camera continuously follows (sticky mode)
   history: HistoryEntry[];
   historyIndex: number;
 
@@ -32,6 +33,7 @@ interface TreeState {
   setSelectedNode: (id: string | null) => void;
   setHoveredNode: (id: string | null) => void;
   setFocusTarget: (id: string | null) => void;
+  setTrackingNode: (id: string | null) => void;
 
   addNode: (node: SkillNode) => void;
   removeNode: (nodeId: string) => void;
@@ -156,6 +158,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   selectedNodeId: null,
   hoveredNodeId: null,
   focusTargetId: null,
+  trackingNodeId: null,
   history: [],
   historyIndex: -1,
 
@@ -163,6 +166,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
   setSelectedNode: (id) => set({ selectedNodeId: id }),
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
+  setTrackingNode: (id) => set({ trackingNodeId: id }),
   setFocusTarget: (id) => set({ focusTargetId: id }),
 
   addNode: (node) => {

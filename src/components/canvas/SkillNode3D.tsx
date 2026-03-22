@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useMemo, useCallback, memo } from "react";
+import { useRef, useState, useMemo, useCallback, useEffect, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text, Billboard } from "@react-three/drei";
 import * as THREE from "three";
@@ -114,6 +114,22 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
 
   const supabase = useMemo(() => createClient(), []);
 
+  // Space key toggles status while hovering
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code === "Space" && hovered) {
+        e.preventDefault();
+        const current = node.data.status;
+        const idx = STATUS_CYCLE.indexOf(current);
+        const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+        toggleNodeStatus(node.id);
+        supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hovered, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase]);
+
   const onPointerEnter = useCallback((e: any) => {
     e.stopPropagation();
     setHovered(true);
@@ -127,21 +143,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
     document.body.style.cursor = "auto";
   }, [setHoveredNode]);
 
-  // Single click → zoom to this node
+  // Click → zoom to this node
   const onClick = useCallback((e: any) => {
     e.stopPropagation();
     setFocusTarget(node.id);
   }, [node.id, setFocusTarget]);
-
-  // Double click → toggle status + persist
-  const onDoubleClick = useCallback((e: any) => {
-    e.stopPropagation();
-    const current = node.data.status;
-    const idx = STATUS_CYCLE.indexOf(current);
-    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-    toggleNodeStatus(node.id);
-    supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
-  }, [node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase]);
 
   const ringTilt = useMemo(() => (seed % 40 + 15) * (Math.PI / 180), [seed]);
   const emissiveColor = config.atmosphereColor || "#ffffff";
@@ -156,7 +162,6 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
         onClick={onClick}
-        onDoubleClick={onDoubleClick}
         scale={hovered ? node.scale * 1.1 : node.scale}
       >
         {textures.surface ? (
