@@ -8,6 +8,7 @@ import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { SkillNode3D } from "./SkillNode3D";
 import { OrbitalRing } from "./OrbitalRing";
 import { NodeDetailPanel } from "./NodeDetailPanel";
+import { SearchPanel } from "./SearchPanel";
 
 const sharedGeo = {
   planet: new THREE.SphereGeometry(0.6, 24, 24),
@@ -146,9 +147,10 @@ export function SkillTreeCanvas() {
       </Canvas>
 
       {hoveredNode && <NodeDetailPanel node={hoveredNode} />}
+      <SearchPanel />
 
       <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
-        Drag to orbit · Scroll to zoom · Double-click star to focus
+        Drag to orbit · Scroll to zoom · Double-click star to focus · Press / to search
       </div>
     </div>
   );
