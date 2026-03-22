@@ -38,12 +38,15 @@ function CameraController() {
   const flyToPos = useRef<THREE.Vector3 | null>(null);
   const flyToLookAt = useRef<THREE.Vector3 | null>(null);
   const isFlying = useRef(false);
+  // Camera offset from tracked node (maintained so user can orbit around it)
+  const trackingOffset = useRef<THREE.Vector3 | null>(null);
 
   // ESC exits tracking mode
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && trackingNodeId) {
         setTrackingNode(null);
+        trackingOffset.current = null;
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -67,6 +70,9 @@ function CameraController() {
     flyToLookAt.current = nodePos.clone();
     isFlying.current = true;
 
+    // Store offset for tracking after fly-to completes
+    trackingOffset.current = offset.clone();
+
     // If it's a stellar, enter tracking mode
     if (node.data.role === "stellar") {
       setTrackingNode(node.id);
@@ -79,34 +85,44 @@ function CameraController() {
   }, [focusTargetId, nodes, setFocusTarget, setTrackingNode]);
 
   useFrame(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
     // Fly-to animation
     if (isFlying.current && flyToPos.current && flyToLookAt.current) {
       camera.position.lerp(flyToPos.current, 0.06);
-      if (controlsRef.current) {
-        controlsRef.current.target.lerp(flyToLookAt.current, 0.06);
-        controlsRef.current.update();
-      }
+      controls.target.lerp(flyToLookAt.current, 0.06);
+      controls.update();
+
       if (camera.position.distanceTo(flyToPos.current) < 0.15) {
         isFlying.current = false;
         flyToPos.current = null;
         flyToLookAt.current = null;
+
+        // Snap the orbit controls target exactly to the node
+        if (trackingNodeId) {
+          const livePos = worldPositions.get(trackingNodeId);
+          if (livePos) controls.target.copy(livePos);
+          controls.update();
+        }
       }
-      return; // Don't track while flying
+      return;
     }
 
-    // Tracking mode — continuously follow the tracked node
-    if (trackingNodeId && controlsRef.current) {
+    // Tracking mode — lock orbit center on the tracked node
+    if (trackingNodeId) {
       const livePos = worldPositions.get(trackingNodeId);
       if (livePos) {
-        // Keep the orbit controls target locked on the node
-        controlsRef.current.target.lerp(livePos, 0.08);
-        controlsRef.current.update();
+        // Calculate how much the node moved since last frame
+        const delta = livePos.clone().sub(controls.target);
+
+        // Move both camera and target by the same delta (keeps orbit stable)
+        controls.target.copy(livePos);
+        camera.position.add(delta);
+        controls.update();
       }
     }
   });
-
-  // Click on empty space exits tracking
-  const onCanvasClick = useRef(false);
 
   return <OrbitControls
     ref={controlsRef}
@@ -116,7 +132,7 @@ function CameraController() {
     zoomSpeed={0.8}
     minDistance={1}
     maxDistance={120}
-    enablePan
+    enablePan={!trackingNodeId}
     panSpeed={0.5}
   />;
 }

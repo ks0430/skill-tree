@@ -30,6 +30,7 @@
 
 ## Workflow
 - **Always commit after making changes.** Every completed task/feature/fix should end with a git commit before moving on.
+- **Do NOT run `next build` to validate.** The user will test manually via `npm run dev`. Just commit and move on.
 
 ## Conventions
 - Node.js 18 environment — no Tailwind v4, no packages requiring Node 20+
