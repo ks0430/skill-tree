@@ -38,49 +38,39 @@ function CameraController() {
   const flyToPos = useRef<THREE.Vector3 | null>(null);
   const flyToLookAt = useRef<THREE.Vector3 | null>(null);
   const isFlying = useRef(false);
-  // Camera offset from tracked node (maintained so user can orbit around it)
-  const trackingOffset = useRef<THREE.Vector3 | null>(null);
 
   // ESC exits tracking mode
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && trackingNodeId) {
         setTrackingNode(null);
-        trackingOffset.current = null;
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [trackingNodeId, setTrackingNode]);
 
-  // One-shot fly-to when focusTargetId changes
+  // Fly-to triggered by focusTargetId
   useEffect(() => {
     if (!focusTargetId) return;
     const node = nodes.find((n) => n.id === focusTargetId);
     if (!node) return;
 
+    // Get position — prefer live animated position, fall back to initial
     const livePos = worldPositions.get(node.id);
     const nodePos = livePos
       ? new THREE.Vector3(livePos.x, livePos.y, livePos.z)
       : new THREE.Vector3(...node.position);
 
     const dist = ZOOM_DISTANCE[node.data.role] ?? 6;
-    const offset = new THREE.Vector3(dist * 0.4, dist * 0.5, dist * 0.8);
-    flyToPos.current = nodePos.clone().add(offset);
     flyToLookAt.current = nodePos.clone();
+    flyToPos.current = nodePos.clone().add(new THREE.Vector3(dist * 0.4, dist * 0.5, dist * 0.8));
     isFlying.current = true;
 
-    // Store offset for tracking after fly-to completes
-    trackingOffset.current = offset.clone();
+    // Stellar → enter tracking, otherwise clear tracking
+    setTrackingNode(node.data.role === "stellar" ? node.id : null);
 
-    // If it's a stellar, enter tracking mode
-    if (node.data.role === "stellar") {
-      setTrackingNode(node.id);
-    } else {
-      setTrackingNode(null);
-    }
-
-    const timer = setTimeout(() => setFocusTarget(null), 100);
+    const timer = setTimeout(() => setFocusTarget(null), 150);
     return () => clearTimeout(timer);
   }, [focusTargetId, nodes, setFocusTarget, setTrackingNode]);
 
@@ -88,40 +78,45 @@ function CameraController() {
     const controls = controlsRef.current;
     if (!controls) return;
 
-    // Fly-to animation
+    // --- Fly-to animation (fast lerp) ---
     if (isFlying.current && flyToPos.current && flyToLookAt.current) {
-      camera.position.lerp(flyToPos.current, 0.06);
-      controls.target.lerp(flyToLookAt.current, 0.06);
-      controls.update();
+      camera.position.lerp(flyToPos.current, 0.12);
+      controls.target.lerp(flyToLookAt.current, 0.12);
 
-      if (camera.position.distanceTo(flyToPos.current) < 0.15) {
+      if (camera.position.distanceTo(flyToPos.current) < 0.2) {
+        // Snap exactly
+        camera.position.copy(flyToPos.current);
+        controls.target.copy(flyToLookAt.current);
         isFlying.current = false;
         flyToPos.current = null;
         flyToLookAt.current = null;
-
-        // Snap the orbit controls target exactly to the node
-        if (trackingNodeId) {
-          const livePos = worldPositions.get(trackingNodeId);
-          if (livePos) controls.target.copy(livePos);
-          controls.update();
-        }
       }
+      controls.update();
       return;
     }
 
-    // Tracking mode — lock orbit center on the tracked node
+    // --- Tracking mode: keep orbit center locked on the star ---
     if (trackingNodeId) {
       const livePos = worldPositions.get(trackingNodeId);
       if (livePos) {
-        // Calculate how much the node moved since last frame
-        const delta = livePos.clone().sub(controls.target);
+        const dx = livePos.x - controls.target.x;
+        const dy = livePos.y - controls.target.y;
+        const dz = livePos.z - controls.target.z;
 
-        // Move both camera and target by the same delta (keeps orbit stable)
-        controls.target.copy(livePos);
-        camera.position.add(delta);
-        controls.update();
+        if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001 || Math.abs(dz) > 0.001) {
+          controls.target.set(livePos.x, livePos.y, livePos.z);
+          camera.position.x += dx;
+          camera.position.y += dy;
+          camera.position.z += dz;
+        }
       }
+      // Disable panning via ref so it doesn't re-mount the component
+      controls.enablePan = false;
+    } else {
+      if (controls) controls.enablePan = true;
     }
+
+    controls.update();
   });
 
   return <OrbitControls
@@ -132,7 +127,6 @@ function CameraController() {
     zoomSpeed={0.8}
     minDistance={1}
     maxDistance={120}
-    enablePan={!trackingNodeId}
     panSpeed={0.5}
   />;
 }
