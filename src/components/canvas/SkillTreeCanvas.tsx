@@ -20,7 +20,7 @@ const sharedGeo = {
 };
 export { sharedGeo };
 
-// Smoothly fly camera to a target position
+// Smoothly fly camera to a target node
 function CameraController() {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
@@ -30,27 +30,57 @@ function CameraController() {
 
   const targetPos = useRef<THREE.Vector3 | null>(null);
   const targetLookAt = useRef<THREE.Vector3 | null>(null);
+  const isAnimating = useRef(false);
+
+  // Zoom distance based on role
+  const ZOOM_DISTANCE: Record<string, number> = {
+    stellar: 12,
+    planet: 4,
+    satellite: 2,
+  };
 
   useEffect(() => {
     if (!focusTargetId) return;
     const node = nodes.find((n) => n.id === focusTargetId);
     if (!node) return;
 
-    const pos = new THREE.Vector3(...node.position);
-    targetLookAt.current = pos.clone();
-    targetPos.current = pos.clone().add(new THREE.Vector3(5, 8, 15));
+    // Use the node's live world position if orbiting, otherwise initial position
+    const { worldPositions } = require("./SkillNode3D");
+    const livePos = worldPositions.get(node.id);
+    const nodePos = livePos
+      ? new THREE.Vector3(livePos.x, livePos.y, livePos.z)
+      : new THREE.Vector3(...node.position);
 
-    // Clear focus after animation starts
+    const dist = ZOOM_DISTANCE[node.data.role] ?? 6;
+
+    // Position camera offset from node (slightly above and to the side)
+    const offset = new THREE.Vector3(dist * 0.4, dist * 0.5, dist * 0.8);
+    targetPos.current = nodePos.clone().add(offset);
+    targetLookAt.current = nodePos.clone();
+    isAnimating.current = true;
+
     const timer = setTimeout(() => setFocusTarget(null), 100);
     return () => clearTimeout(timer);
   }, [focusTargetId, nodes, setFocusTarget]);
 
   useFrame(() => {
-    if (targetPos.current) {
-      camera.position.lerp(targetPos.current, 0.03);
-      if (camera.position.distanceTo(targetPos.current) < 0.5) {
-        targetPos.current = null;
-      }
+    if (!isAnimating.current) return;
+    if (!targetPos.current || !targetLookAt.current) return;
+
+    // Lerp camera position
+    camera.position.lerp(targetPos.current, 0.05);
+
+    // Lerp orbit controls target (look-at point)
+    if (controlsRef.current) {
+      controlsRef.current.target.lerp(targetLookAt.current, 0.05);
+      controlsRef.current.update();
+    }
+
+    // Stop when close enough
+    if (camera.position.distanceTo(targetPos.current) < 0.1) {
+      isAnimating.current = false;
+      targetPos.current = null;
+      targetLookAt.current = null;
     }
   });
 
@@ -60,11 +90,10 @@ function CameraController() {
     dampingFactor={0.05}
     rotateSpeed={0.5}
     zoomSpeed={0.8}
-    minDistance={3}
+    minDistance={1}
     maxDistance={120}
     enablePan
     panSpeed={0.5}
-    target={targetLookAt.current ?? undefined}
   />;
 }
 
@@ -150,7 +179,7 @@ export function SkillTreeCanvas() {
       <SearchPanel />
 
       <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
-        Drag to orbit · Scroll to zoom · Double-click star to focus · Press / to search
+        Click node to zoom · Double-click to change status · Scroll to zoom · / to search
       </div>
     </div>
   );
