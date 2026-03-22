@@ -95,25 +95,21 @@ function CameraController() {
       return;
     }
 
-    // --- Tracking mode: keep orbit center locked on the star ---
+    // --- Tracking mode: lock on star + auto-orbit around it ---
     if (trackingNodeId) {
       const livePos = worldPositions.get(trackingNodeId);
       if (livePos) {
-        const dx = livePos.x - controls.target.x;
-        const dy = livePos.y - controls.target.y;
-        const dz = livePos.z - controls.target.z;
-
-        if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001 || Math.abs(dz) > 0.001) {
-          controls.target.set(livePos.x, livePos.y, livePos.z);
-          camera.position.x += dx;
-          camera.position.y += dy;
-          camera.position.z += dz;
-        }
+        // Keep target locked on the star
+        controls.target.set(livePos.x, livePos.y, livePos.z);
       }
-      // Disable panning via ref so it doesn't re-mount the component
+
+      // Auto-rotate: slowly orbit the camera around the star
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 1.0;
       controls.enablePan = false;
     } else {
-      if (controls) controls.enablePan = true;
+      controls.autoRotate = false;
+      controls.enablePan = true;
     }
 
     controls.update();
