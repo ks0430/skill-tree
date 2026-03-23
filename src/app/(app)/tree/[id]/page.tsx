@@ -81,23 +81,22 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
         <div className="flex-1 relative min-w-0">
           <SkillTreeCanvas />
         </div>
-        {/* Collapsed tab */}
-        {chatCollapsed && (
-          <button
-            onClick={() => setChatCollapsed(false)}
-            className="w-8 shrink-0 glass border-l border-glass-border flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors"
-            title="Expand AI Assistant"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="text-[10px] font-mono" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
-          </button>
-        )}
-        {/* Full chat panel */}
-        {!chatCollapsed && (
+        {/* Collapsed tab — always in DOM, shown/hidden via display */}
+        <button
+          onClick={() => setChatCollapsed(false)}
+          title="Expand AI Assistant"
+          style={{ display: chatCollapsed ? "flex" : "none" }}
+          className="w-8 shrink-0 glass border-l border-glass-border flex-col items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-[10px] font-mono" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
+        </button>
+        {/* Full chat panel — always in DOM, shown/hidden via display */}
+        <div style={{ display: chatCollapsed ? "none" : "flex" }} className="w-96 shrink-0">
           <ChatPanel treeId={id} onCollapse={() => setChatCollapsed(true)} />
-        )}
+        </div>
       </div>
     </div>
   );

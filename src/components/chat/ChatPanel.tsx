@@ -159,7 +159,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   ];
 
   return (
-    <div className="w-96 glass border-l border-glass-border flex flex-col shrink-0">
+    <div className="w-full glass border-l border-glass-border flex flex-col">
       <div className="p-3 border-b border-glass-border flex items-center justify-between shrink-0">
         <h2 className="font-mono font-semibold text-sm">AI Assistant</h2>
         {onCollapse && (
