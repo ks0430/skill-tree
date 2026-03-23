@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import { useChatStore } from "@/lib/store/chat-store";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
@@ -13,9 +13,10 @@ import type { SkillNode } from "@/types/skill-tree";
 
 interface ChatPanelProps {
   treeId: string;
+  onCollapse?: () => void;
 }
 
-export function ChatPanel({ treeId }: ChatPanelProps) {
+export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   const {
     messages, isStreaming, streamingContent,
     addMessage, setStreaming, appendStreamContent, resetStreamContent,
@@ -23,7 +24,6 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
 
   const { pendingChanges, addPendingChange, resolveAllPending, addNode, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -159,37 +159,20 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
   ];
 
   return (
-    <div
-      className="glass border-l border-glass-border flex flex-col overflow-hidden transition-[width] duration-300"
-      style={{ width: collapsed ? "2rem" : "24rem", minWidth: collapsed ? "2rem" : "24rem", maxWidth: collapsed ? "2rem" : "24rem", flexShrink: 0, flexGrow: 0 }}
-    >
-      {/* Collapsed tab — visible only when collapsed */}
-      {collapsed && (
-        <button
-          onClick={() => setCollapsed(false)}
-          className="flex flex-col items-center justify-center gap-2 w-full h-full text-slate-400 hover:text-white transition-colors"
-          title="Expand AI Assistant"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          <span className="text-[10px] font-mono" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
-        </button>
-      )}
-
-      {/* Full panel — hidden when collapsed */}
-      {!collapsed && <>
+    <div className="w-96 glass border-l border-glass-border flex flex-col shrink-0">
       <div className="p-3 border-b border-glass-border flex items-center justify-between shrink-0">
         <h2 className="font-mono font-semibold text-sm">AI Assistant</h2>
-        <button
-          onClick={() => setCollapsed(true)}
-          className="text-slate-500 hover:text-white transition-colors p-1 rounded"
-          title="Collapse"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="text-slate-500 hover:text-white transition-colors p-1 rounded"
+            title="Collapse"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -254,7 +237,6 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
       </div>
 
       <ChatInput onSend={sendMessage} disabled={isStreaming} />
-      </>}
     </div>
   );
 }
