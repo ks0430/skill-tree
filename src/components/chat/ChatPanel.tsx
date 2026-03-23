@@ -61,9 +61,19 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
     resolveAllPending(false);
   }
 
+  function generateId() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
+
   async function sendMessage(content: string) {
     const userMsg = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       tree_id: treeId,
       role: "user" as const,
       content,
@@ -116,7 +126,7 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
       }
 
       addMessage({
-        id: crypto.randomUUID(),
+        id: generateId(),
         tree_id: treeId,
         role: "assistant",
         content: fullContent,
@@ -125,7 +135,7 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
       });
     } catch {
       addMessage({
-        id: crypto.randomUUID(),
+        id: generateId(),
         tree_id: treeId,
         role: "assistant",
         content: "Sorry, something went wrong. Please try again.",
