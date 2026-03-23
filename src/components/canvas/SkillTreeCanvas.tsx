@@ -38,6 +38,7 @@ function CameraController() {
   const flyToPos = useRef<THREE.Vector3 | null>(null);
   const flyToLookAt = useRef<THREE.Vector3 | null>(null);
   const isFlying = useRef(false);
+  const lastTrackedPos = useRef<THREE.Vector3 | null>(null);
 
   // ESC exits tracking mode
   useEffect(() => {
@@ -66,9 +67,10 @@ function CameraController() {
     flyToLookAt.current = nodePos.clone();
     flyToPos.current = nodePos.clone().add(new THREE.Vector3(dist * 0.4, dist * 0.5, dist * 0.8));
     isFlying.current = true;
+    lastTrackedPos.current = null; // reset so tracking starts fresh after fly-to
 
-    // Stellar → enter tracking, otherwise clear tracking
-    setTrackingNode(node.data.role === "stellar" ? node.id : null);
+    // Enter tracking for all node types
+    setTrackingNode(node.id);
 
     const timer = setTimeout(() => setFocusTarget(null), 150);
     return () => clearTimeout(timer);
@@ -95,27 +97,28 @@ function CameraController() {
       return;
     }
 
-    // --- Tracking mode: lock on star + auto-orbit around it ---
+    // --- Tracking mode: follow node as it orbits ---
     if (trackingNodeId) {
       const storeNode = nodes.find((n) => n.id === trackingNodeId);
       const livePos = worldPositions.get(trackingNodeId);
 
-      // Get the star's current world position
-      const starX = livePos?.x ?? storeNode?.position[0] ?? 0;
-      const starY = livePos?.y ?? storeNode?.position[1] ?? 0;
-      const starZ = livePos?.z ?? storeNode?.position[2] ?? 0;
+      const nodeX = livePos?.x ?? storeNode?.position[0] ?? 0;
+      const nodeY = livePos?.y ?? storeNode?.position[1] ?? 0;
+      const nodeZ = livePos?.z ?? storeNode?.position[2] ?? 0;
+      const currentNodePos = new THREE.Vector3(nodeX, nodeY, nodeZ);
 
-      // Auto-orbit: camera circles the star in XZ plane
-      const time = performance.now() * 0.0003; // slow orbit
-      const orbitDist = camera.position.distanceTo(controls.target) || 12;
-      const camHeight = camera.position.y - controls.target.y;
+      if (lastTrackedPos.current) {
+        // Shift camera and target by how much the node moved this frame
+        const delta = currentNodePos.clone().sub(lastTrackedPos.current);
+        camera.position.add(delta);
+        controls.target.add(delta);
+      }
 
-      // Set orbit center to the star
-      controls.target.set(starX, starY, starZ);
+      lastTrackedPos.current = currentNodePos.clone();
+      controls.autoRotate = false;
       controls.enablePan = false;
-      controls.autoRotate = true;
-      controls.autoRotateSpeed = 1.5;
     } else {
+      lastTrackedPos.current = null;
       controls.autoRotate = false;
       controls.enablePan = true;
     }
