@@ -156,12 +156,18 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
 
   return (
     <group ref={groupRef} position={node.position}>
+      {/* Invisible hit mesh — fixed size so hover scale-up doesn't cause shake */}
       <mesh
-        ref={planetRef}
         geometry={sharedGeo.planet}
+        scale={node.scale * 1.2}
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
         onClick={onClick}
+        visible={false}
+      />
+      <mesh
+        ref={planetRef}
+        geometry={sharedGeo.planet}
         scale={hovered ? node.scale * 1.1 : node.scale}
       >
         {textures.surface ? (
