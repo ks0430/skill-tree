@@ -158,12 +158,16 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
     "Help me learn game development",
   ];
 
-  if (collapsed) {
-    return (
-      <div className="w-8 shrink-0 flex h-full">
+  return (
+    <div
+      className="glass border-l border-glass-border flex flex-col shrink-0 overflow-hidden transition-all duration-300"
+      style={{ width: collapsed ? "2rem" : "24rem" }}
+    >
+      {/* Collapsed tab — visible only when collapsed */}
+      {collapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          className="flex flex-col items-center justify-center gap-2 w-full glass border-l border-glass-border text-slate-400 hover:text-white transition-colors"
+          className="flex flex-col items-center justify-center gap-2 w-full h-full text-slate-400 hover:text-white transition-colors"
           title="Expand AI Assistant"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -171,13 +175,11 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
           </svg>
           <span className="text-[10px] font-mono" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
         </button>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="w-96 glass border-l border-glass-border flex flex-col shrink-0">
-      <div className="p-3 border-b border-glass-border flex items-center justify-between">
+      {/* Full panel — hidden when collapsed */}
+      {!collapsed && <>
+      <div className="p-3 border-b border-glass-border flex items-center justify-between shrink-0">
         <h2 className="font-mono font-semibold text-sm">AI Assistant</h2>
         <button
           onClick={() => setCollapsed(true)}
@@ -252,6 +254,7 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
       </div>
 
       <ChatInput onSend={sendMessage} disabled={isStreaming} />
+      </>}
     </div>
   );
 }
