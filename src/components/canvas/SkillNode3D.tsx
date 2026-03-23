@@ -168,13 +168,13 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
       <mesh
         ref={planetRef}
         geometry={sharedGeo.planet}
-        scale={hovered ? node.scale * 1.1 : node.scale}
+        scale={node.scale}
       >
         {textures.surface ? (
           <meshStandardMaterial
             map={textures.surface}
             emissive={config.emissive ? "#ff8800" : emissiveColor}
-            emissiveIntensity={config.emissive ? 1.5 : brightness.emissive}
+            emissiveIntensity={config.emissive ? 1.5 : hovered ? brightness.emissive + 0.4 : brightness.emissive}
             emissiveMap={config.emissive ? textures.surface : undefined}
             roughness={config.emissive ? 1 : 0.7}
             metalness={config.emissive ? 0 : 0.1}
@@ -194,7 +194,14 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
 
       {config.hasAtmosphere && (
         <mesh ref={atmosphereRef} geometry={sharedGeo.atmosphere} scale={node.scale}>
-          <meshBasicMaterial color={config.atmosphereColor} transparent opacity={hovered ? 0.3 : brightness.atmosphere} side={THREE.BackSide} depthWrite={false} />
+          <meshBasicMaterial color={config.atmosphereColor} transparent opacity={hovered ? 0.45 : brightness.atmosphere} side={THREE.BackSide} depthWrite={false} />
+        </mesh>
+      )}
+
+      {/* Hover glow ring — stable outline, no size change */}
+      {hovered && (
+        <mesh geometry={sharedGeo.atmosphere} scale={node.scale * 1.15}>
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.08} side={THREE.BackSide} depthWrite={false} />
         </mesh>
       )}
 
