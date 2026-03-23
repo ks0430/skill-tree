@@ -161,7 +161,7 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
   return (
     <div
       className="glass border-l border-glass-border flex flex-col shrink-0 overflow-hidden transition-all duration-300"
-      style={{ width: collapsed ? "2rem" : "24rem" }}
+      style={{ width: collapsed ? "2rem" : "24rem", minWidth: collapsed ? "2rem" : "24rem", maxWidth: collapsed ? "2rem" : "24rem" }}
     >
       {/* Collapsed tab — visible only when collapsed */}
       {collapsed && (
