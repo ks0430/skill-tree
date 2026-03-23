@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useChatStore } from "@/lib/store/chat-store";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +23,7 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
 
   const { pendingChanges, addPendingChange, resolveAllPending, addNode, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -157,10 +158,36 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
     "Help me learn game development",
   ];
 
+  if (collapsed) {
+    return (
+      <div className="relative flex items-center shrink-0">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center gap-1 px-1.5 py-4 glass border-l border-glass-border text-slate-400 hover:text-white transition-colors rounded-l-lg"
+          title="Expand AI Assistant"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-[10px] font-mono tracking-widest" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-96 glass border-l border-glass-border flex flex-col shrink-0">
-      <div className="p-3 border-b border-glass-border">
+      <div className="p-3 border-b border-glass-border flex items-center justify-between">
         <h2 className="font-mono font-semibold text-sm">AI Assistant</h2>
+        <button
+          onClick={() => setCollapsed(true)}
+          className="text-slate-500 hover:text-white transition-colors p-1 rounded"
+          title="Collapse"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
