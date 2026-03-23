@@ -106,7 +106,7 @@ export function layoutGalaxy(nodes: SkillNode[]): Node3D[] {
       const seed = hashSeed(p.id);
       const orbitRadius = 3.5 + i * 2.0 + (seed % 10) * 0.08;
       const orbitAngle = (i / list.length) * Math.PI * 2 + (seed % 100) * 0.01;
-      const orbitSpeed = 0.06 + (seed % 40) * 0.001;
+      const orbitSpeed = 0.02 + (seed % 40) * 0.0003;
       const orbitTilt = ((seed % 30) - 15) * 0.015; // slight tilt per orbit
 
       const x = parentPos[0] + Math.cos(orbitAngle) * orbitRadius;
@@ -136,7 +136,7 @@ export function layoutGalaxy(nodes: SkillNode[]): Node3D[] {
       const seed = hashSeed(s.id);
       const orbitRadius = 0.8 + i * 0.45 + (seed % 10) * 0.04;
       const orbitAngle = (i / list.length) * Math.PI * 2 + (seed % 100) * 0.02;
-      const orbitSpeed = 0.15 + (seed % 50) * 0.002;
+      const orbitSpeed = 0.05 + (seed % 50) * 0.0006;
       const orbitTilt = ((seed % 40) - 20) * 0.03;
 
       const x = parentPos[0] + Math.cos(orbitAngle) * orbitRadius;
