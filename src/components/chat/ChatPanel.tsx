@@ -160,18 +160,16 @@ export function ChatPanel({ treeId }: ChatPanelProps) {
 
   if (collapsed) {
     return (
-      <div className="relative flex items-center shrink-0">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center gap-1 px-1.5 py-4 glass border-l border-glass-border text-slate-400 hover:text-white transition-colors rounded-l-lg"
-          title="Expand AI Assistant"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          <span className="text-[10px] font-mono tracking-widest" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
-        </button>
-      </div>
+      <button
+        onClick={() => setCollapsed(false)}
+        className="flex flex-col items-center justify-center gap-1 px-1.5 py-4 glass border-l border-glass-border text-slate-400 hover:text-white transition-colors shrink-0"
+        title="Expand AI Assistant"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        <span className="text-[10px] font-mono tracking-widest" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>AI</span>
+      </button>
     );
   }
 
