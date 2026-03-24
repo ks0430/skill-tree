@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
+import { useTreeStore } from "@/lib/store/tree-store";
 import type { NodeContent } from "@/types/node-content";
 import {
   parseContent,
@@ -16,6 +17,7 @@ import {
 import { PanelHeader } from "./PanelHeader";
 import { PanelStatus } from "./PanelStatus";
 import { PanelChecklist } from "./PanelChecklist";
+import { PanelDates } from "./PanelDates";
 
 interface NodeDetailPanelProps {
   node: Node3D;
@@ -32,7 +34,23 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   const supabase = createClient();
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const updateNode = useTreeStore((s) => s.updateNode);
   const checklist = getChecklist(content);
+
+  const props = (node.data.properties ?? {}) as Record<string, string | null>;
+
+  const handleDateChange = useCallback(
+    async (field: "due_date" | "start_date" | "estimate", value: string | null) => {
+      const next = { ...props, [field]: value };
+      updateNode(node.id, { properties: next });
+      await supabase
+        .from("skill_nodes")
+        .update({ properties: next })
+        .eq("id", node.id)
+        .eq("tree_id", node.data.tree_id);
+    },
+    [props, node.id, node.data.tree_id, supabase, updateNode]
+  );
 
   const writeToDb = useCallback(async (next: NodeContent) => {
     await supabase
@@ -107,6 +125,14 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       )}
 
       <PanelStatus status={node.data.status} />
+
+      <PanelDates
+        dueDate={props.due_date}
+        startDate={props.start_date}
+        estimate={props.estimate}
+        readOnly={readOnly}
+        onChange={handleDateChange}
+      />
 
       {!readOnly && (
         <PanelChecklist
