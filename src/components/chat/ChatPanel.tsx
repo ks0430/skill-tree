@@ -23,7 +23,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
     addMessage, setStreaming, appendStreamContent, resetStreamContent,
   } = useChatStore();
 
-  const { pendingChanges, addPendingChange, resolveAllPending, addNode, pushHistory } = useTreeStore();
+  const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,8 +54,23 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         };
         addNode(node);
         await supabase.from("skill_nodes").insert(node);
+      } else if (change.action === "remove_node") {
+        const nodeId = change.params.id as string;
+        removeNode(nodeId);
+        await supabase.from("skill_nodes").delete().eq("id", nodeId);
+        await supabase.from("skill_nodes").delete().eq("tree_id", treeId).eq("parent_id", nodeId);
+      } else if (change.action === "update_node") {
+        const nodeId = change.params.id as string;
+        const updates: Partial<SkillNode> = {};
+        if (change.params.label) updates.label = change.params.label as string;
+        if (change.params.description) updates.description = change.params.description as string;
+        if (change.params.status) updates.status = change.params.status as SkillNode["status"];
+        if (change.params.role) updates.role = change.params.role as SkillNode["role"];
+        if (change.params.parent_id !== undefined) updates.parent_id = change.params.parent_id as string | null;
+        if (change.params.priority) updates.priority = change.params.priority as number;
+        updateNode(nodeId, updates);
+        await supabase.from("skill_nodes").update(updates).eq("id", nodeId);
       }
-      // TODO: handle remove_node and update_node for bulk accept
     }
     resolveAllPending(true);
     const count = pending.length;
