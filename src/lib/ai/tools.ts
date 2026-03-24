@@ -1,6 +1,66 @@
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 
+const checklistTools: Tool[] = [
+  {
+    name: "set_checklist",
+    description: "Create or fully replace a node's checklist. Use when the user wants a fresh checklist for a skill.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        node_id: { type: "string", description: "ID of the skill node" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string", description: "Checklist item text (short, actionable)" },
+              checked: { type: "boolean", description: "Initial checked state, default false" },
+            },
+            required: ["text"],
+          },
+        },
+      },
+      required: ["node_id", "items"],
+    },
+  },
+  {
+    name: "add_checklist_items",
+    description: "Append new items to a node's existing checklist without replacing existing ones.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        node_id: { type: "string", description: "ID of the skill node" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+            },
+            required: ["text"],
+          },
+        },
+      },
+      required: ["node_id", "items"],
+    },
+  },
+  {
+    name: "update_checklist_item",
+    description: "Mark a checklist item as checked or unchecked, matched by its exact text.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        node_id: { type: "string", description: "ID of the skill node" },
+        item_text: { type: "string", description: "Exact text of the item to update" },
+        checked: { type: "boolean", description: "New checked state" },
+      },
+      required: ["node_id", "item_text", "checked"],
+    },
+  },
+];
+
 export const skillTreeTools: Tool[] = [
+  ...checklistTools,
   {
     name: "add_node",
     description:

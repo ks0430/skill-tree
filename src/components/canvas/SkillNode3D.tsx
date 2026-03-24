@@ -54,7 +54,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
   const cloudsRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
-  const { toggleNodeStatus, setHoveredNode, setFocusTarget } = useTreeStore();
+  const { toggleNodeStatus, setHoveredNode, setFocusTarget, setPinnedNode, pinnedNodeId } = useTreeStore();
 
   const seed = useMemo(() => idSeed(node.id), [node.id]);
   const planetType = useMemo(() => pickPlanetForRole(node.id, node.data.role), [node.id, node.data.role]);
@@ -143,11 +143,12 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
     document.body.style.cursor = "auto";
   }, [setHoveredNode]);
 
-  // Click → zoom to this node
+  // Click → zoom to this node + toggle pinned detail panel
   const onClick = useCallback((e: any) => {
     e.stopPropagation();
     setFocusTarget(node.id);
-  }, [node.id, setFocusTarget]);
+    setPinnedNode(pinnedNodeId === node.id ? null : node.id);
+  }, [node.id, setFocusTarget, setPinnedNode, pinnedNodeId]);
 
   const ringTilt = useMemo(() => (seed % 40 + 15) * (Math.PI / 180), [seed]);
   const emissiveColor = config.atmosphereColor || "#ffffff";

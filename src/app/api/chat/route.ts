@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { skillTreeTools } from "@/lib/ai/tools";
+import { parseContent } from "@/lib/content/checklist";
 import type { SkillNode } from "@/types/skill-tree";
 
 export const runtime = "nodejs";
@@ -38,7 +39,10 @@ export async function POST(request: Request) {
     return new Response("Tree not found", { status: 404 });
   }
 
-  const nodes: SkillNode[] = nodesRes.data ?? [];
+  const nodes: SkillNode[] = (nodesRes.data ?? []).map((n) => ({
+    ...n,
+    content: parseContent(n.content ?? { blocks: [] }),
+  }));
   const systemPrompt = buildSystemPrompt(treeRes.data.name, nodes);
 
   // Build conversation history
@@ -99,12 +103,9 @@ export async function POST(request: Request) {
             }
           } else if (event.type === "content_block_stop") {
             if (currentToolName) {
-              const toolCall = {
-                id: currentToolId,
-                name: currentToolName,
-                input: currentToolInput,
-              };
-              toolCalls.push(toolCall);
+              const parsedInput = JSON.parse(currentToolInput || "{}");
+              toolCalls.push({ id: currentToolId, name: currentToolName, input: currentToolInput });
+
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({

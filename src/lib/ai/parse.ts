@@ -32,6 +32,12 @@ export function describeChange(change: PendingChange): string {
       return `Remove "${params.id}"`;
     case "update_node":
       return `Update "${params.id}"`;
+    case "set_checklist":
+      return `Set checklist on "${params.node_id}" (${(params.items as unknown[]).length} items)`;
+    case "add_checklist_items":
+      return `Add ${(params.items as unknown[]).length} item(s) to "${params.node_id}"`;
+    case "update_checklist_item":
+      return `Mark "${params.item_text}" ${params.checked ? "✓ done" : "○ undone"} on "${params.node_id}"`;
     default:
       return `${action}`;
   }

@@ -1,13 +1,22 @@
 import type { SkillNode } from "@/types/skill-tree";
+import { getChecklist } from "@/lib/content/checklist";
 
 export function buildSystemPrompt(
   treeName: string,
   nodes: SkillNode[]
 ): string {
-  // Group nodes by hierarchy
   const stellars = nodes.filter((n) => n.role === "stellar");
   const planets = nodes.filter((n) => n.role === "planet");
   const satellites = nodes.filter((n) => n.role === "satellite");
+
+  function checklistSummary(node: SkillNode): string {
+    const cl = getChecklist(node.content ?? { blocks: [] });
+    if (!cl || cl.items.length === 0) return "";
+    const lines = cl.items
+      .map((it) => `          [${it.checked ? "x" : " "}] ${it.text}`)
+      .join("\n");
+    return `\n          checklist:\n${lines}`;
+  }
 
   const systemView = stellars
     .map((s) => {
@@ -16,12 +25,17 @@ export function buildSystemPrompt(
         .map((p) => {
           const mySats = satellites.filter((sat) => sat.parent_id === p.id);
           const satStr = mySats.length
-            ? mySats.map((sat) => `        - [satellite] ${sat.id}: "${sat.label}" (${sat.status})`).join("\n")
+            ? mySats
+                .map(
+                  (sat) =>
+                    `        - [satellite] ${sat.id}: "${sat.label}" (${sat.status})${checklistSummary(sat)}`
+                )
+                .join("\n")
             : "";
-          return `      - [planet] ${p.id}: "${p.label}" (${p.status}, priority ${p.priority})${satStr ? "\n" + satStr : ""}`;
+          return `      - [planet] ${p.id}: "${p.label}" (${p.status}, priority ${p.priority})${checklistSummary(p)}${satStr ? "\n" + satStr : ""}`;
         })
         .join("\n");
-      return `  [stellar] ${s.id}: "${s.label}" (${s.status})\n${planetLines || "      (no planets yet)"}`;
+      return `  [stellar] ${s.id}: "${s.label}" (${s.status})${checklistSummary(s)}\n${planetLines || "      (no planets yet)"}`;
     })
     .join("\n\n");
 
@@ -36,7 +50,7 @@ Current galaxy: "${treeName}"
 
 ${systemView || "(empty galaxy — no systems yet)"}
 
-RULES:
+RULES — Galaxy structure:
 1. When the user wants to learn a new topic, create ONE stellar + 3-8 planets + optional satellites using bulk_modify.
 2. Every planet MUST have a parent_id pointing to its stellar. Every satellite MUST point to its planet.
 3. Stellars have parent_id = null.
@@ -44,6 +58,16 @@ RULES:
 5. Set status to "locked" unless the user says they already know it.
 6. Use descriptive IDs: "web-dev" for stellar, "html-basics" for planet, "semantic-tags" for satellite.
 7. When adding to an existing stellar system, just add planets/satellites with the correct parent_id.
-8. Explain your galaxy design conversationally.
-9. Keep the galaxy balanced — don't put too many planets on one stellar (max ~8).`;
+8. Keep the galaxy balanced — don't put too many planets on one stellar (max ~8).
+
+RULES — Checklists:
+9. Use set_checklist to create or fully replace a node's checklist.
+10. Use add_checklist_items to append items to an existing checklist.
+11. Use update_checklist_item to mark an item checked/unchecked by its exact text.
+12. Checklist items should be short, actionable learning tasks (e.g. "Read MDN docs on Flexbox").
+13. When a user says they completed a task or step, use update_checklist_item to mark it done.
+14. You can manage checklists and galaxy structure in the same response.
+
+Always explain your actions conversationally.`;
 }
+

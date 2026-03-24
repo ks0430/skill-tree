@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { SkillNode3D, worldPositions } from "./SkillNode3D";
 import { OrbitalRing } from "./OrbitalRing";
-import { NodeDetailPanel } from "./NodeDetailPanel";
+import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
 
 const sharedGeo = {
@@ -192,7 +192,9 @@ function Scene() {
 export function SkillTreeCanvas() {
   const hoveredNodeId = useTreeStore((s) => s.hoveredNodeId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
+  const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setTrackingNode = useTreeStore((s) => s.setTrackingNode);
+  const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const nodes = useTreeStore((s) => s.nodes);
   const hoveredNode = useMemo(
     () => nodes.find((n) => n.id === hoveredNodeId),
@@ -202,6 +204,22 @@ export function SkillTreeCanvas() {
     () => nodes.find((n) => n.id === trackingNodeId),
     [nodes, trackingNodeId]
   );
+  const pinnedNode = useMemo(
+    () => nodes.find((n) => n.id === pinnedNodeId),
+    [nodes, pinnedNodeId]
+  );
+
+  // ESC also clears pin
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPinnedNode(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setPinnedNode]);
+
+  // Which node to show in detail panel: pinned > hovered
+  const detailNode = pinnedNode ?? hoveredNode;
 
   return (
     <div className="w-full h-full relative">
@@ -218,7 +236,13 @@ export function SkillTreeCanvas() {
         <CameraController />
       </Canvas>
 
-      {hoveredNode && <NodeDetailPanel node={hoveredNode} />}
+      {detailNode && (
+        <NodeDetailPanel
+          node={detailNode}
+          pinned={!!pinnedNode}
+          onClose={() => setPinnedNode(null)}
+        />
+      )}
       <SearchPanel />
 
       {/* Tracking mode indicator */}
@@ -236,7 +260,7 @@ export function SkillTreeCanvas() {
       )}
 
       <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
-        Click to zoom · Press Space while hovering to toggle status · / to search
+        Click to zoom &amp; pin details · Space to toggle status · / to search · ESC to unpin
       </div>
     </div>
   );

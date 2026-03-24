@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { SkillNode, NodeStatus, NodeRole } from "@/types/skill-tree";
+import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
 
 export interface Node3D {
@@ -25,6 +26,7 @@ interface TreeState {
   hoveredNodeId: string | null;
   focusTargetId: string | null; // node ID to fly camera to (one-shot)
   trackingNodeId: string | null; // node ID camera continuously follows (sticky mode)
+  pinnedNodeId: string | null; // node ID whose detail panel is pinned open
   history: HistoryEntry[];
   historyIndex: number;
 
@@ -34,8 +36,10 @@ interface TreeState {
   setHoveredNode: (id: string | null) => void;
   setFocusTarget: (id: string | null) => void;
   setTrackingNode: (id: string | null) => void;
+  setPinnedNode: (id: string | null) => void;
 
   addNode: (node: SkillNode) => void;
+  updateNodeContent: (nodeId: string, content: NodeContent) => void;
   removeNode: (nodeId: string) => void;
   updateNode: (nodeId: string, data: Partial<SkillNode>) => void;
   toggleNodeStatus: (nodeId: string) => void;
@@ -159,6 +163,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   hoveredNodeId: null,
   focusTargetId: null,
   trackingNodeId: null,
+  pinnedNodeId: null,
   history: [],
   historyIndex: -1,
 
@@ -168,6 +173,15 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setTrackingNode: (id) => set({ trackingNodeId: id }),
   setFocusTarget: (id) => set({ focusTargetId: id }),
+  setPinnedNode: (id) => set({ pinnedNodeId: id }),
+
+  updateNodeContent: (nodeId, content) => {
+    set((state) => ({
+      nodes: state.nodes.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, content } } : n
+      ),
+    }));
+  },
 
   addNode: (node) => {
     const existing = get().nodes;

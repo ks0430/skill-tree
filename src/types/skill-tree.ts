@@ -24,6 +24,7 @@ export interface SkillNode {
   position_y: number;
   icon: string | null;
   metadata: Record<string, unknown> | null;
+  content: import("./node-content").NodeContent;
 }
 
 // Edges are no longer used for rendering — orbital hierarchy replaces them

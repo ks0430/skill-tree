@@ -37,7 +37,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       setTreeName(treeRes.data.name);
     }
 
-    const nodes = (nodesRes.data ?? []) as SkillNode[];
+    const nodes = (nodesRes.data ?? []).map((n) => ({
+      ...n,
+      content: n.content ?? { blocks: [] },
+    })) as SkillNode[];
     setNodes(layoutGalaxy(nodes));
     pushHistory();
 
