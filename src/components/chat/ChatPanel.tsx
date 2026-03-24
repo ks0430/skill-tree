@@ -19,8 +19,9 @@ interface ChatPanelProps {
 
 export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   const {
-    messages, isStreaming, streamingContent,
+    messages, isStreaming, streamingContent, suggestions,
     addMessage, setMessages, setStreaming, appendStreamContent, resetStreamContent,
+    setSuggestions, clearSuggestions,
   } = useChatStore();
 
   const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, pushHistory } = useTreeStore();
@@ -105,6 +106,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   }
 
   async function sendMessage(content: string) {
+    clearSuggestions();
     const userMsg = {
       id: generateId(),
       tree_id: treeId,
@@ -152,6 +154,8 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
             toolCalls.push(toolCall);
             const changes = toolCallToPendingChange(toolCall);
             changes.forEach((c) => addPendingChange(c));
+          } else if (event.type === "suggestions") {
+            setSuggestions(event.data as string[]);
           } else if (event.type === "error") {
             fullContent += `\n\n*Error: ${event.data}*`;
           }
@@ -183,7 +187,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
 
   const activePending = pendingChanges.filter((c) => c.status === "pending");
 
-  const suggestions = [
+  const starterPrompts = [
     "I want to learn web development",
     "Build me a data science skill tree",
     "I'm studying for AWS certification",
@@ -212,7 +216,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           <div className="text-center text-slate-500 text-sm py-6">
             <p className="mb-3">What do you want to learn?</p>
             <div className="space-y-2">
-              {suggestions.map((s) => (
+              {starterPrompts.map((s) => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
@@ -233,6 +237,23 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           <div className="glass rounded-lg p-3 text-sm text-slate-300">
             {streamingContent}
             <span className="animate-pulse">|</span>
+          </div>
+        )}
+
+        {!isStreaming && suggestions.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Follow-up</p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  className="text-xs px-2.5 py-1 rounded-full bg-accent-blue/10 border border-accent-blue/20 text-accent-blue hover:bg-accent-blue/20 transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

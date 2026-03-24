@@ -139,6 +139,28 @@ export async function POST(request: Request) {
             : null,
         });
 
+        // Generate follow-up suggestions
+        try {
+          const suggestionRes = await anthropic.messages.create({
+            model: "claude-haiku-4-20250514",
+            max_tokens: 200,
+            system: `You are a learning assistant. Given the user's message and the assistant's reply, suggest 2-3 short follow-up questions or actions the user might want to do next. Return ONLY a JSON array of strings, e.g. ["Add sub-skills to Python", "Mark HTML as in progress", "Show my learning roadmap"]. Each suggestion should be short (under 8 words) and contextually relevant. No explanation, just the JSON array.`,
+            messages: [
+              { role: "user", content: `User said: "${message}"\nAssistant replied: "${fullContent.slice(0, 500)}"` },
+            ],
+          });
+          const raw = suggestionRes.content[0].type === "text" ? suggestionRes.content[0].text.trim() : "[]";
+          const jsonMatch = raw.match(/\[[\s\S]*\]/);
+          const suggestions: string[] = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+          if (suggestions.length > 0) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: "suggestions", data: suggestions.slice(0, 3) })}\n\n`)
+            );
+          }
+        } catch {
+          // suggestions are non-critical, ignore errors
+        }
+
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
         );

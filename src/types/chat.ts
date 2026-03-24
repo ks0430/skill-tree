@@ -30,6 +30,6 @@ export interface PendingChange {
 }
 
 export interface SSEEvent {
-  type: "text" | "tool_use" | "done" | "error";
-  data: string | ToolCall;
+  type: "text" | "tool_use" | "done" | "error" | "suggestions";
+  data: string | ToolCall | string[];
 }
