@@ -18,6 +18,10 @@ export function buildSystemPrompt(
     return `\n          checklist:\n${lines}`;
   }
 
+  function descriptionSuffix(node: SkillNode): string {
+    return node.description ? ` — ${node.description}` : "";
+  }
+
   const systemView = stellars
     .map((s) => {
       const myPlanets = planets.filter((p) => p.parent_id === s.id);
@@ -28,14 +32,14 @@ export function buildSystemPrompt(
             ? mySats
                 .map(
                   (sat) =>
-                    `        - [satellite] ${sat.id}: "${sat.label}" (${sat.status})${checklistSummary(sat)}`
+                    `        - [satellite] ${sat.id}: "${sat.label}" (${sat.status})${descriptionSuffix(sat)}${checklistSummary(sat)}`
                 )
                 .join("\n")
             : "";
-          return `      - [planet] ${p.id}: "${p.label}" (${p.status}, priority ${p.priority})${checklistSummary(p)}${satStr ? "\n" + satStr : ""}`;
+          return `      - [planet] ${p.id}: "${p.label}" (${p.status}, priority ${p.priority})${descriptionSuffix(p)}${checklistSummary(p)}${satStr ? "\n" + satStr : ""}`;
         })
         .join("\n");
-      return `  [stellar] ${s.id}: "${s.label}" (${s.status})${checklistSummary(s)}\n${planetLines || "      (no planets yet)"}`;
+      return `  [stellar] ${s.id}: "${s.label}" (${s.status})${descriptionSuffix(s)}${checklistSummary(s)}\n${planetLines || "      (no planets yet)"}`;
     })
     .join("\n\n");
 
