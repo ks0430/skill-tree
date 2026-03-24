@@ -7,14 +7,14 @@ import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
-import type { SkillNode } from "@/types/skill-tree";
+import type { SkillNode, SkillEdge } from "@/types/skill-tree";
 import { toast } from "sonner";
 
 export default function TreePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, pushHistory, nodes } = useTreeStore();
+  const { setTreeId, setNodes, setEdges, pushHistory, nodes } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -38,9 +38,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   }, [id]);
 
   async function loadTree() {
-    const [treeRes, nodesRes, messagesRes] = await Promise.all([
+    const [treeRes, nodesRes, edgesRes, messagesRes] = await Promise.all([
       supabase.from("skill_trees").select("*").eq("id", id).single(),
       supabase.from("skill_nodes").select("*").eq("tree_id", id),
+      supabase.from("skill_edges").select("*").eq("tree_id", id),
       supabase
         .from("chat_messages")
         .select("*")
@@ -57,6 +58,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       content: n.content ?? { blocks: [] },
     })) as SkillNode[];
     setNodes(layoutGalaxy(nodes));
+    setEdges((edgesRes.data ?? []) as SkillEdge[]);
     pushHistory();
 
     setMessages(

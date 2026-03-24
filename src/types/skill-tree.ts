@@ -32,12 +32,17 @@ export interface SkillNode {
   content: import("./node-content").NodeContent;
 }
 
-// Edges are no longer used for rendering — orbital hierarchy replaces them
+/** Edge relationship type (added in migration 004). */
+export type EdgeType = "parent" | "depends_on" | "blocks" | "related" | "references";
+
+// Edges represent explicit relationships between nodes (supplementary to orbital hierarchy)
 export interface SkillEdge {
   id: string;
   tree_id: string;
   source_id: string;
   target_id: string;
   label: string | null;
+  type: EdgeType;
+  weight: number;
   metadata: Record<string, unknown> | null;
 }

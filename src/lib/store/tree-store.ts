@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import type { SkillNode, NodeStatus, NodeRole } from "@/types/skill-tree";
+import type { SkillNode, SkillEdge, EdgeType, NodeStatus, NodeRole } from "@/types/skill-tree";
 // NodeType is identical to NodeRole right now — imported for future use
 import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
+import { createClient } from "@/lib/supabase/client";
 
 export interface Node3D {
   id: string;
@@ -19,9 +20,21 @@ interface HistoryEntry {
   nodes: Node3D[];
 }
 
+/** Input for creating a new edge (tree_id inferred from store). */
+export interface NewEdgeInput {
+  id: string;
+  source_id: string;
+  target_id: string;
+  label?: string | null;
+  type?: EdgeType;
+  weight?: number;
+  metadata?: Record<string, unknown> | null;
+}
+
 interface TreeState {
   treeId: string | null;
   nodes: Node3D[];
+  edges: SkillEdge[];
   pendingChanges: PendingChange[];
   selectedNodeId: string | null;
   hoveredNodeId: string | null;
@@ -34,6 +47,7 @@ interface TreeState {
 
   setTreeId: (id: string) => void;
   setNodes: (nodes: Node3D[]) => void;
+  setEdges: (edges: SkillEdge[]) => void;
   setSelectedNode: (id: string | null) => void;
   setHoveredNode: (id: string | null) => void;
   setFocusTarget: (id: string | null) => void;
@@ -46,6 +60,13 @@ interface TreeState {
   removeNode: (nodeId: string) => void;
   updateNode: (nodeId: string, data: Partial<SkillNode>) => void;
   toggleNodeStatus: (nodeId: string) => void;
+
+  /** Add an edge locally and persist to Supabase. */
+  addEdge: (edge: NewEdgeInput) => Promise<void>;
+  /** Remove an edge by id locally and from Supabase. */
+  removeEdge: (edgeId: string) => Promise<void>;
+  /** Update edge fields locally and in Supabase. */
+  updateEdge: (edgeId: string, data: Partial<Pick<SkillEdge, "label" | "type" | "weight" | "metadata">>) => Promise<void>;
 
   addPendingChange: (change: PendingChange) => void;
   resolvePendingChange: (id: string, accepted: boolean) => void;
@@ -166,6 +187,7 @@ export function layoutGalaxy(nodes: SkillNode[]): Node3D[] {
 export const useTreeStore = create<TreeState>((set, get) => ({
   treeId: null,
   nodes: [],
+  edges: [],
   pendingChanges: [],
   selectedNodeId: null,
   hoveredNodeId: null,
@@ -178,6 +200,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
 
   setTreeId: (id) => set({ treeId: id }),
   setNodes: (nodes) => set({ nodes }),
+  setEdges: (edges) => set({ edges }),
   setSelectedNode: (id) => set({ selectedNodeId: id }),
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setTrackingNode: (id) => set({ trackingNodeId: id }),
@@ -254,6 +277,62 @@ export const useTreeStore = create<TreeState>((set, get) => ({
         return { ...n, data: { ...n.data, status: next } };
       }),
     }));
+  },
+
+  addEdge: async (input) => {
+    const treeId = get().treeId;
+    if (!treeId) return;
+    const edge: SkillEdge = {
+      id: input.id,
+      tree_id: treeId,
+      source_id: input.source_id,
+      target_id: input.target_id,
+      label: input.label ?? null,
+      type: input.type ?? "related",
+      weight: input.weight ?? 1.0,
+      metadata: input.metadata ?? null,
+    };
+    // Optimistic update
+    set((state) => ({ edges: [...state.edges, edge] }));
+    const supabase = createClient();
+    const { error } = await supabase.from("skill_edges").insert(edge);
+    if (error) {
+      console.error("[tree-store] addEdge failed:", error.message);
+      // Roll back
+      set((state) => ({ edges: state.edges.filter((e) => e.id !== edge.id) }));
+    }
+  },
+
+  removeEdge: async (edgeId) => {
+    const treeId = get().treeId;
+    // Optimistic update
+    const prev = get().edges;
+    set((state) => ({ edges: state.edges.filter((e) => e.id !== edgeId) }));
+    const supabase = createClient();
+    const query = supabase.from("skill_edges").delete().eq("id", edgeId);
+    if (treeId) query.eq("tree_id", treeId);
+    const { error } = await query;
+    if (error) {
+      console.error("[tree-store] removeEdge failed:", error.message);
+      set({ edges: prev });
+    }
+  },
+
+  updateEdge: async (edgeId, data) => {
+    const treeId = get().treeId;
+    // Optimistic update
+    const prev = get().edges;
+    set((state) => ({
+      edges: state.edges.map((e) => (e.id === edgeId ? { ...e, ...data } : e)),
+    }));
+    const supabase = createClient();
+    const query = supabase.from("skill_edges").update(data).eq("id", edgeId);
+    if (treeId) query.eq("tree_id", treeId);
+    const { error } = await query;
+    if (error) {
+      console.error("[tree-store] updateEdge failed:", error.message);
+      set({ edges: prev });
+    }
   },
 
   addPendingChange: (change) => {

@@ -96,3 +96,13 @@ Added responsive behaviour to the tree page for narrow screens (< 768 px).
 - Full-screen overlay (not a bottom sheet) keeps the existing `ChatPanel` component reusable without any prop changes
 - Used conditional rendering (`{isMobile && ...}`) rather than CSS-only show/hide to avoid mounting Two instances of `ChatPanel` simultaneously
 - No new dependencies added
+
+## TICKET-023: Add type column to nodes — 2026-03-24
+Commit: 35a134d1e2c607eb06b004ca107d557fa78b85de
+Migration 004 had already added the `type` column to `skill_nodes` and backfilled it from `role`. This ticket wires up the frontend to prefer `type` everywhere while falling back to `role` for any legacy rows where `type` might be null.
+
+Key decisions:
+- **Dual-write**: when creating or updating nodes, both `type` and `role` are written with the same value so the DB stays consistent regardless of which column other queries read.
+- **`type ?? role` pattern**: all read paths use this fallback so nothing breaks if `type` is ever null on an older row.
+- **`NodeType` = `NodeRole`**: the new type alias starts as identical to `NodeRole` but leaves the door open to expand the union later (e.g. add "concept", "milestone").
+- **TypeScript clean**: `npx tsc --noEmit` passes with zero errors after all changes.
