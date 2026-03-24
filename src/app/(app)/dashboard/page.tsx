@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { SkillTree } from "@/types/skill-tree";
@@ -19,6 +19,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -92,6 +95,29 @@ export default function DashboardPage() {
     await supabase.from("chat_messages").delete().eq("tree_id", id);
     await supabase.from("skill_trees").delete().eq("id", id);
     setTrees((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function startRename(tree: TreeWithProgress, e: React.MouseEvent) {
+    e.stopPropagation();
+    setRenamingId(tree.id);
+    setRenameValue(tree.name);
+    setTimeout(() => renameInputRef.current?.select(), 30);
+  }
+
+  async function commitRename(id: string) {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      cancelRename();
+      return;
+    }
+    setTrees((prev) => prev.map((t) => (t.id === id ? { ...t, name: trimmed } : t)));
+    setRenamingId(null);
+    await supabase.from("skill_trees").update({ name: trimmed }).eq("id", id);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue("");
   }
 
   async function handleSignOut() {
@@ -202,7 +228,32 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-white">{tree.name}</h3>
+                      {renamingId === tree.id ? (
+                        <input
+                          ref={renameInputRef}
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename(tree.id);
+                            if (e.key === "Escape") cancelRename();
+                          }}
+                          onBlur={() => commitRename(tree.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold text-white bg-navy-800 border border-accent-blue rounded px-2 py-0.5 focus:outline-none w-full max-w-xs"
+                          autoFocus
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-white">{tree.name}</h3>
+                          <button
+                            onClick={(e) => startRename(tree, e)}
+                            title="Rename"
+                            className="text-slate-600 hover:text-slate-300 transition-colors opacity-0 group-hover:opacity-100 text-xs"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
                       {tree.description && (
                         <p className="text-sm text-slate-400 mt-1">{tree.description}</p>
                       )}
