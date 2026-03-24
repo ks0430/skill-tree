@@ -10,7 +10,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { PendingChange } from "./PendingChange";
 import type { ToolCall, ChatMessage as ChatMessageType } from "@/types/chat";
-import type { SkillNode } from "@/types/skill-tree";
+import type { SkillNode, EdgeType } from "@/types/skill-tree";
 
 interface ChatPanelProps {
   treeId: string;
@@ -24,7 +24,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
     setSuggestions, clearSuggestions,
   } = useChatStore();
 
-  const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, pushHistory } = useTreeStore();
+  const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, addEdge, removeEdge, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const supabase = createClient();
@@ -90,6 +90,17 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         if (change.params.priority) updates.priority = change.params.priority as number;
         updateNode(nodeId, updates);
         await supabase.from("skill_nodes").update(updates).eq("id", nodeId);
+      } else if (change.action === "add_edge") {
+        await addEdge({
+          id: change.params.id as string,
+          source_id: change.params.source_id as string,
+          target_id: change.params.target_id as string,
+          type: (change.params.type as EdgeType) ?? "related",
+          label: (change.params.label as string) ?? null,
+          weight: (change.params.weight as number) ?? 1.0,
+        });
+      } else if (change.action === "remove_edge") {
+        await removeEdge(change.params.id as string);
       }
     }
     resolveAllPending(true);

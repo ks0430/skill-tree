@@ -144,4 +144,36 @@ export const skillTreeTools: Tool[] = [
       required: ["operations"],
     },
   },
+  {
+    name: "add_edge",
+    description:
+      "Create an explicit relationship edge between two skill nodes. Use 'depends_on' when one skill must be learned before another (e.g. HTML depends_on before CSS makes sense). Use 'related' for loose thematic connections between skills in different systems.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: { type: "string", description: "Unique ID slug for the edge, e.g. 'html-to-css-dep'" },
+        source_id: { type: "string", description: "ID of the source node (the node that depends on or is related to the target)" },
+        target_id: { type: "string", description: "ID of the target node" },
+        type: {
+          type: "string",
+          enum: ["depends_on", "related"],
+          description: "depends_on = source must be learned before target; related = loose thematic connection",
+        },
+        label: { type: "string", description: "Optional short label describing the relationship" },
+        weight: { type: "number", description: "Relationship strength 0.1–1.0, default 1.0" },
+      },
+      required: ["id", "source_id", "target_id", "type"],
+    },
+  },
+  {
+    name: "remove_edge",
+    description: "Remove an explicit relationship edge between two nodes by its ID.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: { type: "string", description: "ID of the edge to remove" },
+      },
+      required: ["id"],
+    },
+  },
 ];

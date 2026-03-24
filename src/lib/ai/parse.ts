@@ -39,6 +39,12 @@ export function describeChange(change: PendingChange): string {
       return `Add ${(params.items as unknown[]).length} item(s) to "${params.node_id}"`;
     case "update_checklist_item":
       return `Mark "${params.item_text}" ${params.checked ? "✓ done" : "○ undone"} on "${params.node_id}"`;
+    case "add_edge": {
+      const edgeLabel = params.label ? ` ("${params.label}")` : "";
+      return `Add ${params.type} edge${edgeLabel}: "${params.source_id}" → "${params.target_id}"`;
+    }
+    case "remove_edge":
+      return `Remove edge "${params.id}"`;
     default:
       return `${action}`;
   }

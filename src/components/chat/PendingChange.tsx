@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { describeChange } from "@/lib/ai/parse";
 import { applyChecklistTool } from "@/lib/ai/apply-checklist";
 import type { PendingChange as PendingChangeType, ToolCall } from "@/types/chat";
-import type { SkillNode } from "@/types/skill-tree";
+import type { SkillNode, EdgeType } from "@/types/skill-tree";
 import { motion } from "framer-motion";
 import { Spinner } from "@/components/ui/Spinner";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ interface PendingChangeProps {
 }
 
 export function PendingChange({ change, treeId }: PendingChangeProps) {
-  const { addNode, removeNode, updateNode, updateNodeContent, resolvePendingChange, pushHistory, nodes } =
+  const { addNode, removeNode, updateNode, updateNodeContent, addEdge, removeEdge, resolvePendingChange, pushHistory, nodes } =
     useTreeStore();
   const [accepting, setAccepting] = useState(false);
 
@@ -107,6 +107,23 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
         }
         break;
       }
+      case "add_edge": {
+        await addEdge({
+          id: params.id as string,
+          source_id: params.source_id as string,
+          target_id: params.target_id as string,
+          type: (params.type as EdgeType) ?? "related",
+          label: (params.label as string) ?? null,
+          weight: (params.weight as number) ?? 1.0,
+        });
+        toast.success(`Edge added: ${params.source_id} → ${params.target_id}`);
+        break;
+      }
+      case "remove_edge": {
+        await removeEdge(params.id as string);
+        toast.success("Edge removed");
+        break;
+      }
     }
 
     resolvePendingChange(change.id, true);
@@ -123,6 +140,8 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
     set_checklist: "text-violet-400",
     add_checklist_items: "text-violet-400",
     update_checklist_item: "text-violet-400",
+    add_edge: "text-cyan-400",
+    remove_edge: "text-red-400",
   };
 
   return (

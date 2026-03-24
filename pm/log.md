@@ -106,3 +106,11 @@ Key decisions:
 - **`type ?? role` pattern**: all read paths use this fallback so nothing breaks if `type` is ever null on an older row.
 - **`NodeType` = `NodeRole`**: the new type alias starts as identical to `NodeRole` but leaves the door open to expand the union later (e.g. add "concept", "milestone").
 - **TypeScript clean**: `npx tsc --noEmit` passes with zero errors after all changes.
+
+## TICKET-024: Edge CRUD in tree store — 2026-03-24
+Commit: 05411f9
+Added full edge CRUD to the Zustand tree store with Supabase persistence. The `SkillEdge` type was extended to reflect the `type` and `weight` columns added in migration 004. Three async actions were added to the store — `addEdge`, `removeEdge`, `updateEdge` — each using an optimistic update pattern (apply locally first, roll back on Supabase error). A `setEdges` setter and `edges` state field were also added. The tree page now fetches edges alongside nodes on load, so edge state is fully hydrated on entry. No changes to rendering or AI tooling — edges are available for future views without touching existing orbital rendering.
+
+## TICKET-025: Add properties jsonb to nodes — 2026-03-24
+Commit: 9de8442390154988f5dfff3c4ec2039e187df03e
+Added `properties` jsonb field to the `SkillNode` TypeScript interface (migration 004 already added the column to the DB). Updated the two places in the codebase (`PendingChange.tsx`, `ChatPanel.tsx`) that construct `SkillNode` literals to include `properties: {}` as the default value.

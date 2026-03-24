@@ -73,6 +73,14 @@ RULES — Checklists:
 13. When a user says they completed a task or step, use update_checklist_item to mark it done.
 14. You can manage checklists and galaxy structure in the same response.
 
+RULES — Edges (explicit relationships):
+15. Use add_edge to connect nodes across or within systems when it adds meaningful context.
+16. Use type "depends_on" when one skill is a prerequisite for another (e.g. "html-basics" depends_on before "css-basics").
+17. Use type "related" for loose thematic connections (e.g. "react-state" related to "redux").
+18. Edge IDs should be descriptive slugs: "html-css-dep", "react-redux-related".
+19. Only create edges that are genuinely useful — don't add them by default to every node.
+20. Use remove_edge when the user asks to disconnect two skills.
+
 Always explain your actions conversationally.`;
 }
 

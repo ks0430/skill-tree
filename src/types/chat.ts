@@ -20,7 +20,9 @@ export type PendingChangeAction =
   | "bulk_modify"
   | "set_checklist"
   | "add_checklist_items"
-  | "update_checklist_item";
+  | "update_checklist_item"
+  | "add_edge"
+  | "remove_edge";
 
 export interface PendingChange {
   id: string;

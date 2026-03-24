@@ -38,8 +38,8 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 ## Phase 5: Schema + Edge Foundation
 - [x] ITEM-023: Add type column to nodes — migrate role → type, keep backward compat
 - [ ] ITEM-024: Add type + weight columns to edges table in Supabase
-- [ ] ITEM-025: Edge CRUD in tree store — add/remove/update edges via Zustand + Supabase
-- [ ] ITEM-026: Add properties jsonb to nodes — Supabase migration + TypeScript type update
+- [x] ITEM-025: Edge CRUD in tree store — add/remove/update edges via Zustand + Supabase
+- [x] ITEM-026: Add properties jsonb to nodes — Supabase migration + TypeScript type update
 - [ ] ITEM-027: Wire edges to AI tools — Claude can create depends_on / related edges
 
 ## Phase 6: Skill Tree View
