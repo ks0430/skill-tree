@@ -6,13 +6,22 @@ import { useRouter } from "next/navigation";
 import type { SkillTree } from "@/types/skill-tree";
 import { motion, AnimatePresence } from "framer-motion";
 import { Spinner } from "@/components/ui/Spinner";
+import { TreeThumbnail } from "@/components/ui/TreeThumbnail";
 import { toast } from "sonner";
+
+interface ThumbnailNode {
+  id: string;
+  role: "stellar" | "planet" | "satellite";
+  parent_id: string | null;
+  status: "locked" | "in_progress" | "completed";
+}
 
 interface TreeWithProgress extends SkillTree {
   totalNodes: number;
   completedNodes: number;
   inProgressNodes: number;
   stellarCount: number;
+  thumbnailNodes: ThumbnailNode[];
 }
 
 export default function DashboardPage() {
@@ -48,10 +57,11 @@ export default function DashboardPage() {
     const treeIds = treesData.map((t) => t.id);
     const { data: nodesData } = await supabase
       .from("skill_nodes")
-      .select("tree_id, status, role")
+      .select("id, tree_id, status, role, parent_id")
       .in("tree_id", treeIds);
 
     const countMap = new Map<string, { total: number; completed: number; inProgress: number; stellars: number }>();
+    const thumbnailMap = new Map<string, ThumbnailNode[]>();
     (nodesData ?? []).forEach((n) => {
       if (!countMap.has(n.tree_id))
         countMap.set(n.tree_id, { total: 0, completed: 0, inProgress: 0, stellars: 0 });
@@ -60,6 +70,17 @@ export default function DashboardPage() {
       if (n.status === "completed") c.completed++;
       if (n.status === "in_progress") c.inProgress++;
       if (n.role === "stellar") c.stellars++;
+
+      // Collect thumbnail nodes (stellar + planet only)
+      if (n.role === "stellar" || n.role === "planet") {
+        if (!thumbnailMap.has(n.tree_id)) thumbnailMap.set(n.tree_id, []);
+        thumbnailMap.get(n.tree_id)!.push({
+          id: n.id,
+          role: n.role,
+          parent_id: n.parent_id,
+          status: n.status,
+        });
+      }
     });
 
     setTrees(
@@ -71,6 +92,7 @@ export default function DashboardPage() {
           completedNodes: c.completed,
           inProgressNodes: c.inProgress,
           stellarCount: c.stellars,
+          thumbnailNodes: thumbnailMap.get(t.id) ?? [],
         };
       })
     );
@@ -170,6 +192,7 @@ export default function DashboardPage() {
         completedNodes: 0,
         inProgressNodes: 0,
         stellarCount: tree.stellarCount,
+        thumbnailNodes: tree.thumbnailNodes,
       },
       ...prev,
     ]);
@@ -220,7 +243,8 @@ export default function DashboardPage() {
         <div className="grid gap-4">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="glass rounded-xl p-4 animate-pulse">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-[120px] h-[76px] bg-slate-800/60 rounded-lg" />
                 <div className="flex-1 space-y-2">
                   <div className="h-4 bg-slate-700/60 rounded w-1/3" />
                   <div className="h-3 bg-slate-700/40 rounded w-2/3" />
@@ -283,8 +307,17 @@ export default function DashboardPage() {
                   className="glass rounded-xl p-4 group cursor-pointer hover:border-accent-blue/30 transition-colors"
                   onClick={() => router.push(`/tree/${tree.id}`)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-start gap-4">
+                    {/* Thumbnail preview */}
+                    <div className="flex-shrink-0 rounded-lg overflow-hidden border border-glass-border/40">
+                      <TreeThumbnail
+                        treeId={tree.id}
+                        nodes={tree.thumbnailNodes}
+                        width={120}
+                        height={76}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       {renamingId === tree.id ? (
                         <input
                           ref={renameInputRef}
