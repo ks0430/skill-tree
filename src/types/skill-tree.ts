@@ -29,6 +29,8 @@ export interface SkillNode {
   position_y: number;
   icon: string | null;
   metadata: Record<string, unknown> | null;
+  /** Flexible structured metadata (added in migration 004). Stored as jsonb in DB. */
+  properties: Record<string, unknown>;
   content: import("./node-content").NodeContent;
 }
 

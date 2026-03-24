@@ -66,6 +66,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           content: { blocks: [] },
           icon: null,
           metadata: null,
+          properties: {},
         };
         addNode(node);
         await supabase.from("skill_nodes").insert(node);

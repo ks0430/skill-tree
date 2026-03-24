@@ -45,6 +45,7 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
           position_y: 0,
           icon: null,
           metadata: null,
+          properties: {},
           content: { blocks: [] },
         };
         addNode(node);
