@@ -7,6 +7,95 @@ import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
 import type { NodeStatus } from "@/types/skill-tree";
+
+// ---------------------------------------------------------------------------
+// UnlockParticles — burst that plays once when a node goes locked→in_progress
+// ---------------------------------------------------------------------------
+
+const PARTICLE_COUNT = 48;
+
+interface UnlockParticlesProps {
+  nodeScale: number;
+  playing: boolean;
+  onDone: () => void;
+}
+
+function UnlockParticles({ nodeScale, playing, onDone }: UnlockParticlesProps) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const DURATION = 1.4; // seconds
+
+  // Pre-compute per-particle velocity directions (unit sphere)
+  const { positions, velocities } = useMemo(() => {
+    const pos = new Float32Array(PARTICLE_COUNT * 3);
+    const vel = new Float32Array(PARTICLE_COUNT * 3); // unit direction vectors
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      // Start at node centre
+      pos[i * 3] = 0;
+      pos[i * 3 + 1] = 0;
+      pos[i * 3 + 2] = 0;
+      // Random direction on unit sphere
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      vel[i * 3] = Math.sin(phi) * Math.cos(theta);
+      vel[i * 3 + 1] = Math.sin(phi) * Math.sin(theta);
+      vel[i * 3 + 2] = Math.cos(phi);
+    }
+    return { positions: pos, velocities: vel };
+  }, []);
+
+  const geoRef = useRef<THREE.BufferGeometry>(null);
+
+  useEffect(() => {
+    if (!geoRef.current) return;
+    const posArr = new Float32Array(PARTICLE_COUNT * 3); // all zeros — at node centre
+    geoRef.current.setAttribute("position", new THREE.BufferAttribute(posArr, 3));
+  }, []);
+
+  useFrame(({ clock }) => {
+    if (!pointsRef.current || !geoRef.current || !playing) return;
+
+    if (startTimeRef.current === null) startTimeRef.current = clock.elapsedTime;
+    const elapsed = clock.elapsedTime - startTimeRef.current;
+    const t = Math.min(elapsed / DURATION, 1);
+
+    // Update positions outward
+    const posAttr = geoRef.current.attributes.position as THREE.BufferAttribute;
+    const posArr = posAttr.array as Float32Array;
+    const speed = nodeScale * 3.5;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      posArr[i * 3]     = velocities[i * 3]     * speed * t;
+      posArr[i * 3 + 1] = velocities[i * 3 + 1] * speed * t;
+      posArr[i * 3 + 2] = velocities[i * 3 + 2] * speed * t;
+    }
+    posAttr.needsUpdate = true;
+
+    // Fade out opacity
+    const mat = pointsRef.current.material as THREE.PointsMaterial;
+    mat.opacity = Math.max(0, 1 - t);
+
+    if (t >= 1) {
+      startTimeRef.current = null;
+      onDone();
+    }
+  });
+
+  if (!playing) return null;
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry ref={geoRef} />
+      <pointsMaterial
+        size={nodeScale * 0.07}
+        color="#ffcc44"
+        transparent
+        opacity={1}
+        depthWrite={false}
+        sizeAttenuation
+      />
+    </points>
+  );
+}
 import {
   pickPlanetType,
   getPlanetConfig,
@@ -61,6 +150,8 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const cloudsRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  const [unlockBurst, setUnlockBurst] = useState(false);
+  const prevStatusRef = useRef<NodeStatus>(node.data.status);
   const toggleNodeStatus = useTreeStore((s) => s.toggleNodeStatus);
   const setHoveredNode = useTreeStore((s) => s.setHoveredNode);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
@@ -162,6 +253,14 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
       worldPositions.get(node.id)!.copy(groupRef.current.position);
     }
   });
+
+  // Detect locked → in_progress transition and fire particle burst
+  useEffect(() => {
+    if (prevStatusRef.current === "locked" && node.data.status === "in_progress") {
+      setUnlockBurst(true);
+    }
+    prevStatusRef.current = node.data.status;
+  }, [node.data.status]);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -347,6 +446,13 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
           {node.data.label}
         </Text>
       </Billboard>
+
+      {/* Unlock particle burst — plays once on locked → in_progress */}
+      <UnlockParticles
+        nodeScale={node.scale}
+        playing={unlockBurst}
+        onDone={() => setUnlockBurst(false)}
+      />
     </group>
   );
 });
