@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [newName, setNewName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -290,7 +291,7 @@ export default function DashboardPage() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteTree(tree.id);
+                        setDeleteConfirmId(tree.id);
                       }}
                       className="text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ml-4 text-sm"
                     >
@@ -303,6 +304,54 @@ export default function DashboardPage() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AnimatePresence>
+        {deleteConfirmId && (() => {
+          const tree = trees.find((t) => t.id === deleteConfirmId);
+          return (
+            <motion.div
+              key="delete-confirm-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              onClick={() => setDeleteConfirmId(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 16 }}
+                transition={{ duration: 0.2 }}
+                className="glass rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-semibold text-white mb-2">Delete galaxy?</h3>
+                <p className="text-sm text-slate-400 mb-6">
+                  <span className="text-white font-medium">{tree?.name}</span> and all its nodes will be permanently deleted. This cannot be undone.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="px-4 py-2 rounded-lg text-sm text-slate-300 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      deleteTree(deleteConfirmId);
+                      setDeleteConfirmId(null);
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm text-white bg-red-600 hover:bg-red-500 transition-colors font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }
