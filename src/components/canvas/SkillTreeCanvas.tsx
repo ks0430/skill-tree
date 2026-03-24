@@ -31,6 +31,7 @@ function CameraController() {
   const controlsRef = useRef<any>(null);
   const focusTargetId = useTreeStore((s) => s.focusTargetId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
+  const topDownMode = useTreeStore((s) => s.topDownMode);
   const nodes = useTreeStore((s) => s.nodes);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
   const setTrackingNode = useTreeStore((s) => s.setTrackingNode);
@@ -39,6 +40,7 @@ function CameraController() {
   const flyToLookAt = useRef<THREE.Vector3 | null>(null);
   const isFlying = useRef(false);
   const lastTrackedPos = useRef<THREE.Vector3 | null>(null);
+  const isTopDownFlying = useRef(false);
 
   // ESC exits tracking mode
   useEffect(() => {
@@ -50,6 +52,21 @@ function CameraController() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [trackingNodeId, setTrackingNode]);
+
+  // Top-down mode: snap camera to overhead orthographic view
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    if (topDownMode) {
+      // Fly to top-down position
+      const target = controls.target.clone();
+      flyToPos.current = new THREE.Vector3(target.x, 80, target.z);
+      flyToLookAt.current = target.clone();
+      isTopDownFlying.current = true;
+      isFlying.current = true;
+    }
+  }, [topDownMode]);
 
   // Fly-to triggered by focusTargetId
   useEffect(() => {
@@ -95,6 +112,21 @@ function CameraController() {
       }
       controls.update();
       return;
+    }
+
+    // --- Top-down mode: lock rotation, allow pan/zoom only ---
+    if (topDownMode) {
+      // Keep camera directly above target — enforce Y dominance
+      const target = controls.target;
+      const dist = camera.position.distanceTo(target);
+      camera.position.set(target.x, target.y + dist, target.z);
+      camera.lookAt(target);
+      controls.enableRotate = false;
+      controls.enablePan = true;
+      controls.update();
+      return;
+    } else {
+      controls.enableRotate = true;
     }
 
     // --- Tracking mode: follow node as it orbits ---
@@ -193,8 +225,10 @@ export function SkillTreeCanvas() {
   const hoveredNodeId = useTreeStore((s) => s.hoveredNodeId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
+  const topDownMode = useTreeStore((s) => s.topDownMode);
   const setTrackingNode = useTreeStore((s) => s.setTrackingNode);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
+  const setTopDownMode = useTreeStore((s) => s.setTopDownMode);
   const nodes = useTreeStore((s) => s.nodes);
   const hoveredNode = useMemo(
     () => nodes.find((n) => n.id === hoveredNodeId),
@@ -209,14 +243,19 @@ export function SkillTreeCanvas() {
     [nodes, pinnedNodeId]
   );
 
-  // ESC also clears pin
+  // ESC also clears pin; T toggles top-down view
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setPinnedNode(null);
+      if (e.key === "t" || e.key === "T") {
+        const active = (document.activeElement as HTMLElement);
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        setTopDownMode(!topDownMode);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setPinnedNode]);
+  }, [setPinnedNode, setTopDownMode, topDownMode]);
 
   // Which node to show in detail panel: pinned > hovered
   const detailNode = pinnedNode ?? hoveredNode;
@@ -259,8 +298,21 @@ export function SkillTreeCanvas() {
         </div>
       )}
 
+      {/* Top-down camera toggle */}
+      <button
+        onClick={() => setTopDownMode(!topDownMode)}
+        title="Toggle top-down view"
+        className={`absolute bottom-12 right-4 z-10 w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold transition-colors border ${
+          topDownMode
+            ? "bg-indigo-600 border-indigo-400 text-white"
+            : "bg-slate-800/70 border-slate-600 text-slate-400 hover:text-white hover:border-slate-400"
+        }`}
+      >
+        ⊤
+      </button>
+
       <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
-        Click to zoom &amp; pin details · Space to toggle status · / to search · ESC to unpin
+        Click to zoom &amp; pin details · Space to toggle status · / to search · T for top-down · ESC to unpin
       </div>
     </div>
   );
