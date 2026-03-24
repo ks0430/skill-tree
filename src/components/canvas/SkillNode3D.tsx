@@ -70,6 +70,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const isSearchHighlight = searchHighlightId === node.id;
   const highlightStartRef = useRef<number | null>(null);
   const pulseRingRef = useRef<THREE.Mesh>(null);
+  const statusGlowRef = useRef<THREE.Mesh>(null);
 
   const seed = useMemo(() => idSeed(node.id), [node.id]);
   const planetType = useMemo(() => pickPlanetForRole(node.id, node.data.type ?? node.data.role), [node.id, node.data.type, node.data.role]);
@@ -99,6 +100,22 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     if (planetRef.current) planetRef.current.rotation.y = t * config.rotationSpeed;
     if (cloudsRef.current) cloudsRef.current.rotation.y = t * config.rotationSpeed * 1.3;
     if (atmosphereRef.current) atmosphereRef.current.scale.setScalar(hovered ? 1.25 : 1.15);
+
+    // Status glow: locked=none, in_progress=amber pulse, completed=green steady
+    if (statusGlowRef.current) {
+      const mat = statusGlowRef.current.material as THREE.MeshBasicMaterial;
+      if (node.data.status === "completed") {
+        mat.color.set("#00ff88");
+        mat.opacity = 0.18 + Math.sin(t * 1.2) * 0.04;
+        statusGlowRef.current.visible = true;
+      } else if (node.data.status === "in_progress") {
+        mat.color.set("#ffaa22");
+        mat.opacity = 0.12 + Math.abs(Math.sin(t * 2.5)) * 0.22;
+        statusGlowRef.current.visible = true;
+      } else {
+        statusGlowRef.current.visible = false;
+      }
+    }
 
     // Search highlight pulse: expand + fade ring over 2.5s
     if (pulseRingRef.current) {
@@ -278,6 +295,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
           <meshBasicMaterial color="#ffffff" transparent opacity={0.08} side={THREE.BackSide} depthWrite={false} />
         </mesh>
       )}
+
+      {/* Status glow: locked=none, in_progress=amber pulse, completed=green steady */}
+      <mesh ref={statusGlowRef} geometry={sharedGeo.atmosphere} scale={node.scale * 1.35} visible={false}>
+        <meshBasicMaterial color="#00ff88" transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
+      </mesh>
 
       {/* Search highlight pulse ring — expands and fades outward */}
       <mesh ref={pulseRingRef} geometry={sharedGeo.atmosphere} visible={false}>
