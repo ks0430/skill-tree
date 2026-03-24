@@ -3,8 +3,8 @@
 **Status:** done
 **Roadmap item:** ITEM-018
 **Created:** 2026-03-24T07:40:05Z
-**Completed:** 2026-03-24
-**Commit:** 7314ec7
+**Completed:** 2026-03-24 2026-03-24
+**Commit:** 7314ec7 7314ec7
 
 ## Brief
 generate/store a static thumbnail preview for each tree card
@@ -15,6 +15,7 @@ generate/store a static thumbnail preview for each tree card
 - [x] No regressions introduced
 
 ## Git Diff Summary
+TreeThumbnail.tsx (new), dashboard/page.tsx (updated to pass thumbnailNodes)
 
 **`src/components/ui/TreeThumbnail.tsx`** (new file)
 - Canvas-based thumbnail renderer using HTML5 Canvas API (no external deps)

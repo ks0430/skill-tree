@@ -63,7 +63,7 @@ function CameraController() {
       ? new THREE.Vector3(livePos.x, livePos.y, livePos.z)
       : new THREE.Vector3(...node.position);
 
-    const dist = ZOOM_DISTANCE[node.data.role] ?? 6;
+    const dist = ZOOM_DISTANCE[node.data.type ?? node.data.role] ?? 6;
     flyToLookAt.current = nodePos.clone();
     flyToPos.current = nodePos.clone().add(new THREE.Vector3(dist * 0.4, dist * 0.5, dist * 0.8));
     isFlying.current = true;
@@ -177,7 +177,7 @@ function Scene() {
             parentPosition={parent.position}
             radius={ring.radius}
             tilt={ring.tilt}
-            parentRole={parent.data.role}
+            parentRole={(parent.data.type ?? parent.data.role) as "stellar" | "planet" | "satellite"}
           />
         );
       })}

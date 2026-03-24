@@ -2,7 +2,7 @@
   "project": "/home/ubuntu/.openclaw/workspace/project/skillforge",
   "telegram_group_id": "-1003778286925",
   "cron_job_id": "f7bfc3b6-8dd6-470d-a8bd-e4e8a8274155",
-  "current_ticket": "TICKET-018",
-  "status": "done",
-  "last_updated": "2026-03-24T07:40:05Z"
+  "current_ticket": "TICKET-023",
+  "status": "waiting_for_done",
+  "last_updated": "2026-03-24T15:03:48Z"
 }

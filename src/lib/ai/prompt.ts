@@ -5,9 +5,10 @@ export function buildSystemPrompt(
   treeName: string,
   nodes: SkillNode[]
 ): string {
-  const stellars = nodes.filter((n) => n.role === "stellar");
-  const planets = nodes.filter((n) => n.role === "planet");
-  const satellites = nodes.filter((n) => n.role === "satellite");
+  const effectiveType = (n: SkillNode) => n.type ?? n.role;
+  const stellars = nodes.filter((n) => effectiveType(n) === "stellar");
+  const planets = nodes.filter((n) => effectiveType(n) === "planet");
+  const satellites = nodes.filter((n) => effectiveType(n) === "satellite");
 
   function checklistSummary(node: SkillNode): string {
     const cl = getChecklist(node.content ?? { blocks: [] });

@@ -57,7 +57,8 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           label: change.params.label as string,
           description: (change.params.description as string) ?? null,
           status: (change.params.status as SkillNode["status"]) ?? "locked",
-          role: (change.params.role as SkillNode["role"]) ?? "planet",
+          type: ((change.params.type ?? change.params.role) as SkillNode["type"]) ?? "planet",
+          role: ((change.params.type ?? change.params.role) as SkillNode["role"]) ?? "planet",
           parent_id: (change.params.parent_id as string) ?? null,
           priority: (change.params.priority as number) ?? 3,
           position_x: 0,
@@ -79,7 +80,11 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         if (change.params.label) updates.label = change.params.label as string;
         if (change.params.description) updates.description = change.params.description as string;
         if (change.params.status) updates.status = change.params.status as SkillNode["status"];
-        if (change.params.role) updates.role = change.params.role as SkillNode["role"];
+        if (change.params.type ?? change.params.role) {
+          const t = ((change.params.type ?? change.params.role) as SkillNode["type"]);
+          updates.type = t;
+          updates.role = t;
+        }
         if (change.params.parent_id !== undefined) updates.parent_id = change.params.parent_id as string | null;
         if (change.params.priority) updates.priority = change.params.priority as number;
         updateNode(nodeId, updates);

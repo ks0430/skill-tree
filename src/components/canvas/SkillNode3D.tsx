@@ -72,7 +72,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const pulseRingRef = useRef<THREE.Mesh>(null);
 
   const seed = useMemo(() => idSeed(node.id), [node.id]);
-  const planetType = useMemo(() => pickPlanetForRole(node.id, node.data.role), [node.id, node.data.role]);
+  const planetType = useMemo(() => pickPlanetForRole(node.id, node.data.type ?? node.data.role), [node.id, node.data.type, node.data.role]);
   const config = useMemo(() => getPlanetConfig(planetType), [planetType]);
   const brightness = STATUS_BRIGHTNESS[node.data.status];
   const parent = node.data.parent_id ? parentMap.get(node.data.parent_id) : null;
@@ -224,7 +224,8 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
 
   const ringTilt = useMemo(() => (seed % 40 + 15) * (Math.PI / 180), [seed]);
   const emissiveColor = config.atmosphereColor || "#ffffff";
-  const labelSize = node.data.role === "stellar" ? 0.3 : node.data.role === "planet" ? 0.18 : 0.12;
+  const effectiveType = node.data.type ?? node.data.role;
+  const labelSize = effectiveType === "stellar" ? 0.3 : effectiveType === "planet" ? 0.18 : 0.12;
   const labelOffset = node.scale * -1.3;
 
   return (

@@ -96,7 +96,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       style={{ pointerEvents: pinned ? "auto" : "none" }}
     >
       <PanelHeader
-        role={node.data.role}
+        role={(node.data.type ?? node.data.role) as import("@/types/skill-tree").NodeRole}
         label={node.data.label}
         pinned={pinned}
         onClose={onClose}

@@ -65,3 +65,34 @@ Added public share links for skill trees. Clicking "🔗 Share" in the tree head
 ## TICKET-018: Tree thumbnail on dashboard — 2026-03-24
 Commit: 7314ec7
 Added a canvas-based `TreeThumbnail` component that renders a deterministic 2D minimap of each tree card. Stellars appear as glowing dots with status-based colors; planets orbit them as small dots. The dashboard loads stellar+planet nodes per tree and passes them to the thumbnail. Fully client-side — no DB storage needed.
+
+## TICKET-019: Memoize SkillNode3D render — 2026-03-24
+Commit: c58ce6c
+The component was already exported as `memo(function SkillNode3D(...))` from a previous commit, but one `useTreeStore()` call was subscribing to the entire store object without a selector. This caused every SkillNode3D instance to re-render on any store state change (e.g., camera tracking, chat panel state, pending changes), defeating the memo entirely.
+
+Fix: split the broad destructure into five individual selector calls. Now each node only re-renders when one of the five specific store slices it cares about actually changes. This is consistent with the `searchHighlightId` selector already in the file.
+
+## TICKET-020: Debounce Supabase writes in NodeDetailPanel — 2026-03-24
+Commit: 6afe7be
+Checklist toggles previously called `persist` on every click, firing a Supabase write immediately each time. Rapid toggling could cause multiple in-flight writes with stale data arriving out of order.
+
+The fix splits the concern: `writeToDb` handles only the DB write, while `persist` (used by add/remove/AI generate) still does both in sequence. `handleToggle` now updates local state immediately for snappy UI, then debounces the DB write to 500ms using a `useRef`-held timer. Each new toggle cancels the previous pending write, so only the final state within a burst is persisted. Zero regressions to add/remove/AI generate paths.
+
+## TICKET-021: Error boundary for 3D canvas — 2026-03-24
+Commit: a1791ba
+Created `CanvasErrorBoundary`, a React class component (required for `componentDidCatch` / `getDerivedStateFromError`), that wraps `SkillTreeCanvas` in the tree page. If the Three.js/R3F canvas throws during render, the user sees a themed fallback ("Galaxy failed to render" with the error message and a Retry button) instead of a blank screen or uncaught crash. The retry button resets component state to re-attempt rendering. Styling follows the existing `glass`, `font-mono`, and `border-glass-border` conventions.
+
+## TICKET-022: Mobile layout — 2026-03-24
+Commit: 5e3c7a7238f7c5752d92bbf39c805818e370e94d
+Added responsive behaviour to the tree page for narrow screens (< 768 px).
+
+**What was built:**
+- Mobile breakpoint detection via a `resize` listener in `useEffect`; collapses chat panel automatically on load if viewport is narrow
+- On mobile, the desktop side-panel approach is replaced with a full-screen overlay: canvas remains full-width at all times; a floating action button (chat icon, bottom-right) opens the AI panel; `onCollapse` dismisses the overlay back to full canvas view
+- Desktop layout is completely untouched — the existing collapsed-tab + `w-96` panel behaviour is still rendered for `!isMobile`
+- Minor header polish: tree name truncation on mobile, Export JSON button hidden on `< sm`
+
+**Decisions:**
+- Full-screen overlay (not a bottom sheet) keeps the existing `ChatPanel` component reusable without any prop changes
+- Used conditional rendering (`{isMobile && ...}`) rather than CSS-only show/hide to avoid mounting Two instances of `ChatPanel` simultaneously
+- No new dependencies added

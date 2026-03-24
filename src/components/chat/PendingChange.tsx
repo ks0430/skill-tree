@@ -30,13 +30,15 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
 
     switch (action) {
       case "add_node": {
+        const resolvedType = ((params.type ?? params.role) as SkillNode["type"]) ?? "planet";
         const node: SkillNode = {
           id: params.id as string,
           tree_id: treeId,
           label: params.label as string,
           description: (params.description as string) ?? null,
           status: (params.status as SkillNode["status"]) ?? "locked",
-          role: (params.role as SkillNode["role"]) ?? "planet",
+          type: resolvedType,
+          role: resolvedType,
           parent_id: (params.parent_id as string) ?? null,
           priority: (params.priority as number) ?? 3,
           position_x: 0,
@@ -72,7 +74,11 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
         if (params.label) updates.label = params.label as string;
         if (params.description) updates.description = params.description as string;
         if (params.status) updates.status = params.status as SkillNode["status"];
-        if (params.role) updates.role = params.role as SkillNode["role"];
+        if (params.type ?? params.role) {
+          const t = ((params.type ?? params.role) as SkillNode["type"]);
+          updates.type = t;
+          updates.role = t;
+        }
         if (params.parent_id !== undefined) updates.parent_id = params.parent_id as string | null;
         if (params.priority) updates.priority = params.priority as number;
         updateNode(nodeId, updates);

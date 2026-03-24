@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { SkillNode, NodeStatus, NodeRole } from "@/types/skill-tree";
+// NodeType is identical to NodeRole right now — imported for future use
 import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
 
@@ -74,10 +75,15 @@ function computeStellarPosition(index: number, total: number): [number, number, 
   return [Math.cos(angle) * radius, y, Math.sin(angle) * radius];
 }
 
+/** Resolve the effective role/type for layout — type column takes precedence over role. */
+function nodeType(n: SkillNode): NodeRole {
+  return (n.type ?? n.role) as NodeRole;
+}
+
 export function layoutGalaxy(nodes: SkillNode[]): Node3D[] {
-  const stellars = nodes.filter((n) => n.role === "stellar");
-  const planets = nodes.filter((n) => n.role === "planet");
-  const satellites = nodes.filter((n) => n.role === "satellite");
+  const stellars = nodes.filter((n) => nodeType(n) === "stellar");
+  const planets = nodes.filter((n) => nodeType(n) === "planet");
+  const satellites = nodes.filter((n) => nodeType(n) === "satellite");
 
   const result: Node3D[] = [];
   const positionMap = new Map<string, [number, number, number]>();
@@ -228,7 +234,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     const allData = existing.map((n) =>
       n.id === nodeId ? { ...n.data, ...data } : n.data
     );
-    if (data.role != null || data.parent_id != null || data.priority != null) {
+    if (data.type != null || data.role != null || data.parent_id != null || data.priority != null) {
       set({ nodes: layoutGalaxy(allData) });
     } else {
       set({

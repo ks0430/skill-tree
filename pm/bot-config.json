@@ -1,0 +1,15 @@
+{
+  "project": "/home/ubuntu/.openclaw/workspace/project/skillforge",
+  "github_repo": "ks0430/skill-tree",
+  "telegram_group_id": "-1003778286925",
+  "pm_account": "pm",
+  "coding_account": "coding",
+  "tmux_session": "skillforge",
+  "cron_jobs": {
+    "pm_cycle": "1b82eb23-e57d-4213-a88c-2d1be114e863",
+    "coding_cycle": "a7063094-5568-4ba3-9f3e-6df88a91a1ac"
+  },
+  "ticket_summary_max_chars": 500,
+  "diff_summary_max_chars": 200,
+  "log_max_entries": 50
+}

@@ -1,5 +1,7 @@
 export type NodeStatus = "locked" | "in_progress" | "completed";
 export type NodeRole = "stellar" | "planet" | "satellite";
+/** Canonical node type (replaces role). Seeded from role; user-extensible in future. */
+export type NodeType = NodeRole; // union may expand later
 
 export interface SkillTree {
   id: string;
@@ -17,6 +19,9 @@ export interface SkillNode {
   label: string;
   description: string | null;
   status: NodeStatus;
+  /** Canonical column (added in migration 004). Prefer over role. */
+  type: NodeType;
+  /** Legacy column kept for backward compatibility — mirrors type. */
   role: NodeRole;
   parent_id: string | null; // stellar has null, planet → stellar id, satellite → planet id
   priority: number;

@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 
 interface ThumbnailNode {
   id: string;
+  /** type column (preferred); role kept for backward compat */
+  type?: "stellar" | "planet" | "satellite";
   role: "stellar" | "planet" | "satellite";
   parent_id: string | null;
   status: "locked" | "in_progress" | "completed";
@@ -78,8 +80,9 @@ export function TreeThumbnail({ treeId, nodes, width = 160, height = 100, classN
       ctx.fill();
     }
 
-    const stellars = nodes.filter((n) => n.role === "stellar");
-    const planets = nodes.filter((n) => n.role === "planet");
+    const et = (n: ThumbnailNode) => n.type ?? n.role;
+    const stellars = nodes.filter((n) => et(n) === "stellar");
+    const planets = nodes.filter((n) => et(n) === "planet");
 
     if (stellars.length === 0) {
       // Empty state: dim nebula cloud hint

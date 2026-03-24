@@ -23,8 +23,9 @@ export function toolCallToPendingChange(toolCall: ToolCall): PendingChange[] {
 
 export function describeChange(change: PendingChange): string {
   const { action, params } = change;
-  const role = params.role as string | undefined;
-  const roleTag = role ? `[${role}] ` : "";
+  // prefer type over role for display (backward compat)
+  const nodeTag = (params.type ?? params.role) as string | undefined;
+  const roleTag = nodeTag ? `[${nodeTag}] ` : "";
   switch (action) {
     case "add_node":
       return `Add ${roleTag}"${params.label}"`;
