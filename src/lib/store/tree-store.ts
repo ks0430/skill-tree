@@ -31,6 +31,8 @@ export interface NewEdgeInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export type ViewMode = "solar" | "tree";
+
 interface TreeState {
   treeId: string | null;
   nodes: Node3D[];
@@ -43,6 +45,7 @@ interface TreeState {
   pinnedNodeId: string | null; // node ID whose detail panel is pinned open
   searchHighlightId: string | null; // node ID to pulse-highlight after search (auto-clears)
   topDownMode: boolean; // orthographic top-down camera preset
+  viewMode: ViewMode; // "solar" = 3D galaxy, "tree" = 2D skill tree
   history: HistoryEntry[];
   historyIndex: number;
 
@@ -56,6 +59,7 @@ interface TreeState {
   setPinnedNode: (id: string | null) => void;
   setSearchHighlight: (id: string | null) => void;
   setTopDownMode: (enabled: boolean) => void;
+  setViewMode: (mode: ViewMode) => void;
 
   addNode: (node: SkillNode) => void;
   updateNodeContent: (nodeId: string, content: NodeContent) => void;
@@ -198,6 +202,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   pinnedNodeId: (typeof window !== "undefined" ? localStorage.getItem("pinnedNodeId") : null),
   searchHighlightId: null,
   topDownMode: false,
+  viewMode: (typeof window !== "undefined" ? (localStorage.getItem("viewMode") as ViewMode | null) ?? "solar" : "solar"),
   history: [],
   historyIndex: -1,
 
@@ -209,6 +214,10 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   setTrackingNode: (id) => set({ trackingNodeId: id }),
   setFocusTarget: (id) => set({ focusTargetId: id }),
   setTopDownMode: (enabled) => set({ topDownMode: enabled }),
+  setViewMode: (mode) => {
+    if (typeof window !== "undefined") localStorage.setItem("viewMode", mode);
+    set({ viewMode: mode });
+  },
   setPinnedNode: (id) => {
     if (typeof window !== "undefined") {
       if (id) localStorage.setItem("pinnedNodeId", id);

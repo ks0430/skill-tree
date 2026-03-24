@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
+import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
@@ -14,7 +15,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, setEdges, pushHistory, nodes } = useTreeStore();
+  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, setViewMode } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -121,6 +122,32 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
           <h1 className="font-mono font-semibold text-lg truncate max-w-[140px] sm:max-w-none">{treeName}</h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* View mode switcher */}
+          <div className="flex items-center rounded border border-glass-border overflow-hidden text-xs font-mono">
+            <button
+              onClick={() => setViewMode("solar")}
+              title="Solar System view (3D)"
+              className={`px-3 py-1.5 transition-colors ${
+                viewMode === "solar"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              🪐 Solar
+            </button>
+            <button
+              onClick={() => setViewMode("tree")}
+              title="Skill Tree view (2D)"
+              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
+                viewMode === "tree"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              🌿 Tree
+            </button>
+          </div>
+
           <button
             onClick={shareTree}
             className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-glass-border hover:border-accent-blue/40 transition-colors font-mono"
@@ -141,9 +168,13 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       <div className="flex flex-1 overflow-hidden relative">
         {/* Canvas — always full area on mobile, shared on desktop */}
         <div className="flex-1 relative min-w-0">
-          <CanvasErrorBoundary>
-            <SkillTreeCanvas />
-          </CanvasErrorBoundary>
+          {viewMode === "solar" ? (
+            <CanvasErrorBoundary>
+              <SkillTreeCanvas />
+            </CanvasErrorBoundary>
+          ) : (
+            <SkillTreeView2D />
+          )}
         </div>
 
         {/* Desktop: collapsed tab — always in DOM, shown/hidden via display */}

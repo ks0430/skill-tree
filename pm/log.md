@@ -114,3 +114,38 @@ Added full edge CRUD to the Zustand tree store with Supabase persistence. The `S
 ## TICKET-025: Add properties jsonb to nodes — 2026-03-24
 Commit: 9de8442390154988f5dfff3c4ec2039e187df03e
 Added `properties` jsonb field to the `SkillNode` TypeScript interface (migration 004 already added the column to the DB). Updated the two places in the codebase (`PendingChange.tsx`, `ChatPanel.tsx`) that construct `SkillNode` literals to include `properties: {}` as the default value.
+
+## TICKET-026: Wire edges to AI tools — 2026-03-24
+Commit: 7beb792
+Added two new AI tools (`add_edge` / `remove_edge`) so Claude can create and remove explicit relationship edges between skill nodes. The tools expose only the two most useful edge types: `depends_on` (prerequisite ordering) and `related` (loose thematic connection). These flow through the existing pending-change review pipeline — Claude proposes an edge, the user sees it as a cyan-highlighted pending change with an Accept/Reject button, and on accept it's persisted to Supabase via the existing `tree-store.addEdge` / `removeEdge` methods. The system prompt was updated with clear rules on when to use each type and how to form edge IDs. TypeScript compiles cleanly with no regressions.
+
+## TICKET-027: Orthographic top — 2026-03-24
+Commit: cf0a3d2
+Added an orthographic top-down camera preset to the 3D skill tree canvas.
+
+When activated (via the `⊤` button in the bottom-right corner or the `T` keyboard shortcut), the camera smoothly flies to a bird's-eye position directly above the current view target, then locks into top-down mode. In this mode:
+- Rotation is disabled (camera stays overhead)
+- Pan is fully enabled so users can explore the skill tree by dragging
+- Zoom (scroll wheel) continues to work normally
+- The camera actively enforces overhead position each frame so it can't drift
+
+The toggle button lights up indigo when active and reverts to the default slate style when off. Pressing `T` again or clicking the button returns to normal perspective mode with rotation restored.
+
+State (`topDownMode`) lives in the Zustand tree store so it's accessible from anywhere. The implementation reuses the existing fly-to lerp animation system for a smooth transition.
+
+## TICKET-028: Glow shader on node status — 2026-03-24
+Commit: 7ce4297
+Added a status-driven glow effect to 3D skill nodes in `SkillNode3D.tsx`. A new `statusGlowRef` mesh (using the existing `sharedGeo.atmosphere` geometry at 1.35x node scale, BackSide rendering) is animated each frame via `useFrame`:
+- **locked**: glow hidden (no extra cost)
+- **in_progress**: amber (#ffaa22) pulse — opacity oscillates between 0.12 and 0.34 using `Math.abs(Math.sin(t * 2.5))`
+- **completed**: green (#00ff88) steady glow with subtle breathing (opacity ~0.18 ± 0.04)
+
+Reused the existing atmosphere mesh pattern and `meshBasicMaterial` transparent approach already used for hover glow and search highlight, keeping code consistent. No new geometry or materials introduced beyond the one extra mesh per node.
+
+## TICKET-029: Edge renderer — 2026-03-24
+Commit: f76cc08
+Built a new `EdgeRenderer` component that draws glowing lines between skill nodes using `THREE.Line` with `AdditiveBlending`. Lines track animated orbital positions in real-time each frame via the existing `worldPositions` map. On hover, the component walks the `depends_on` edge graph to collect the full prerequisite chain and highlights those edges while fading all others — giving a clear visual path showing what a node depends on. Parent-type edges are intentionally skipped since orbital rings already communicate the hierarchy. TypeScript was clean on first compile pass after switching from JSX `<line>` (which TS maps to SVG) to `<primitive object={lineObj} />`.
+
+## TICKET-030: Unlock animation — 2026-03-24
+Commit: ab067b4
+Added an unlock animation that fires a particle burst whenever a skill node transitions from `locked` to `in_progress` status. The `UnlockParticles` component creates 48 points with randomised directions on a unit sphere, animates them outward over 1.4 seconds (scaled to node size), and fades their opacity to zero before cleaning up. A `prevStatusRef` in `SkillNode3D` tracks the previous status so the burst fires exactly once per unlock event. The burst colour is warm amber (`#ffcc44`) to complement the existing in_progress amber glow.

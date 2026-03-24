@@ -40,15 +40,15 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 - [ ] ITEM-024: Add type + weight columns to edges table in Supabase
 - [x] ITEM-025: Edge CRUD in tree store — add/remove/update edges via Zustand + Supabase
 - [x] ITEM-026: Add properties jsonb to nodes — Supabase migration + TypeScript type update
-- [ ] ITEM-027: Wire edges to AI tools — Claude can create depends_on / related edges
+- [x] ITEM-027: Wire edges to AI tools — Claude can create depends_on / related edges
 
 ## Phase 6: Skill Tree View
 - [ ] ITEM-028: Install dagre.js + build skill tree layout engine
-- [ ] ITEM-029: Orthographic top-down camera preset with pan/zoom controls
+- [x] ITEM-029: Orthographic top-down camera preset with pan/zoom controls
 - [ ] ITEM-030: Diamond + circle node renderer with icon support
-- [ ] ITEM-031: Glow shader on node status — locked=dark, in_progress=amber pulse, completed=green glow
-- [ ] ITEM-032: Edge renderer — glowing lines between nodes, highlight prerequisite path on hover
-- [ ] ITEM-033: Unlock animation — locked to in_progress transition with particle burst
+- [x] ITEM-031: Glow shader on node status — locked=dark, in_progress=amber pulse, completed=green glow
+- [x] ITEM-032: Edge renderer — glowing lines between nodes, highlight prerequisite path on hover
+- [x] ITEM-033: Unlock animation — locked to in_progress transition with particle burst
 - [ ] ITEM-034: View switcher UI — toggle between Solar System and Skill Tree
 
 ## Phase 7: 3D Gantt View
