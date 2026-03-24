@@ -21,6 +21,7 @@ export function SearchPanel() {
   const inputRef = useRef<HTMLInputElement>(null);
   const nodes = useTreeStore((s) => s.nodes);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
+  const setSearchHighlight = useTreeStore((s) => s.setSearchHighlight);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -61,6 +62,7 @@ export function SearchPanel() {
   function handleSelect(node: Node3D) {
     // Zoom directly to the clicked node, not its parent
     setFocusTarget(node.id);
+    setSearchHighlight(node.id);
     setOpen(false);
     setQuery("");
   }

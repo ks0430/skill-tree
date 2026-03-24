@@ -61,6 +61,10 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const { toggleNodeStatus, setHoveredNode, setFocusTarget, setPinnedNode, pinnedNodeId } = useTreeStore();
+  const searchHighlightId = useTreeStore((s) => s.searchHighlightId);
+  const isSearchHighlight = searchHighlightId === node.id;
+  const highlightStartRef = useRef<number | null>(null);
+  const pulseRingRef = useRef<THREE.Mesh>(null);
 
   const seed = useMemo(() => idSeed(node.id), [node.id]);
   const planetType = useMemo(() => pickPlanetForRole(node.id, node.data.role), [node.id, node.data.role]);
@@ -90,6 +94,25 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
     if (planetRef.current) planetRef.current.rotation.y = t * config.rotationSpeed;
     if (cloudsRef.current) cloudsRef.current.rotation.y = t * config.rotationSpeed * 1.3;
     if (atmosphereRef.current) atmosphereRef.current.scale.setScalar(hovered ? 1.25 : 1.15);
+
+    // Search highlight pulse: expand + fade ring over 2.5s
+    if (pulseRingRef.current) {
+      if (isSearchHighlight) {
+        if (highlightStartRef.current === null) highlightStartRef.current = t;
+        const elapsed = t - highlightStartRef.current;
+        const duration = 2.5;
+        const progress = Math.min(elapsed / duration, 1);
+        // Pulse expands from 1x to 3x node scale, fades out
+        const scale = node.scale * (1 + progress * 2);
+        pulseRingRef.current.scale.setScalar(scale);
+        const mat = pulseRingRef.current.material as THREE.MeshBasicMaterial;
+        mat.opacity = 0.7 * (1 - progress);
+        pulseRingRef.current.visible = true;
+      } else {
+        highlightStartRef.current = null;
+        pulseRingRef.current.visible = false;
+      }
+    }
 
     // Orbital motion — read parent's ANIMATED position from the global map
     if (groupRef.current && parent && node.orbitRadius > 0) {
@@ -245,6 +268,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
           <meshBasicMaterial color="#ffffff" transparent opacity={0.08} side={THREE.BackSide} depthWrite={false} />
         </mesh>
       )}
+
+      {/* Search highlight pulse ring — expands and fades outward */}
+      <mesh ref={pulseRingRef} geometry={sharedGeo.atmosphere} visible={false}>
+        <meshBasicMaterial color="#88ddff" transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
+      </mesh>
 
       {/* Checklist progress ring */}
       {checklistProgress >= 0 && (

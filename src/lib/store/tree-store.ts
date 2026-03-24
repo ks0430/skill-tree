@@ -27,6 +27,7 @@ interface TreeState {
   focusTargetId: string | null; // node ID to fly camera to (one-shot)
   trackingNodeId: string | null; // node ID camera continuously follows (sticky mode)
   pinnedNodeId: string | null; // node ID whose detail panel is pinned open
+  searchHighlightId: string | null; // node ID to pulse-highlight after search (auto-clears)
   history: HistoryEntry[];
   historyIndex: number;
 
@@ -37,6 +38,7 @@ interface TreeState {
   setFocusTarget: (id: string | null) => void;
   setTrackingNode: (id: string | null) => void;
   setPinnedNode: (id: string | null) => void;
+  setSearchHighlight: (id: string | null) => void;
 
   addNode: (node: SkillNode) => void;
   updateNodeContent: (nodeId: string, content: NodeContent) => void;
@@ -164,6 +166,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   focusTargetId: null,
   trackingNodeId: null,
   pinnedNodeId: null,
+  searchHighlightId: null,
   history: [],
   historyIndex: -1,
 
@@ -174,6 +177,10 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   setTrackingNode: (id) => set({ trackingNodeId: id }),
   setFocusTarget: (id) => set({ focusTargetId: id }),
   setPinnedNode: (id) => set({ pinnedNodeId: id }),
+  setSearchHighlight: (id) => {
+    set({ searchHighlightId: id });
+    if (id) setTimeout(() => set({ searchHighlightId: null }), 2500);
+  },
 
   updateNodeContent: (nodeId, content) => {
     set((state) => ({
