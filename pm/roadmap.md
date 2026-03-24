@@ -26,8 +26,8 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 ## Phase 4: Tree Management
 - [x] ITEM-015: Duplicate tree — add "duplicate" option on dashboard to clone a tree with all its nodes
 - [x] ITEM-016: Export tree as JSON — download the full tree (nodes + metadata) as a JSON file
-- [ ] ITEM-017: Share tree (read-only link) — generate a public share URL that renders the tree in read-only mode
-- [ ] ITEM-018: Tree thumbnail on dashboard — generate/store a static thumbnail preview for each tree card
+- [x] ITEM-017: Share tree (read-only link) — generate a public share URL that renders the tree in read-only mode
+- [x] ITEM-018: Tree thumbnail on dashboard — generate/store a static thumbnail preview for each tree card
 
 ## Phase 5: Performance & Quality
 - [ ] ITEM-019: Memoize SkillNode3D render — wrap in React.memo to prevent unnecessary re-renders when unrelated store state changes

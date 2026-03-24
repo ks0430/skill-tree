@@ -54,3 +54,14 @@ Modified `setPinnedNode` in `tree-store.ts` to write/remove `pinnedNodeId` in lo
 
 ## TICKET-015: Duplicate tree — 2026-03-24
 Adds a "Duplicate" button on the dashboard that clones a skill tree with all its nodes into a new galaxy named "Copy of {original name}".
+
+## TICKET-016: Export tree as JSON — 2026-03-24
+Commit: 99d8808
+Added a client-side JSON export to the tree page. Clicking "Export JSON" in the header downloads `<tree-name>.json` containing the tree ID, name, export timestamp, and the full nodes array. Uses the Zustand store's in-memory nodes (already loaded on mount), so no extra DB call needed. Filename is slugified from the tree name.
+
+## TICKET-017: Share tree (read-only link) — 2026-03-24
+Added public share links for skill trees. Clicking "🔗 Share" in the tree header copies a `/share/<id>` URL to the clipboard. Anyone with the link can view the full 3D galaxy in read-only mode — no login required, no editing possible. The share API uses the Supabase service role key to bypass RLS, exposing only safe read-only fields.
+
+## TICKET-018: Tree thumbnail on dashboard — 2026-03-24
+Commit: 7314ec7
+Added a canvas-based `TreeThumbnail` component that renders a deterministic 2D minimap of each tree card. Stellars appear as glowing dots with status-based colors; planets orbit them as small dots. The dashboard loads stellar+planet nodes per tree and passes them to the thumbnail. Fully client-side — no DB storage needed.
