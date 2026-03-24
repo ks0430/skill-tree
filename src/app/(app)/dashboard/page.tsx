@@ -155,10 +155,36 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : trees.length === 0 ? (
-        <div className="text-center text-slate-500 py-12">
-          <p className="text-lg mb-2">No galaxies yet</p>
-          <p className="text-sm">Create one above and let AI build your star systems!</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="text-center py-20 px-6"
+        >
+          {/* Star cluster icon */}
+          <div className="text-6xl mb-6 select-none">🌌</div>
+          <h2 className="text-2xl font-semibold text-white mb-3">No galaxies yet</h2>
+          <p className="text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
+            Create your first galaxy and let AI map out your skill universe — star systems, planets, and satellites.
+          </p>
+          <div className="flex flex-col items-center gap-3">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createTree()}
+              placeholder="Name your first galaxy..."
+              className="w-full max-w-xs px-4 py-2.5 rounded-lg bg-navy-800 border border-glass-border text-white placeholder-slate-500 focus:outline-none focus:border-accent-blue text-center"
+            />
+            <button
+              onClick={createTree}
+              disabled={creating || !newName.trim()}
+              className="px-6 py-2.5 rounded-lg bg-accent-blue text-white font-medium hover:bg-accent-blue/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {creating && <Spinner />}
+              {creating ? "Creating..." : "Create Galaxy"}
+            </button>
+          </div>
+        </motion.div>
       ) : (
         <div className="grid gap-4">
           <AnimatePresence>
