@@ -16,6 +16,12 @@ import {
 } from "./planets";
 import { sharedGeo } from "./SkillTreeCanvas";
 
+function progressRingColor(progress: number): string {
+  if (progress >= 1) return "#00ff88";
+  if (progress >= 0.5) return "#ffdd00";
+  return "#ff6644";
+}
+
 const STATUS_BRIGHTNESS: Record<
   NodeStatus,
   { opacity: number; emissive: number; atmosphere: number; cloudOpacity: number; ringOpacity: number; labelAlpha: number }
@@ -155,6 +161,35 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
     setPinnedNode(pinnedNodeId === node.id ? null : node.id);
   }, [node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, pinnedNodeId]);
 
+  // Checklist progress
+  const { checklistTotal, checklistDone } = useMemo(() => {
+    const content = node.data.content;
+    if (!content) return { checklistTotal: 0, checklistDone: 0 };
+    let total = 0;
+    let done = 0;
+    for (const block of content.blocks) {
+      if (block.type === "checklist") {
+        total += block.items.length;
+        done += block.items.filter((i) => i.checked).length;
+      }
+    }
+    return { checklistTotal: total, checklistDone: done };
+  }, [node.data.content]);
+
+  const checklistProgress = checklistTotal > 0 ? checklistDone / checklistTotal : -1;
+
+  const progressArcGeoRef = useRef<THREE.RingGeometry | null>(null);
+  const progressArcGeo = useMemo(() => {
+    progressArcGeoRef.current?.dispose();
+    if (checklistProgress < 0) return null;
+    const thetaLength = Math.max(0.001, checklistProgress * Math.PI * 2);
+    const geo = new THREE.RingGeometry(0.68, 0.73, 64, 1, -Math.PI / 2, thetaLength);
+    progressArcGeoRef.current = geo;
+    return geo;
+  }, [checklistProgress]);
+
+  useEffect(() => () => { progressArcGeoRef.current?.dispose(); }, []);
+
   const ringTilt = useMemo(() => (seed % 40 + 15) * (Math.PI / 180), [seed]);
   const emissiveColor = config.atmosphereColor || "#ffffff";
   const labelSize = node.data.role === "stellar" ? 0.3 : node.data.role === "planet" ? 0.18 : 0.12;
@@ -209,6 +244,22 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
         <mesh geometry={sharedGeo.atmosphere} scale={node.scale * 1.15}>
           <meshBasicMaterial color="#ffffff" transparent opacity={0.08} side={THREE.BackSide} depthWrite={false} />
         </mesh>
+      )}
+
+      {/* Checklist progress ring */}
+      {checklistProgress >= 0 && (
+        <Billboard>
+          {/* Background track */}
+          <mesh geometry={sharedGeo.statusRing} scale={node.scale}>
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.12} side={THREE.DoubleSide} depthWrite={false} />
+          </mesh>
+          {/* Progress arc */}
+          {progressArcGeo && (
+            <mesh geometry={progressArcGeo} scale={node.scale}>
+              <meshBasicMaterial color={progressRingColor(checklistProgress)} transparent opacity={0.85} side={THREE.DoubleSide} depthWrite={false} />
+            </mesh>
+          )}
+        </Billboard>
       )}
 
       {config.hasRings && textures.ring && (
