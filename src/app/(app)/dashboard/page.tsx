@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -132,6 +133,48 @@ export default function DashboardPage() {
   function cancelRename() {
     setRenamingId(null);
     setRenameValue("");
+  }
+
+  async function duplicateTree(tree: TreeWithProgress, e: React.MouseEvent) {
+    e.stopPropagation();
+    setDuplicatingId(tree.id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setDuplicatingId(null); return; }
+
+    const { data: newTree } = await supabase
+      .from("skill_trees")
+      .insert({ name: `Copy of ${tree.name}`, user_id: user.id })
+      .select()
+      .single();
+
+    if (!newTree) {
+      toast.error("Failed to duplicate galaxy");
+      setDuplicatingId(null);
+      return;
+    }
+
+    const { data: nodes } = await supabase
+      .from("skill_nodes")
+      .select("*")
+      .eq("tree_id", tree.id);
+
+    if (nodes && nodes.length > 0) {
+      const cloned = nodes.map(({ tree_id: _tid, ...rest }) => ({ ...rest, tree_id: newTree.id }));
+      await supabase.from("skill_nodes").insert(cloned);
+    }
+
+    setTrees((prev) => [
+      {
+        ...newTree,
+        totalNodes: tree.totalNodes,
+        completedNodes: 0,
+        inProgressNodes: 0,
+        stellarCount: tree.stellarCount,
+      },
+      ...prev,
+    ]);
+    toast.success("Galaxy duplicated!");
+    setDuplicatingId(null);
   }
 
   async function handleSignOut() {
@@ -301,15 +344,25 @@ export default function DashboardPage() {
                       )}
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteConfirmId(tree.id);
-                      }}
-                      className="text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ml-4 text-sm"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 ml-4">
+                      <button
+                        onClick={(e) => duplicateTree(tree, e)}
+                        disabled={duplicatingId === tree.id}
+                        className="text-slate-600 hover:text-accent-blue transition-colors text-sm disabled:opacity-40"
+                        title="Duplicate"
+                      >
+                        {duplicatingId === tree.id ? <Spinner /> : "Duplicate"}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(tree.id);
+                        }}
+                        className="text-slate-600 hover:text-red-400 transition-colors text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               );
