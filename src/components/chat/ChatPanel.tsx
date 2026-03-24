@@ -5,6 +5,7 @@ import { useChatStore } from "@/lib/store/chat-store";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
 import { toolCallToPendingChange } from "@/lib/ai/parse";
+import { toast } from "sonner";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { PendingChange } from "./PendingChange";
@@ -47,6 +48,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           priority: (change.params.priority as number) ?? 3,
           position_x: 0,
           position_y: 0,
+          content: { blocks: [] },
           icon: null,
           metadata: null,
         };
@@ -56,6 +58,8 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
       // TODO: handle remove_node and update_node for bulk accept
     }
     resolveAllPending(true);
+    const count = pending.length;
+    toast.success(`Accepted ${count} change${count !== 1 ? "s" : ""}`);
   }
 
   function rejectAll() {

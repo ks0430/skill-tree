@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { SkillTree } from "@/types/skill-tree";
 import { motion, AnimatePresence } from "framer-motion";
 import { Spinner } from "@/components/ui/Spinner";
+import { toast } from "sonner";
 
 interface TreeWithProgress extends SkillTree {
   totalNodes: number;
@@ -87,15 +88,25 @@ export default function DashboardPage() {
       .select()
       .single();
 
-    if (data) router.push(`/tree/${data.id}`);
+    if (data) {
+      toast.success("Galaxy created!");
+      router.push(`/tree/${data.id}`);
+    } else {
+      toast.error("Failed to create galaxy");
+    }
     setCreating(false);
   }
 
   async function deleteTree(id: string) {
     await supabase.from("skill_nodes").delete().eq("tree_id", id);
     await supabase.from("chat_messages").delete().eq("tree_id", id);
-    await supabase.from("skill_trees").delete().eq("id", id);
-    setTrees((prev) => prev.filter((t) => t.id !== id));
+    const { error } = await supabase.from("skill_trees").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete galaxy");
+    } else {
+      setTrees((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Galaxy deleted");
+    }
   }
 
   function startRename(tree: TreeWithProgress, e: React.MouseEvent) {
@@ -113,7 +124,9 @@ export default function DashboardPage() {
     }
     setTrees((prev) => prev.map((t) => (t.id === id ? { ...t, name: trimmed } : t)));
     setRenamingId(null);
-    await supabase.from("skill_trees").update({ name: trimmed }).eq("id", id);
+    const { error } = await supabase.from("skill_trees").update({ name: trimmed }).eq("id", id);
+    if (error) toast.error("Failed to rename galaxy");
+    else toast.success("Galaxy renamed");
   }
 
   function cancelRename() {

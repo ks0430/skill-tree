@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
 import { describeChange } from "@/lib/ai/parse";
-import type { PendingChange as PendingChangeType } from "@/types/chat";
+import { applyChecklistTool } from "@/lib/ai/apply-checklist";
+import type { PendingChange as PendingChangeType, ToolCall } from "@/types/chat";
 import type { SkillNode } from "@/types/skill-tree";
 import { motion } from "framer-motion";
 import { Spinner } from "@/components/ui/Spinner";
+import { toast } from "sonner";
 
 interface PendingChangeProps {
   change: PendingChangeType;
@@ -15,7 +17,7 @@ interface PendingChangeProps {
 }
 
 export function PendingChange({ change, treeId }: PendingChangeProps) {
-  const { addNode, removeNode, updateNode, resolvePendingChange, pushHistory } =
+  const { addNode, removeNode, updateNode, updateNodeContent, resolvePendingChange, pushHistory, nodes } =
     useTreeStore();
   const [accepting, setAccepting] = useState(false);
 
@@ -41,16 +43,18 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
           position_y: 0,
           icon: null,
           metadata: null,
+          content: { blocks: [] },
         };
         addNode(node);
-        await supabase.from("skill_nodes").insert(node);
+        const { error: addErr } = await supabase.from("skill_nodes").insert(node);
+        if (addErr) { toast.error("Failed to add node"); setAccepting(false); return; }
+        toast.success(`Added "${node.label}"`);
         break;
       }
       case "remove_node": {
         const nodeId = params.id as string;
         removeNode(nodeId);
         // Remove node + children from DB
-        const allNodes = useTreeStore.getState().nodes;
         await supabase.from("skill_nodes").delete().eq("id", nodeId);
         // Children are cascade-removed by removeNode in store,
         // but we also need to clean them from DB
@@ -59,6 +63,7 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
           .delete()
           .eq("tree_id", treeId)
           .eq("parent_id", nodeId);
+        toast.success("Node removed");
         break;
       }
       case "update_node": {
@@ -71,7 +76,28 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
         if (params.parent_id !== undefined) updates.parent_id = params.parent_id as string | null;
         if (params.priority) updates.priority = params.priority as number;
         updateNode(nodeId, updates);
-        await supabase.from("skill_nodes").update(updates).eq("id", nodeId);
+        const { error: updErr } = await supabase.from("skill_nodes").update(updates).eq("id", nodeId);
+        if (updErr) { toast.error("Failed to update node"); setAccepting(false); return; }
+        toast.success("Node updated");
+        break;
+      }
+      case "set_checklist":
+      case "add_checklist_items":
+      case "update_checklist_item": {
+        const nodeId = params.node_id as string;
+        const toolCall: ToolCall = { id: change.id, name: action, input: params };
+        const existingNode = nodes.find((n) => n.id === nodeId);
+        const existingContent = existingNode?.data.content ?? { blocks: [] };
+        const newContent = applyChecklistTool(toolCall, existingContent);
+        if (newContent) {
+          updateNodeContent(nodeId, newContent);
+          await supabase
+            .from("skill_nodes")
+            .update({ content: newContent })
+            .eq("id", nodeId)
+            .eq("tree_id", treeId);
+          toast.success("Checklist updated");
+        }
         break;
       }
     }
@@ -87,6 +113,9 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
     add_node: "text-emerald-400",
     remove_node: "text-red-400",
     update_node: "text-amber-400",
+    set_checklist: "text-violet-400",
+    add_checklist_items: "text-violet-400",
+    update_checklist_item: "text-violet-400",
   };
 
   return (
