@@ -7,6 +7,7 @@ import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode } from "@/types/skill-tree";
+import { toast } from "sonner";
 
 export default function TreePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -58,6 +59,15 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
     setLoading(false);
   }
 
+  function shareTree() {
+    const shareUrl = `${window.location.origin}/share/${id}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      toast.success("Share link copied to clipboard!");
+    }).catch(() => {
+      toast.error("Failed to copy link");
+    });
+  }
+
   function exportTree() {
     const payload = {
       id,
@@ -94,13 +104,22 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
           </a>
           <h1 className="font-mono font-semibold text-lg">{treeName}</h1>
         </div>
-        <button
-          onClick={exportTree}
-          className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-glass-border hover:border-accent-blue/40 transition-colors font-mono"
-          title="Export tree as JSON"
-        >
-          Export JSON
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={shareTree}
+            className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-glass-border hover:border-accent-blue/40 transition-colors font-mono"
+            title="Copy read-only share link"
+          >
+            🔗 Share
+          </button>
+          <button
+            onClick={exportTree}
+            className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-glass-border hover:border-accent-blue/40 transition-colors font-mono"
+            title="Export tree as JSON"
+          >
+            Export JSON
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">

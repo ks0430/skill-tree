@@ -21,9 +21,10 @@ interface NodeDetailPanelProps {
   node: Node3D;
   pinned?: boolean;
   onClose?: () => void;
+  readOnly?: boolean;
 }
 
-export function NodeDetailPanel({ node, pinned = false, onClose }: NodeDetailPanelProps) {
+export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = false }: NodeDetailPanelProps) {
   const [content, setContent] = useState<NodeContent>(() =>
     parseContent(node.data.content ?? { blocks: [] })
   );
@@ -99,15 +100,31 @@ export function NodeDetailPanel({ node, pinned = false, onClose }: NodeDetailPan
 
       <PanelStatus status={node.data.status} />
 
-      <PanelChecklist
-        nodeId={node.id}
-        items={checklist?.items ?? []}
-        onToggle={handleToggle}
-        onAdd={handleAdd}
-        onRemove={handleRemove}
-        onAiGenerate={handleAiGenerate}
-        aiLoading={aiLoading}
-      />
+      {!readOnly && (
+        <PanelChecklist
+          nodeId={node.id}
+          items={checklist?.items ?? []}
+          onToggle={handleToggle}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onAiGenerate={handleAiGenerate}
+          aiLoading={aiLoading}
+        />
+      )}
+      {readOnly && checklist && checklist.items.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {checklist.items.map((item) => (
+            <div key={item.id} className="flex items-center gap-2 text-xs">
+              <span className={item.checked ? "text-emerald-400" : "text-slate-500"}>
+                {item.checked ? "✓" : "○"}
+              </span>
+              <span className={item.checked ? "line-through text-slate-500" : "text-slate-300"}>
+                {item.text}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }

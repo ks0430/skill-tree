@@ -52,9 +52,10 @@ export { worldPositions };
 interface SkillNode3DProps {
   node: Node3D;
   parentMap: Map<string, Node3D>;
+  readOnly?: boolean;
 }
 
-export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillNode3DProps) {
+export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly = false }: SkillNode3DProps) {
   const groupRef = useRef<THREE.Group>(null);
   const planetRef = useRef<THREE.Mesh>(null);
   const cloudsRef = useRef<THREE.Mesh>(null);
@@ -143,8 +144,9 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
 
   const supabase = useMemo(() => createClient(), []);
 
-  // Space key toggles status while hovering
+  // Space key toggles status while hovering (disabled in readOnly mode)
   useEffect(() => {
+    if (readOnly) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.code === "Space" && hovered) {
         e.preventDefault();
@@ -157,7 +159,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hovered, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase]);
+  }, [readOnly, hovered, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase]);
 
   const onPointerEnter = useCallback((e: any) => {
     e.stopPropagation();
@@ -173,16 +175,19 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
   }, [setHoveredNode]);
 
   // Click → cycle status (locked → in_progress → completed) + persist to Supabase
+  // In readOnly mode: only focus/pin, no status change
   const onClick = useCallback((e: any) => {
     e.stopPropagation();
-    const current = node.data.status;
-    const idx = STATUS_CYCLE.indexOf(current);
-    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-    toggleNodeStatus(node.id);
-    supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
+    if (!readOnly) {
+      const current = node.data.status;
+      const idx = STATUS_CYCLE.indexOf(current);
+      const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+      toggleNodeStatus(node.id);
+      supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
+    }
     setFocusTarget(node.id);
     setPinnedNode(pinnedNodeId === node.id ? null : node.id);
-  }, [node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, pinnedNodeId]);
+  }, [readOnly, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, pinnedNodeId]);
 
   // Checklist progress
   const { checklistTotal, checklistDone } = useMemo(() => {
