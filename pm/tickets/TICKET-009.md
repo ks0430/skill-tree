@@ -3,8 +3,8 @@
 **Status:** done
 **Roadmap item:** ITEM-009
 **Created:** 2026-03-24T04:00:03Z
-**Completed:** 2026-03-24T04:01:00Z
-**Commit:** 4432836ec6073863598ed73f3209dff90a097846
+**Completed:** 2026-03-24
+**Commit:** 35af7723f6933467f73a452f13888e01ba55c09b
 
 ## Brief
 send existing nodes to Claude so it can reference what already exists
@@ -15,7 +15,7 @@ send existing nodes to Claude so it can reference what already exists
 - [x] No regressions introduced
 
 ## Git Diff Summary
-No new changes required. `src/app/api/chat/route.ts` already fetches all `skill_nodes` for the tree from Supabase and passes them to `buildSystemPrompt`. `src/lib/ai/prompt.ts` renders the full galaxy hierarchy (stellars → planets → satellites with status, priority, and checklist state) into the system prompt sent to Claude.
+`src/lib/ai/prompt.ts`: added `descriptionSuffix()` helper that appends a node's `description` field to its line in the system prompt tree view. Applied to stellar, planet, and satellite entries so Claude sees each node's description alongside its id, label, status, priority, and checklist.
 
 ## Summary
-No implementation required — the AI context was already fully wired. The `/api/chat` route fetches all tree nodes server-side and passes them through `buildSystemPrompt`, which formats them into a hierarchical tree view in the system prompt. Claude can see every node's ID, label, status, priority, and checklist state before responding. This ticket was complete as of the initial implementation.
+The `/api/chat` route already fetched all tree nodes and passed them to `buildSystemPrompt`. The system prompt was missing node descriptions — added `descriptionSuffix()` to include each node's `description` field in the hierarchical tree view sent to Claude, giving it full context about every existing node before responding.

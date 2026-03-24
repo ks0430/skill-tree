@@ -15,17 +15,17 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 - [x] ITEM-007: acceptAll fix for update_node — acceptAll in ChatPanel only handles add_node; wire up update_node and remove_node cases
 - [x] ITEM-008: Persist chat messages to Supabase — currently chat history is in-memory only; save/load from chat_messages table
 - [x] ITEM-009: AI context: include current tree nodes in chat prompt — send existing nodes to Claude so it can reference what already exists
-- [ ] ITEM-010: Suggested follow-up prompts — after AI responds, show 2-3 contextual follow-up suggestions below the reply
+- [x] ITEM-010: Suggested follow-up prompts — after AI responds, show 2-3 contextual follow-up suggestions below the reply
 
 ## Phase 3: Node Interactions
-- [ ] ITEM-011: Node status click in 3D canvas — clicking a node cycles its status (locked → in_progress → completed) and persists to Supabase
-- [ ] ITEM-012: Node progress indicator on planet — show a small visual ring or glow on planets that reflects their checklist completion %
-- [ ] ITEM-013: Search result highlight — when search finds a node, briefly highlight/pulse it in the canvas (currently just flies camera to it)
-- [ ] ITEM-014: Pinned node panel persists on refresh — restore pinnedNodeId from localStorage on load
+- [x] ITEM-011: Node status click in 3D canvas — clicking a node cycles its status (locked → in_progress → completed) and persists to Supabase
+- [x] ITEM-012: Node progress indicator on planet — show a small visual ring or glow on planets that reflects their checklist completion %
+- [x] ITEM-013: Search result highlight — when search finds a node, briefly highlight/pulse it in the canvas (currently just flies camera to it)
+- [x] ITEM-014: Pinned node panel persists on refresh — restore pinnedNodeId from localStorage on load
 
 ## Phase 4: Tree Management
-- [ ] ITEM-015: Duplicate tree — add "duplicate" option on dashboard to clone a tree with all its nodes
-- [ ] ITEM-016: Export tree as JSON — download the full tree (nodes + metadata) as a JSON file
+- [x] ITEM-015: Duplicate tree — add "duplicate" option on dashboard to clone a tree with all its nodes
+- [x] ITEM-016: Export tree as JSON — download the full tree (nodes + metadata) as a JSON file
 - [ ] ITEM-017: Share tree (read-only link) — generate a public share URL that renders the tree in read-only mode
 - [ ] ITEM-018: Tree thumbnail on dashboard — generate/store a static thumbnail preview for each tree card
 
