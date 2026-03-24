@@ -9,12 +9,12 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 - [x] ITEM-003: Tree rename — allow user to rename a skill tree from the dashboard
 - [x] ITEM-004: Tree delete — add delete button with confirmation dialog on dashboard
 - [x] ITEM-005: Toast notifications — add a lightweight toast system for success/error feedback (create, delete, save)
-- [ ] ITEM-006: Node description visible in detail panel — display node description text in NodeDetailPanel below the title
+- [x] ITEM-006: Node description visible in detail panel — display node description text in NodeDetailPanel below the title
 
 ## Phase 2: AI Improvements
-- [ ] ITEM-007: acceptAll fix for update_node — acceptAll in ChatPanel only handles add_node; wire up update_node and remove_node cases
-- [ ] ITEM-008: Persist chat messages to Supabase — currently chat history is in-memory only; save/load from chat_messages table
-- [ ] ITEM-009: AI context: include current tree nodes in chat prompt — send existing nodes to Claude so it can reference what already exists
+- [x] ITEM-007: acceptAll fix for update_node — acceptAll in ChatPanel only handles add_node; wire up update_node and remove_node cases
+- [x] ITEM-008: Persist chat messages to Supabase — currently chat history is in-memory only; save/load from chat_messages table
+- [x] ITEM-009: AI context: include current tree nodes in chat prompt — send existing nodes to Claude so it can reference what already exists
 - [ ] ITEM-010: Suggested follow-up prompts — after AI responds, show 2-3 contextual follow-up suggestions below the reply
 
 ## Phase 3: Node Interactions
