@@ -165,7 +165,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   hoveredNodeId: null,
   focusTargetId: null,
   trackingNodeId: null,
-  pinnedNodeId: null,
+  pinnedNodeId: (typeof window !== "undefined" ? localStorage.getItem("pinnedNodeId") : null),
   searchHighlightId: null,
   history: [],
   historyIndex: -1,
@@ -176,7 +176,13 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setTrackingNode: (id) => set({ trackingNodeId: id }),
   setFocusTarget: (id) => set({ focusTargetId: id }),
-  setPinnedNode: (id) => set({ pinnedNodeId: id }),
+  setPinnedNode: (id) => {
+    if (typeof window !== "undefined") {
+      if (id) localStorage.setItem("pinnedNodeId", id);
+      else localStorage.removeItem("pinnedNodeId");
+    }
+    set({ pinnedNodeId: id });
+  },
   setSearchHighlight: (id) => {
     set({ searchHighlightId: id });
     if (id) setTimeout(() => set({ searchHighlightId: null }), 2500);
