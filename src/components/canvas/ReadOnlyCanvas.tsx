@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { SkillNode3D } from "./SkillNode3D";
 import { OrbitalRing } from "./OrbitalRing";
+import { EdgeRenderer } from "./EdgeRenderer";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { sharedGeo } from "./SkillTreeCanvas";
 
@@ -55,6 +56,8 @@ function Scene() {
           />
         );
       })}
+
+      <EdgeRenderer />
 
       {nodes.map((node) => (
         <SkillNode3D key={node.id} node={node} parentMap={orbitalData.nodeMap} readOnly />
