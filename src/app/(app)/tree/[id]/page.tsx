@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
+import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode } from "@/types/skill-tree";
 import { toast } from "sonner";
@@ -124,7 +125,9 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 relative min-w-0">
-          <SkillTreeCanvas />
+          <CanvasErrorBoundary>
+            <SkillTreeCanvas />
+          </CanvasErrorBoundary>
         </div>
         {/* Collapsed tab — always in DOM, shown/hidden via display */}
         <button
