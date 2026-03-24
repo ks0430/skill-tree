@@ -134,7 +134,26 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="text-center text-slate-500 py-12">Loading...</div>
+        <div className="grid gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="glass rounded-xl p-4 animate-pulse">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-slate-700/60 rounded w-1/3" />
+                  <div className="h-3 bg-slate-700/40 rounded w-2/3" />
+                  <div className="flex gap-4 mt-2">
+                    <div className="h-3 bg-slate-700/40 rounded w-16" />
+                    <div className="h-3 bg-slate-700/40 rounded w-12" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex-1 h-1 bg-slate-800 rounded-full" />
+                    <div className="h-3 bg-slate-700/40 rounded w-8" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : trees.length === 0 ? (
         <div className="text-center text-slate-500 py-12">
           <p className="text-lg mb-2">No galaxies yet</p>
