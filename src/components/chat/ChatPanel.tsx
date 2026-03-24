@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { PendingChange } from "./PendingChange";
-import type { ToolCall } from "@/types/chat";
+import type { ToolCall, ChatMessage as ChatMessageType } from "@/types/chat";
 import type { SkillNode } from "@/types/skill-tree";
 
 interface ChatPanelProps {
@@ -20,17 +20,30 @@ interface ChatPanelProps {
 export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   const {
     messages, isStreaming, streamingContent,
-    addMessage, setStreaming, appendStreamContent, resetStreamContent,
+    addMessage, setMessages, setStreaming, appendStreamContent, resetStreamContent,
   } = useChatStore();
 
   const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function loadMessages() {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("tree_id", treeId)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (data) setMessages(data as ChatMessageType[]);
+    }
+    loadMessages();
+  }, [treeId]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
-
-  const supabase = createClient();
 
   async function acceptAll() {
     pushHistory();
