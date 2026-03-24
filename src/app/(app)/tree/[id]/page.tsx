@@ -12,7 +12,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, pushHistory } = useTreeStore();
+  const { setTreeId, setNodes, pushHistory, nodes } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const supabase = createClient();
@@ -58,6 +58,22 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
     setLoading(false);
   }
 
+  function exportTree() {
+    const payload = {
+      id,
+      name: treeName,
+      exported_at: new Date().toISOString(),
+      nodes: nodes.map((n) => n.data),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${treeName.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "tree"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -78,6 +94,13 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
           </a>
           <h1 className="font-mono font-semibold text-lg">{treeName}</h1>
         </div>
+        <button
+          onClick={exportTree}
+          className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-glass-border hover:border-accent-blue/40 transition-colors font-mono"
+          title="Export tree as JSON"
+        >
+          Export JSON
+        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
