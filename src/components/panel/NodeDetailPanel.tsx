@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
@@ -30,11 +30,11 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   );
   const [aiLoading, setAiLoading] = useState(false);
   const supabase = createClient();
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checklist = getChecklist(content);
 
-  const persist = useCallback(async (next: NodeContent) => {
-    setContent(next);
+  const writeToDb = useCallback(async (next: NodeContent) => {
     await supabase
       .from("skill_nodes")
       .update({ content: next })
@@ -42,9 +42,17 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       .eq("tree_id", node.data.tree_id);
   }, [node.id, node.data.tree_id, supabase]);
 
+  const persist = useCallback(async (next: NodeContent) => {
+    setContent(next);
+    await writeToDb(next);
+  }, [writeToDb]);
+
   const handleToggle = useCallback((itemId: string) => {
-    persist(toggleItem(content, itemId));
-  }, [content, persist]);
+    const next = toggleItem(content, itemId);
+    setContent(next);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => writeToDb(next), 500);
+  }, [content, writeToDb]);
 
   const handleAdd = useCallback((text: string) => {
     persist(addItem(content, text));
