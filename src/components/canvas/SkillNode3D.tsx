@@ -61,7 +61,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const cloudsRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
-  const { toggleNodeStatus, setHoveredNode, setFocusTarget, setPinnedNode, pinnedNodeId } = useTreeStore();
+  const toggleNodeStatus = useTreeStore((s) => s.toggleNodeStatus);
+  const setHoveredNode = useTreeStore((s) => s.setHoveredNode);
+  const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
+  const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
+  const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const searchHighlightId = useTreeStore((s) => s.searchHighlightId);
   const isSearchHighlight = searchHighlightId === node.id;
   const highlightStartRef = useRef<number | null>(null);
