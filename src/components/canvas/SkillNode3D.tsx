@@ -143,12 +143,17 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap }: SkillN
     document.body.style.cursor = "auto";
   }, [setHoveredNode]);
 
-  // Click → zoom to this node + toggle pinned detail panel
+  // Click → cycle status (locked → in_progress → completed) + persist to Supabase
   const onClick = useCallback((e: any) => {
     e.stopPropagation();
+    const current = node.data.status;
+    const idx = STATUS_CYCLE.indexOf(current);
+    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+    toggleNodeStatus(node.id);
+    supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
     setFocusTarget(node.id);
     setPinnedNode(pinnedNodeId === node.id ? null : node.id);
-  }, [node.id, setFocusTarget, setPinnedNode, pinnedNodeId]);
+  }, [node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, pinnedNodeId]);
 
   const ringTilt = useMemo(() => (seed % 40 + 15) * (Math.PI / 180), [seed]);
   const emissiveColor = config.atmosphereColor || "#ffffff";
