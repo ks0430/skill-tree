@@ -186,8 +186,20 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     return result;
   }, [planetType, seed, config]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
+
+    // Skip expensive animation for nodes far from camera (no React state — pure ref check)
+    if (groupRef.current) {
+      const dx = camera.position.x - groupRef.current.position.x;
+      const dy = camera.position.y - groupRef.current.position.y;
+      const dz = camera.position.z - groupRef.current.position.z;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      const role = node.data.type ?? node.data.role;
+      const cullDistSq = role === "stellar" ? Infinity : role === "planet" ? 3600 : 900; // 60^2, 30^2
+      if (distSq > cullDistSq) return;
+    }
+
     if (planetRef.current) planetRef.current.rotation.y = t * config.rotationSpeed;
     if (cloudsRef.current) cloudsRef.current.rotation.y = t * config.rotationSpeed * 1.3;
     if (atmosphereRef.current) atmosphereRef.current.scale.setScalar(hovered ? 1.25 : 1.15);

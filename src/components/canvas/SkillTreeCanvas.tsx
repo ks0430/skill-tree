@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useEffect, useState } from "react";
+import { Suspense, useMemo, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -208,56 +208,7 @@ function CameraController() {
   />;
 }
 
-// Render all nodes but limit based on role — only show stellars + limit planets to MAX_VISIBLE
-const MAX_PLANET_NODES = 30; // show closest 30 planets at a time
 
-function CulledNodes({ nodes, nodeMap }: { nodes: Node3D[]; nodeMap: Map<string, Node3D> }) {
-  const { camera } = useThree();
-  const frameCount = useRef(0);
-  const [visibleIds, setVisibleIds] = useState<Set<string>>(() => {
-    const init = new Set<string>();
-    nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar").forEach((n) => init.add(n.id));
-    nodes.filter((n) => (n.data.type ?? n.data.role) === "planet").slice(0, MAX_PLANET_NODES).forEach((n) => init.add(n.id));
-    return init;
-  });
-
-  useFrame(() => {
-    frameCount.current++;
-    if (frameCount.current % 20 !== 0) return; // check every 20 frames
-
-    const camPos = camera.position;
-    const next = new Set<string>();
-
-    // Always show stellars
-    const stellars = nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar");
-    stellars.forEach((n) => next.add(n.id));
-
-    // Sort planets by distance, show closest MAX_PLANET_NODES
-    const planets = nodes.filter((n) => (n.data.type ?? n.data.role) === "planet");
-    const withDist = planets.map((n) => {
-      const [x, y, z] = n.position;
-      const dx = camPos.x - x, dy = camPos.y - y, dz = camPos.z - z;
-      return { id: n.id, dist: dx * dx + dy * dy + dz * dz };
-    });
-    withDist.sort((a, b) => a.dist - b.dist);
-    withDist.slice(0, MAX_PLANET_NODES).forEach((n) => next.add(n.id));
-
-    setVisibleIds((prev) => {
-      if (prev.size === next.size && [...next].every((id) => prev.has(id))) return prev;
-      return next;
-    });
-  });
-
-  return (
-    <>
-      {nodes.map((node) =>
-        visibleIds.has(node.id) ? (
-          <SkillNode3D key={node.id} node={node} parentMap={nodeMap} />
-        ) : null
-      )}
-    </>
-  );
-}
 
 function Scene() {
   const nodes = useTreeStore((s) => s.nodes);
@@ -312,7 +263,9 @@ function Scene() {
 
       <EdgeRenderer />
 
-      <CulledNodes nodes={nodes} nodeMap={orbitalData.nodeMap} />
+      {nodes.map((node) => (
+        <SkillNode3D key={node.id} node={node} parentMap={orbitalData.nodeMap} />
+      ))}
     </>
   );
 }
