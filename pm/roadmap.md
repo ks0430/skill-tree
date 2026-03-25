@@ -136,7 +136,7 @@ _Auto-exported from SkillForge DB on 2026-03-25. Edit in the DB, not here._
 - [ ] ITEM-106: Dependency-aware queue — sf_get_pending_items() should check depends_on edges before picking next item; skip nodes whose dependencies aren't all completed yet; try next candidate in priority order
 
 ## Phase 21: View Consolidation
-- [ ] ITEM-107: Merge Tree + WorldMap views — keep SkillTreeView2D as the base; add a style toggle (clean vs RPG fog-of-war); remove WorldMapView component and worldmap mode from ViewSwitcher and store
-- [ ] ITEM-108: Merge Weight + Memory views — keep WeightGraphView as the base; add a mode toggle (weight mode = edge-weight pull vs associative mode = edge-type pull); remove MemoryMapView component and memory mode
-- [ ] ITEM-109: Update ViewSwitcher UI — consolidate to 5 buttons: Solar / Skill Tree / Graph / Kanban / Timeline; remove duplicate buttons; persist selected view to localStorage
-- [ ] ITEM-110: Clean up ViewMode type — remove worldmap and memory from ViewMode union in tree-store.ts; update all references
+- [x] ITEM-107: Merge Tree + WorldMap views — keep SkillTreeView2D as the base; add a style toggle (clean vs RPG fog-of-war); remove WorldMapView component and worldmap mode from ViewSwitcher and store
+- [x] ITEM-108: Merge Weight + Memory views — keep WeightGraphView as the base; add a mode toggle (weight mode = edge-weight pull vs associative mode = edge-type pull); remove MemoryMapView component and memory mode
+- [x] ITEM-109: Update ViewSwitcher UI — consolidate to 5 buttons: Solar / Skill Tree / Graph / Kanban / Timeline; remove duplicate buttons; persist selected view to localStorage
+- [x] ITEM-110: Clean up ViewMode type — remove worldmap and memory from ViewMode union in tree-store.ts; update all references
