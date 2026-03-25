@@ -124,6 +124,74 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
 
   async function sendMessage(content: string) {
     clearSuggestions();
+
+    // Intercept /pm status command
+    if (content.trim().toLowerCase() === "/pm status") {
+      const userMsg = {
+        id: generateId(),
+        tree_id: treeId,
+        role: "user" as const,
+        content,
+        tool_calls: null,
+        created_at: new Date().toISOString(),
+      };
+      addMessage(userMsg);
+      setStreaming(true);
+      resetStreamContent();
+      try {
+        const res = await fetch(`/api/pm-status?treeId=${treeId}`);
+        if (!res.ok) throw new Error("Failed to fetch PM status");
+        const data = await res.json();
+
+        const activeLine = data.inProgress
+          ? `🔄 **Active:** ${data.inProgress.label} (\`${data.inProgress.id}\`)`
+          : "⏸️ **Active:** No ticket in progress";
+
+        const next3Lines =
+          data.next3.length > 0
+            ? data.next3
+                .map(
+                  (n: { id: string; label: string; priority: number }, i: number) =>
+                    `  ${i + 1}. ${n.label} (\`${n.id}\`, priority ${n.priority})`
+                )
+                .join("\n")
+            : "  *(none)*";
+
+        const statusMsg = [
+          `📊 **PM Status**`,
+          ``,
+          `Progress: **${data.completed}/${data.total}** tickets complete (${data.percentDone}%)`,
+          ``,
+          activeLine,
+          ``,
+          `📋 **Next 3 pending:**`,
+          next3Lines,
+        ].join("\n");
+
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: statusMsg,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: "⚠️ Failed to fetch PM status. Please try again.",
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } finally {
+        setStreaming(false);
+        resetStreamContent();
+      }
+      return;
+    }
+
     const userMsg = {
       id: generateId(),
       tree_id: treeId,
