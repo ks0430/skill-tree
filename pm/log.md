@@ -4,22 +4,6 @@ Append-only log of completed tickets.
 
 ---
 
-## TICKET-001: Loading state for dashboard — 2026-03-24
-Replaced the plain "Loading..." placeholder with a skeleton loader showing 3 pulsing glass-style cards. Each skeleton card matches the structure of a real tree card (name, description, stats row, progress bar), giving users a clear sense of the incoming layout while Supabase fetches data.
-
-## TICKET-002: Empty state for dashboard — 2026-03-24
-Upgraded the dashboard empty state from a plain text stub to a centred, visually engaging CTA. When the user has no skill trees, they now see a large galaxy emoji, a welcoming headline, a short description, and a ready-to-use create form — all with a smooth fade-in animation consistent with the rest of the UI.
-
-## TICKET-003: Tree rename — 2026-03-24
-Commit: d6ae12bde16faf765896a600fa0d4e6f8102363c
-Added inline rename to dashboard tree cards. Hovering a card reveals a ✏️ pencil button next to the tree name. Clicking it enters an inline input (pre-selected) — press Enter or blur to save, Escape to cancel. Optimistic UI update + Supabase persist via `skill_trees.update`.
-
-## TICKET-004: Tree delete — 2026-03-24
-Added a confirmation dialog modal to the dashboard delete flow. Clicking the Delete button now opens an animated modal (matching existing glass/Framer Motion style) asking the user to confirm before permanently deleting a galaxy and all its nodes.
-
-## TICKET-005: Toast notifications — 2026-03-24
-Installed `sonner` and wired up toast notifications throughout the app: galaxy create/delete/rename on dashboard, and node add/remove/update/checklist accept in the chat panel. The `<Toaster>` is mounted in root layout with dark theme matching the app's glass aesthetic.
-
 ## TICKET-006: Node description visible in detail panel — 2026-03-24
 Commit: f6b48c62c7447009b3208bb5c7e0615d1173394b
 NodeDetailPanel refactored into `src/components/panel/` with description rendered below the title using `node.data.description` when present.
@@ -165,3 +149,133 @@ Added a `PanelDates` component that shows `start_date`, `due_date`, and `estimat
 ## TICKET-033: Gantt layout engine — 2026-03-25
 Commit: 04190c00385633ac99ab22163cf817a80289eb35
 Added Gantt layout engine (`src/lib/gantt/layout.ts`) that maps nodes to horizontal time-bar positions using `start_date`, `due_date`, and `estimate` from node properties. Created `GanttView.tsx` with scrollable timeline, month axis ticks, today marker, status-fill bars, and pinnable node detail panel. Added "📅 Gantt" view mode button to the tree page alongside Solar and Tree views.
+
+## TICKET-034: Install dagre + rebuild SkillTreeView2D — 2026-03-25
+Commit: fa39ecd
+Installed dagre (v0.8.5) and rewrote `SkillTreeView2D` to use a proper directed graph layout. The component now reads the `edges` array from the tree store and filters for `depends_on` type edges to build a dagre `TB` (top-to-bottom) directed graph — prerequisites appear above their dependents, showing the dependency flow rather than arbitrary phase grouping. When no dependency edges exist, it automatically falls back to using `parent_id` relationships so existing trees still render correctly. Edges are rendered as smooth polyline paths with SVG arrowhead markers. All pan/zoom interaction, node selection, search highlighting, and the detail panel are preserved unchanged.
+
+## TICKET-035: Single root node — 2026-03-25
+Commit: d58a59c
+Added a virtual ROOT node to the 2D tree layout in `SkillTreeView2D.tsx`. Previously each stellar node was an independent root in the dagre graph, causing multiple disconnected tree tops. Now a hidden `__ROOT__` node sits above all stellars — dagre treats it as the single origin and arranges all stellars as its children, giving the tree one unified flow from the top downward. The ROOT node is injected with zero dimensions and its edges are filtered out before rendering, so the visual output is unchanged except all stellars now align under a single hierarchical root.
+
+## TICKET-036: Visible edge lines — 2026-03-25
+Commit: 7c92c3b
+The 2D tree view (SkillTreeView2D) already had the SVG edge infrastructure in place — dagre layout was computing waypoints and the SVG `<path>` elements existed — but edges were nearly invisible due to low opacity (0.3) and the bezier curve function had dead code that fell back to straight line segments instead of smooth curves.
+
+Fixed by:
+1. Rewriting `pointsToPath` to use quadratic bezier curves via midpoints (standard smooth polyline technique)
+2. Raising stroke opacity to 0.7 for clear visibility on the dark `#0a0e1a` background
+3. Making arrowheads larger and more opaque so dependency direction (prerequisite → dependent) is easy to read at a glance
+
+## TICKET-037: Node glow by status — 2026-03-25
+Commit: 6704646
+Added status-driven glow effects to the 2D skill tree view to match the game skill tree aesthetic:
+
+- **locked** — dark/muted: darker background, reduced opacity (55%), muted slate status dot. No glow.
+- **in_progress** — amber pulse: CSS keyframe animation pulses an amber box-shadow in and out (~1.8s cycle), matching the amber colour already used in the 3D view's `useFrame` glow.
+- **completed** — green glow: gentle steady green box-shadow with a slow breathing animation (~2.4s cycle), using the same green (#34d399) as the planet/satellite type border colour.
+
+The 3D view (`SkillNode3D.tsx`) already had equivalent glow logic in its `useFrame` animation loop — this ticket brings the 2D flat view up to parity. Implementation is purely CSS + class names; no JS animation loops required for the 2D view.
+
+## TICKET-038: Hover path highlight — 2026-03-25
+Commit: 01b07b5
+Implemented hover path highlighting in the 2D skill tree view. When a user hovers over any node, the full unlock chain (all ancestors it depends on, plus all descendants that depend on it) is highlighted in indigo — nodes glow and edges turn purple — while everything outside the chain fades to near-invisible. Uses BFS traversal on the `depends_on` edge graph in both directions. No store changes required; hover state is local to the component for performance and to avoid coupling with the 3D solar view.
+
+## TICKET-039: Dependency arrow renderer — 2026-03-25
+Commit: 45b58a2
+Rendered `depends_on` and `blocks` edges as directional arrows in both the 3D solar canvas and the 2D dagre view.
+
+**3D (EdgeRenderer):** Added `THREE.ConeGeometry` arrowhead meshes for directional edge types. Each cone is positioned near the target end (85% along the line) and oriented each frame using `quaternion.setFromUnitVectors` to point source→target. Arrowheads inherit the same additive-blended colour and opacity as their line, so they participate in hover highlighting automatically. `blocks` path traversal was also added to `collectPrereqPath` so blocker chains highlight correctly on hover.
+
+**2D (SkillTreeView2D):** `blocks` edges were previously silently ignored by dagre — they're now included with the correct layout direction (blocker ranks above blocked node). Each edge carries its `type` through `posEdges`. Rendering picks type-specific SVG arrowhead markers (violet for `depends_on`, red for `blocks`) and renders `blocks` edges with a dashed stroke to distinguish them visually from dependency edges. Hover chain highlighting was extended to cover both edge types.
+
+**Design decisions:** Arrowheads point at the *target* end (conventional for dependency graphs). Dashed style for `blocks` keeps the distinction legible at a glance without adding a legend. Cone geometry is shared as a module-level constant to avoid per-edge GC pressure.
+
+## TICKET-040: Today marker — 2026-03-25
+Commit: e02ab49
+The Gantt view already had the amber "Today" vertical line and label from the TICKET-033 layout engine, but the view always opened at scroll position 0 (the epoch), so the marker was off-screen for any tree with near-term work. This ticket adds auto-scroll-to-today on mount: a `useEffect` calculates the scroll position needed to center today in the visible timeline, setting it once at load. The today line itself was also polished — higher opacity, slightly thicker, and a subtle amber glow — so it reads clearly against the Gantt bars.
+
+## TICKET-041: Force — 2026-03-25
+Commit: 694a98e
+Built a self-contained force-directed layout engine (`src/lib/force/layout.ts`) using spring physics: every node pair repels via an inverse-square Coulomb force, and every edge acts as a Hooke spring with stiffness proportional to `edge.weight`. The engine is split into `computeForceLayout` (runs to near-convergence, used for initial placement) and `stepForce` (single tick, used for animated settling in the component). Nodes are seeded on a circle with a deterministic LCG jitter to avoid symmetric deadlocks.
+
+`WeightGraphView.tsx` renders the graph as an SVG: node size grows with connection degree (capped at 44 px radius), edge stroke width encodes weight (1–6 px), and hover illuminates a node's immediate neighbours. The component kicks off the batch layout on mount and then continues ticking with `requestAnimationFrame` until velocities decay below 0.15 px/tick, giving a smooth settling animation. Shares pan/zoom, pinned-panel, and search-highlight infrastructure with the existing 2D views.
+
+View mode was extended from a 3-way to 4-way union (`solar | tree | gantt | weight`) with a 🕸️ Graph button added to the existing view switcher in the tree page.
+
+## TICKET-042: Edge weight visualisation — 2026-03-25
+Commit: 02be716
+Added edge weight visualisation across both the 2D SVG force graph (`WeightGraphView`) and the 3D Three.js canvas (`EdgeRenderer`). Edges now vary in both line thickness (already done for 2D, extended to 3D) and opacity (new for both views): high-weight edges are thicker and more opaque, low-weight edges are thinner and more transparent. The weight range 0–1 maps to opacity 0.25–0.85 in 2D and 0.15–0.65 in 3D, with highlighted/hovered edges still boosting to full opacity. Dimmed (non-hovered) edges use a tighter fade to preserve contrast.
+
+## TICKET-043: Memory map layout — 2026-03-25
+Commit: f423d63
+Built the Memory Map view — a force-directed layout where edge type determines pull strength rather than a uniform spring constant. The core change is `computeMemoryMapLayout()` which pre-multiplies each edge's weight by `MEMORY_MAP_PULL_STRENGTH[edgeType]` before running the standard spring-physics simulation. This means `parent` edges (×2.0) cluster children tightly to their parent node, while `related` (×0.5) and `references` (×0.3) edges provide only a soft associative drift — giving the layout an Obsidian-graph-like feel where hierarchy and loose association coexist visually. The view is wired into the existing view switcher as a fifth mode (`🧠 Memory`).
+
+## TICKET-044: Ambient camera drift — 2026-03-25
+Commit: f6d42f4
+Added ambient camera drift to the 3D skill tree canvas. When the user hasn't interacted (mouse, scroll, touch, keyboard) for 5 seconds and isn't in tracking or top-down mode, `OrbitControls.autoRotate` is enabled with a slow `autoRotateSpeed` of 0.3 — giving a gentle planetary drift effect. Any user interaction immediately resets the idle timer and stops the drift on the next frame. Top-down mode and node-tracking mode are unaffected, since they already control camera movement themselves.
+
+## TICKET-045: Related/references edge creation UI — 2026-03-25
+Commit: c99b27f
+Added a `PanelRelations` component that renders inside the node detail panel whenever the panel is not in read-only mode. It lets users:
+
+1. **View** all existing non-parent edges connected to the current node, showing direction (→ source / ← target), type colour dot, the other node's label, and a remove button.
+2. **Create** a new edge by typing a search query to find another node (live-filtered, excluding already-linked nodes and self), selecting a node from the dropdown, choosing one of four edge types (related, references, depends_on, blocks), and clicking "+ Link node".
+
+The component reads from and writes to the existing `addEdge` / `removeEdge` store actions, which already handle optimistic updates and Supabase persistence. No schema or API changes were needed. The section collapses by default (▼/▲ toggle) and shows a count badge when there are existing relations.
+
+## TICKET-046: Board view (Kanban) — 2026-03-25
+Commit: 53b5525
+Built a Kanban board view as the sixth view mode in SkillForge. The board shows three columns — Backlog (locked nodes), Active (in_progress), and Done (completed) — each sorted by priority descending. Cards support native HTML5 drag-and-drop: dragging a card between columns updates its status, and dragging within a column reorders by recalculating priority as a midpoint between neighbours. Drop indicator lines show exactly where the card will land. Priority and status changes are persisted optimistically to Supabase via the existing `updateNode` store method plus a direct supabase update call. Cards show node label, type (colour-coded), priority value, icon, and description snippet. Clicking a card pins the NodeDetailPanel. The view is consistent with the existing dark glass aesthetic used across Gantt, Weight, and Memory views.
+
+## TICKET-047: Flip PM source of truth — 2026-03-25
+Commit: 82cef93
+Flipped the PM loop so it reads pending work from the SkillForge Supabase DB (planet nodes with status=locked, ordered by phase then id) rather than parsing roadmap.md. roadmap.md is now auto-generated as a changelog mirror after each cycle tick when SkillForge is enabled. Falls back to the original roadmap.md parsing when SF is not configured, preserving backward compatibility. The DB is now the single source of truth for ticket ordering.
+
+## TICKET-048: Empty state for dashboard — 2026-03-25
+Commit: bd330a6
+The empty state UI (galaxy emoji, heading, description copy, inline create CTA) was already in place from TICKET-002. This ticket polished it by adding clickable example name chips below the create button. Clicking a chip prefills the input with a suggested galaxy name, reducing friction for first-time users who don't know what to call their first tree. Chips are styled as small rounded pills consistent with the existing glass/navy palette.
+
+## TICKET-049: Node description visible in detail panel — 2026-03-25
+Commit: b656262
+The `node.data.description` field was already being conditionally rendered in `NodeDetailPanel.tsx` (from TICKET-006), but the paragraph lacked vertical spacing, causing it to feel cramped against the title above and the status badge below. Added `mt-1 mb-3` Tailwind classes to give the description proper breathing room below the title. The description only renders when non-null/non-empty, consistent with the existing pattern.
+
+## TICKET-050: Memoize SkillNode3D render — 2026-03-25
+Commit: 7f2fa84
+The component was already wrapped with `React.memo` (from TICKET-019), but two store subscriptions were still too broad: subscribing to the full `pinnedNodeId` string and `searchHighlightId` string caused every `SkillNode3D` instance to re-render whenever any node was pinned or a search result changed, because the selector returned a new value for all instances.
+
+The fix narrows both selectors to return booleans (`isPinned`, `isSearchHighlight`) — each node now only re-renders when its own pin/highlight state changes, not when other nodes' states change. This makes `React.memo` effective for these two common interaction patterns.
+
+## TICKET-051: Error boundary for 3D canvas — 2026-03-25
+Commit: 544f3ed
+`CanvasErrorBoundary` already existed as a class component in `src/components/ui/CanvasErrorBoundary.tsx` with a fallback UI (galaxy emoji, error message, retry button). It was already applied to `SkillTreeCanvas` in the authenticated tree page. The only gap was `ReadOnlyCanvas` on the public share page — that canvas had no error protection.
+
+Added `CanvasErrorBoundary` import and wrapped `<ReadOnlyCanvas />` in `src/app/share/[id]/page.tsx`. Now both 3D canvas surfaces (authenticated and read-only share) are covered by the error boundary with a consistent fallback UI.
+
+## TICKET-052: Today marker — 2026-03-25
+Commit: 3c02f89
+The vertical today marker in the Gantt view was originally implemented in TICKET-040. This ticket (TICKET-052) enhanced the axis label from a plain text "Today" to a styled date chip (amber pill showing "MMM D" format). This makes the current date visually anchored and immediately readable without hovering. The chip is rendered inline using `toLocaleDateString` with `en-US` locale for consistent short-month format.
+
+## TICKET-053: PM loop writes back to SkillForge — 2026-03-25
+Commit: 062a7704b8adf0dcc1ed3584629a1732a718a4a3
+Changed sf_get_pending_items to query skill_nodes where status=locked and type=planet, ordered by priority ASC (from the SkillForge UI). Previously ordered by phase/id which ignored user-set priority. Also updated sf_export_changelog to order by priority for consistency. roadmap.md is written to as a changelog when items complete, no longer used as execution order source.
+
+## TICKET-054: Skill tree view as world map — 2026-03-25
+Commit: 00b1c88b90e694519348661eb0140d774c253ed7
+Built a new "World Map" view accessible via the 🗺️ Map button in the view switcher. The view uses the same dagre dependency graph layout as the 2D tree view (top-to-bottom flow) but renders nodes as RPG-style landmark circles rather than flat rectangles.
+
+**Node visual states:**
+- **Locked** — dark `#1a1a2e` fill with fog-of-war dot/hatch overlay patterns and a 🔒 icon; desaturated, clearly inaccessible
+- **In Progress (active)** — warm amber fill with a CSS-animated pulsing ring (`wm-pulse-ring`) that expands and fades on a 1.8s loop; text in gold
+- **Completed** — deep green fill with a steady CSS-animated glow halo (`wm-glow-ring`) on a 2.4s loop; text in mint green
+- **Available** — muted navy fill with slate-blue border
+
+**Connectors:** Road-style paths — a wide dark shadow lane under a thinner coloured surface lane. `depends_on` edges use teal-ish colour, `blocks` edges use dashed red. Both carry arrowheads.
+
+**Decorations:** Subtle dot-grid background, outer decorative rings per node (solid for stellar, dashed for planet/satellite), compass rose in the bottom-right corner of the layout.
+
+Decisions: re-used dagre layout logic from `SkillTreeView2D` rather than duplicating the force layout from `MemoryMapView` — top-down tree is the right shape for a "path through the world" metaphor. SVG-based to keep animation smooth without WebGL overhead.
+
+## TICKET-055: Wire edges to AI tools — 2026-03-25
+Commit: dc8e0e2
+The `add_edge` and `remove_edge` tools were already defined in `tools.ts` and wired up in `PendingChange.tsx` and `ChatPanel.tsx` to apply/persist edge changes. What was missing was Claude having visibility into the existing edges when deciding whether to create new ones. This change loads the tree's edges in the chat route and injects them into the system prompt, giving Claude full context of existing `depends_on` and `related` connections before it responds. No new types or components were needed — just plumbing the data through the existing prompt builder.

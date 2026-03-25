@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Stars } from "@react-three/drei";
+import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { SkillNode3D, worldPositions } from "./SkillNode3D";
@@ -29,6 +29,25 @@ const ZOOM_DISTANCE: Record<string, number> = {
 
 const IDLE_TIMEOUT_MS = 5000; // ms before ambient drift kicks in
 const AMBIENT_ROTATE_SPEED = 0.3; // slow gentle drift
+
+/** Syncs the orthographic camera frustum from the store's orthoZoom value each frame. */
+function OrthoZoomSync() {
+  const { camera, size } = useThree();
+  const orthoZoom = useTreeStore((s) => s.orthoZoom);
+
+  useFrame(() => {
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+    const aspect = size.width / size.height;
+    const half = orthoZoom;
+    camera.left = -half * aspect;
+    camera.right = half * aspect;
+    camera.top = half;
+    camera.bottom = -half;
+    camera.updateProjectionMatrix();
+  });
+
+  return null;
+}
 
 function CameraController() {
   const { camera } = useThree();
@@ -68,7 +87,7 @@ function CameraController() {
     return () => events.forEach((e) => window.removeEventListener(e, onInteract));
   }, []);
 
-  // Top-down mode: snap camera to overhead orthographic view
+  // Top-down mode: snap camera to overhead view when entering
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
@@ -129,19 +148,20 @@ function CameraController() {
       return;
     }
 
-    // --- Top-down mode: lock rotation, allow pan/zoom only ---
+    // --- Top-down mode: lock rotation, allow pan only (zoom via buttons) ---
     if (topDownMode) {
-      // Keep camera directly above target — enforce Y dominance
+      // Keep camera directly above target at fixed height
       const target = controls.target;
-      const dist = camera.position.distanceTo(target);
-      camera.position.set(target.x, target.y + dist, target.z);
+      camera.position.set(target.x, 80, target.z);
       camera.lookAt(target);
       controls.enableRotate = false;
+      controls.enableZoom = false; // zoom is handled by orthoZoom buttons
       controls.enablePan = true;
       controls.update();
       return;
     } else {
       controls.enableRotate = true;
+      controls.enableZoom = true;
     }
 
     // --- Tracking mode: follow node as it orbits ---
@@ -190,6 +210,7 @@ function CameraController() {
 
 function Scene() {
   const nodes = useTreeStore((s) => s.nodes);
+  const topDownMode = useTreeStore((s) => s.topDownMode);
 
   const orbitalData = useMemo(() => {
     const nodeMap = new Map<string, Node3D>();
@@ -211,6 +232,12 @@ function Scene() {
 
   return (
     <>
+      {topDownMode && (
+        <>
+          <OrthographicCamera makeDefault position={[0, 80, 0]} zoom={1} near={0.1} far={500} />
+          <OrthoZoomSync />
+        </>
+      )}
       <Stars radius={80} depth={50} count={800} factor={3} saturation={0.3} fade speed={0} />
 
       <ambientLight intensity={0.6} />
@@ -246,9 +273,11 @@ export function SkillTreeCanvas() {
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const topDownMode = useTreeStore((s) => s.topDownMode);
+  const orthoZoom = useTreeStore((s) => s.orthoZoom);
   const setTrackingNode = useTreeStore((s) => s.setTrackingNode);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const setTopDownMode = useTreeStore((s) => s.setTopDownMode);
+  const setOrthoZoom = useTreeStore((s) => s.setOrthoZoom);
   const nodes = useTreeStore((s) => s.nodes);
   const hoveredNode = useMemo(
     () => nodes.find((n) => n.id === hoveredNodeId),
@@ -294,6 +323,25 @@ export function SkillTreeCanvas() {
         </Suspense>
         <CameraController />
       </Canvas>
+      {/* Orthographic pan/zoom controls — shown only in top-down mode */}
+      {topDownMode && (
+        <div className="absolute bottom-12 right-14 z-10 flex flex-col gap-1">
+          <button
+            onClick={() => setOrthoZoom(orthoZoom - 10)}
+            title="Zoom in"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold bg-slate-800/70 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 transition-colors"
+          >
+            +
+          </button>
+          <button
+            onClick={() => setOrthoZoom(orthoZoom + 10)}
+            title="Zoom out"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold bg-slate-800/70 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 transition-colors"
+          >
+            −
+          </button>
+        </div>
+      )}
 
       {detailNode && (
         <NodeDetailPanel
