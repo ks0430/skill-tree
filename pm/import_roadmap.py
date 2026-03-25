@@ -25,9 +25,9 @@ SUPABASE_URL = "https://cnanilxkafouncbigbnn.supabase.co"
 SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuYW5pbHhrYWZvdW5jYmlnYm5uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDE4NDY4NSwiZXhwIjoyMDg5NzYwNjg1fQ.jWBdlk7NdfTIkDUEFeyhazl_IAZSOYstNduTuF3XAa8"
 USER_ID = "63a9623b-180d-4433-9994-014842aab44b"
 
-ROADMAP_PATH = os.path.join(os.path.dirname(__file__), "roadmap.md")
-STATE_PATH   = os.path.join(os.path.dirname(__file__), "state.json")
-TICKETS_DIR  = os.path.join(os.path.dirname(__file__), "tickets")
+ROADMAP_PATH = os.path.join(os.path.dirname(__file__), "archive", "roadmap.md")
+STATE_PATH   = None  # state now lives in Supabase
+TICKETS_DIR  = None  # tickets now live in Supabase
 
 HEADERS = {
     "apikey": SERVICE_KEY,
@@ -134,19 +134,18 @@ def parse_roadmap(path):
 
 # ── Determine current ticket status ──────────────────────────────────────────
 
-def get_active_item():
-    """Return ITEM-id of the currently active ticket, if any."""
+def get_active_item(bot_config):
+    """Return ITEM-id of the currently active node from Supabase."""
     try:
-        state = json.load(open(STATE_PATH))
-        current = state.get("current_ticket")
-        if not current:
-            return None
-        ticket_path = os.path.join(TICKETS_DIR, f"{current}.md")
-        with open(ticket_path) as f:
-            for line in f:
-                m = re.match(r'\*\*Roadmap item:\*\*\s*(ITEM-\d+)', line)
-                if m:
-                    return m.group(1)
+        sf = bot_config.get("skillforge", {})
+        nodes = sb_get(
+            f"{sf['supabase_url']}/rest/v1/skill_nodes",
+            sf["service_key"],
+            {"tree_id": f"eq.{sf['tree_id']}", "status": "eq.in_progress", "type": "eq.planet", "select": "id,properties", "limit": "1"}
+        )
+        if nodes:
+            props = nodes[0].get("properties") or {}
+            return props.get("item_id") or nodes[0]["id"].upper().replace("ITEM-", "ITEM-")
     except Exception:
         pass
     return None
@@ -159,7 +158,9 @@ def main():
 
     # Parse roadmap
     phases = parse_roadmap(ROADMAP_PATH)
-    active_item = get_active_item()
+    bot_config_path = os.path.join(os.path.dirname(__file__), "bot-config.json")
+    bot_config_data = json.load(open(bot_config_path)) if os.path.exists(bot_config_path) else {}
+    active_item = get_active_item(bot_config_data)
     total_items = sum(len(p["items"]) for p in phases)
     print(f"  Parsed {len(phases)} phases, {total_items} items")
     print(f"  Active item: {active_item or 'none'}")
