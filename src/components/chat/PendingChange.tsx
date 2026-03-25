@@ -88,6 +88,7 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
         toast.success("Node updated");
         break;
       }
+      case "update_content":
       case "set_checklist":
       case "add_checklist_items":
       case "update_checklist_item": {
@@ -103,7 +104,7 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
             .update({ content: newContent })
             .eq("id", nodeId)
             .eq("tree_id", treeId);
-          toast.success("Checklist updated");
+          toast.success(action === "update_content" ? "Content updated" : "Checklist updated");
         }
         break;
       }
@@ -137,6 +138,7 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
     add_node: "text-emerald-400",
     remove_node: "text-red-400",
     update_node: "text-amber-400",
+    update_content: "text-violet-400",
     set_checklist: "text-violet-400",
     add_checklist_items: "text-violet-400",
     update_checklist_item: "text-violet-400",

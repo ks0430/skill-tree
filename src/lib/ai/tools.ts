@@ -1,5 +1,57 @@
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 
+const contentTools: Tool[] = [
+  {
+    name: "update_content",
+    description:
+      "Update a node's content blocks (checklist items and/or notes) independently of node metadata. Use this when the user wants to add, replace, or clear a node's checklist or note without changing other properties like label, status, or description.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        node_id: { type: "string", description: "ID of the skill node to update" },
+        checklist: {
+          type: "object",
+          description: "Checklist update. Omit to leave checklist unchanged.",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["set", "append", "clear"],
+              description: "set = replace entire checklist; append = add items to existing; clear = remove all items",
+            },
+            items: {
+              type: "array",
+              description: "Items to set or append. Required for 'set' and 'append' actions.",
+              items: {
+                type: "object",
+                properties: {
+                  text: { type: "string", description: "Checklist item text (short, actionable)" },
+                  checked: { type: "boolean", description: "Initial checked state, default false" },
+                },
+                required: ["text"],
+              },
+            },
+          },
+          required: ["action"],
+        },
+        note: {
+          type: "object",
+          description: "Note update. Omit to leave note unchanged.",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["set", "clear"],
+              description: "set = create or replace note text; clear = remove note",
+            },
+            text: { type: "string", description: "Note content (markdown supported). Required for 'set' action." },
+          },
+          required: ["action"],
+        },
+      },
+      required: ["node_id"],
+    },
+  },
+];
+
 const checklistTools: Tool[] = [
   {
     name: "set_checklist",
@@ -60,6 +112,7 @@ const checklistTools: Tool[] = [
 ];
 
 export const skillTreeTools: Tool[] = [
+  ...contentTools,
   ...checklistTools,
   {
     name: "add_node",

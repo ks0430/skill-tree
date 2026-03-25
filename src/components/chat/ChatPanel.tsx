@@ -5,6 +5,7 @@ import { useChatStore } from "@/lib/store/chat-store";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
 import { toolCallToPendingChange } from "@/lib/ai/parse";
+import { applyChecklistTool } from "@/lib/ai/apply-checklist";
 import { toast } from "sonner";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -24,7 +25,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
     setSuggestions, clearSuggestions,
   } = useChatStore();
 
-  const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, addEdge, removeEdge, pushHistory } = useTreeStore();
+  const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, updateNodeContent, nodes, addEdge, removeEdge, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const supabase = createClient();
@@ -101,6 +102,25 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         });
       } else if (change.action === "remove_edge") {
         await removeEdge(change.params.id as string);
+      } else if (
+        change.action === "update_content" ||
+        change.action === "set_checklist" ||
+        change.action === "add_checklist_items" ||
+        change.action === "update_checklist_item"
+      ) {
+        const nodeId = change.params.node_id as string;
+        const toolCall: ToolCall = { id: change.id, name: change.action, input: change.params };
+        const existingNode = nodes.find((n) => n.id === nodeId);
+        const existingContent = existingNode?.data.content ?? { blocks: [] };
+        const newContent = applyChecklistTool(toolCall, existingContent);
+        if (newContent) {
+          updateNodeContent(nodeId, newContent);
+          await supabase
+            .from("skill_nodes")
+            .update({ content: newContent })
+            .eq("id", nodeId)
+            .eq("tree_id", treeId);
+        }
       }
     }
     resolveAllPending(true);

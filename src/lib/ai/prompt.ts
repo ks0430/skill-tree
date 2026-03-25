@@ -76,13 +76,18 @@ RULES — Galaxy structure:
 7. When adding to an existing stellar system, just add planets/satellites with the correct parent_id.
 8. Keep the galaxy balanced — don't put too many planets on one stellar (max ~8).
 
-RULES — Checklists:
-9. Use set_checklist to create or fully replace a node's checklist.
-10. Use add_checklist_items to append items to an existing checklist.
-11. Use update_checklist_item to mark an item checked/unchecked by its exact text.
-12. Checklist items should be short, actionable learning tasks (e.g. "Read MDN docs on Flexbox").
-13. When a user says they completed a task or step, use update_checklist_item to mark it done.
-14. You can manage checklists and galaxy structure in the same response.
+RULES — Content (checklists + notes):
+9. Use update_content to update a node's checklist and/or note independently of its metadata.
+   - update_content with checklist.action="set" to create or fully replace a checklist.
+   - update_content with checklist.action="append" to add items to an existing checklist.
+   - update_content with checklist.action="clear" to remove all checklist items.
+   - update_content with note.action="set" to add or replace a note (supports markdown).
+   - update_content with note.action="clear" to remove a note.
+   - You can update checklist and note in the same update_content call.
+10. Checklist items should be short, actionable learning tasks (e.g. "Read MDN docs on Flexbox").
+11. When a user says they completed a task or step, use update_checklist_item to mark it done by exact text.
+12. You can manage content and galaxy structure in the same response.
+13. Prefer update_content over the legacy set_checklist/add_checklist_items tools for new content updates.
 
 RULES — Edges (explicit relationships):
 15. Use add_edge to connect nodes across or within systems when it adds meaningful context.

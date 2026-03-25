@@ -18,6 +18,7 @@ export type PendingChangeAction =
   | "remove_node"
   | "update_node"
   | "bulk_modify"
+  | "update_content"
   | "set_checklist"
   | "add_checklist_items"
   | "update_checklist_item"

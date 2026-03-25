@@ -1,4 +1,4 @@
-import type { NodeContent, ChecklistBlock, ChecklistItem } from "@/types/node-content";
+import type { NodeContent, ChecklistBlock, ChecklistItem, NoteBlock } from "@/types/node-content";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -60,4 +60,27 @@ export function removeItem(content: NodeContent, itemId: string): NodeContent {
       b.type === "checklist" ? { ...b, items: b.items.filter((i) => i.id !== itemId) } : b
     ),
   };
+}
+
+// ── Note helpers ──────────────────────────────────────────────────────────────
+
+export function getNote(content: NodeContent): NoteBlock | null {
+  return (content.blocks.find((b) => b.type === "note") as NoteBlock) ?? null;
+}
+
+export function upsertNote(content: NodeContent, text: string): NodeContent {
+  const existing = getNote(content);
+  if (existing) {
+    return {
+      blocks: content.blocks.map((b) =>
+        b.type === "note" ? { ...b, text } : b
+      ),
+    };
+  }
+  const block: NoteBlock = { id: uid(), type: "note", text };
+  return { blocks: [...content.blocks, block] };
+}
+
+export function removeNote(content: NodeContent): NodeContent {
+  return { blocks: content.blocks.filter((b) => b.type !== "note") };
 }

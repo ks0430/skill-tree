@@ -12,8 +12,14 @@ export interface ChecklistBlock {
   items: ChecklistItem[];
 }
 
-// Union for future block types (notes, links, etc.)
-export type ContentBlock = ChecklistBlock;
+export interface NoteBlock {
+  id: string;
+  type: "note";
+  text: string;
+}
+
+// Union for future block types (links, etc.)
+export type ContentBlock = ChecklistBlock | NoteBlock;
 
 export interface NodeContent {
   blocks: ContentBlock[];
