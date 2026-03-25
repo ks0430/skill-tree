@@ -19,7 +19,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode } = useTreeStore();
+  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, updateNode } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -40,6 +40,34 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   useEffect(() => {
     setTreeId(id);
     loadTree();
+  }, [id]);
+
+  // Supabase Realtime: live node status updates
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`skill_nodes:${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "skill_nodes",
+          filter: `tree_id=eq.${id}`,
+        },
+        (payload) => {
+          const updated = payload.new as Partial<SkillNode> & { id?: string };
+          if (updated?.id) {
+            const { id: nodeId, ...rest } = updated;
+            updateNode(nodeId, rest);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id]);
 
   async function loadTree() {
