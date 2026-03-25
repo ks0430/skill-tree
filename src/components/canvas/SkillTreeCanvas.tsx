@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useEffect } from "react";
+import { Suspense, useMemo, useRef, useEffect, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -208,6 +208,54 @@ function CameraController() {
   />;
 }
 
+// Distance-culled node renderer — only renders nodes within camera range
+// Stellars always render; planets/satellites cull beyond threshold
+const PLANET_CULL_DIST = 60;
+const SATELLITE_CULL_DIST = 30;
+const CULL_CHECK_INTERVAL = 8; // frames between cull recalculations
+
+function CulledNodes({ nodes, nodeMap }: { nodes: Node3D[]; nodeMap: Map<string, Node3D> }) {
+  const { camera } = useThree();
+  const frameCount = useRef(0);
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(() => new Set(nodes.map((n) => n.id)));
+
+  useFrame(() => {
+    frameCount.current++;
+    if (frameCount.current % CULL_CHECK_INTERVAL !== 0) return;
+
+    const camPos = camera.position;
+    const next = new Set<string>();
+
+    for (const node of nodes) {
+      const role = node.data.type ?? node.data.role;
+      if (role === "stellar") {
+        next.add(node.id);
+        continue;
+      }
+      const [x, y, z] = node.position;
+      const dx = camPos.x - x, dy = camPos.y - y, dz = camPos.z - z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const threshold = role === "satellite" ? SATELLITE_CULL_DIST : PLANET_CULL_DIST;
+      if (dist <= threshold) next.add(node.id);
+    }
+
+    setVisibleIds((prev) => {
+      if (prev.size === next.size && [...next].every((id) => prev.has(id))) return prev;
+      return next;
+    });
+  });
+
+  return (
+    <>
+      {nodes.map((node) =>
+        visibleIds.has(node.id) ? (
+          <SkillNode3D key={node.id} node={node} parentMap={nodeMap} />
+        ) : null
+      )}
+    </>
+  );
+}
+
 function Scene() {
   const nodes = useTreeStore((s) => s.nodes);
   const topDownMode = useTreeStore((s) => s.topDownMode);
@@ -261,9 +309,7 @@ function Scene() {
 
       <EdgeRenderer />
 
-      {nodes.map((node) => (
-        <SkillNode3D key={node.id} node={node} parentMap={orbitalData.nodeMap} />
-      ))}
+      <CulledNodes nodes={nodes} nodeMap={orbitalData.nodeMap} />
     </>
   );
 }
