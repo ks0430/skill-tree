@@ -362,8 +362,10 @@ export function KanbanView() {
                   background: isDragTarget
                     ? `${col.headerColor}08`
                     : "rgba(255,255,255,0.02)",
-                  border: `1px solid ${isDragTarget ? col.headerColor + "60" : col.borderColor}`,
                   borderTop: "none",
+                  borderRight: `1px solid ${isDragTarget ? col.headerColor + "60" : col.borderColor}`,
+                  borderBottom: `1px solid ${isDragTarget ? col.headerColor + "60" : col.borderColor}`,
+                  borderLeft: `1px solid ${isDragTarget ? col.headerColor + "60" : col.borderColor}`,
                   transition: "background 0.15s, border-color 0.15s",
                   minHeight: 80,
                 }}
@@ -422,13 +424,9 @@ export function KanbanView() {
                           background: isPinned
                             ? "rgba(99,102,241,0.15)"
                             : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${
-                            isPinned
-                              ? "#818cf8"
-                              : node.id === searchHighlightId
-                              ? "#f59e0b"
-                              : "rgba(148,163,184,0.1)"
-                          }`,
+                          borderTop: `1px solid ${isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
+                          borderRight: `1px solid ${isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
+                          borderBottom: `1px solid ${isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
                           borderLeft: `3px solid ${typeColor}`,
                           borderRadius: 6,
                           padding: "10px 12px",
