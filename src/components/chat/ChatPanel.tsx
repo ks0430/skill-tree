@@ -195,6 +195,54 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
       return;
     }
 
+    // Intercept /pm priority <ITEM> command — move item to top of queue
+    if (trimmed.startsWith("/pm priority ")) {
+      const itemId = trimmed.slice("/pm priority ".length).trim();
+      const userMsg = {
+        id: generateId(),
+        tree_id: treeId,
+        role: "user" as const,
+        content,
+        tool_calls: null,
+        created_at: new Date().toISOString(),
+      };
+      addMessage(userMsg);
+      setStreaming(true);
+      resetStreamContent();
+      try {
+        const res = await fetch("/api/pm-priority", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ treeId, itemId }),
+        });
+        const data = await res.json();
+        const replyContent = res.ok
+          ? data.message
+          : `⚠️ Failed to reprioritise: ${data.message ?? "Unknown error"}`;
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: replyContent,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: "⚠️ Failed to set priority. Please try again.",
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } finally {
+        setStreaming(false);
+        resetStreamContent();
+      }
+      return;
+    }
+
     // Intercept /pm next command
     if (content.trim().toLowerCase() === "/pm next") {
       const userMsg = {
