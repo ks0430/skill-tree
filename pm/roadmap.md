@@ -148,3 +148,4 @@ _Auto-exported from SkillForge DB on 2026-03-25. Edit in the DB, not here._
 - [ ] ITEM-114: PM re-triggers webhook on stale heartbeat — if in_progress node heartbeat is stale (>35min), PM re-POSTs to coding agent webhook to restart it; posts ⚠️ to Telegram
 - [ ] ITEM-115: PM posts Telegram summary on every action — on ticket activation, re-trigger, or all-done, post a clear summary message to the group via PM bot
 - [ ] ITEM-116: Coding agent reads ticket from Supabase — on webhook trigger, coding agent reads ticket details (brief, item_id) from skill_nodes properties/content instead of receiving them in the spawn payload
+- [ ] ITEM-117: Error reporting — coding agent wraps implementation in try/except, posts ❌ error message to Telegram on failure; PM posts ⚠️ if webhook fails; after 3 re-triggers post 🚨 stuck alert and stop retrying

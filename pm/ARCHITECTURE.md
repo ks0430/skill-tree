@@ -101,8 +101,32 @@ PM checks: age < 35 min AND node_id matches current in_progress node → alive.
 | All done | PM bot | `🎉 All tickets complete! Roadmap finished.` |
 | Progress | Coding bot | `🔍 ⚙️ 📦` (existing behaviour) |
 | Completion | Coding bot | `✅ TICKET-060 done — fixed border conflict in KanbanView.tsx` |
+| Error | Coding bot | `❌ TICKET-060 error — [what went wrong, one line]` |
+| Re-trigger after error | PM bot | `⚠️ TICKET-060 agent stale (45min) — re-triggering` |
 
 ---
+
+## Error handling
+
+**Coding agent** — wrap the entire implementation in try/except:
+```python
+try:
+    implement_ticket()
+except Exception as e:
+    post_telegram(f"❌ {ticket_id} error — {str(e)[:200]}")
+    # Do NOT mark ticket as done — leave as in_progress
+    # PM will detect stale heartbeat and re-trigger
+    raise
+```
+
+**PM cron** — if webhook POST fails:
+```python
+if not webhook_success:
+    post_telegram(f"⚠️ {ticket_id} — webhook failed, will retry next tick")
+    # Leave node as in_progress, next tick retries
+```
+
+**Node status on error:** stay `in_progress` — don't flip to `locked`. PM detects stale heartbeat and re-triggers automatically. If re-triggered 3+ times with no success, PM posts a `🚨 TICKET-NNN stuck after 3 attempts` alert and leaves it for human intervention.
 
 ## What this removes
 
