@@ -122,7 +122,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       />
 
       {node.data.description && (
-        <p className="text-xs text-slate-400 leading-relaxed">{node.data.description}</p>
+        <p className="text-xs text-slate-400 leading-relaxed mt-1 mb-3">{node.data.description}</p>
       )}
 
       <PanelStatus status={node.data.status} />
