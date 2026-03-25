@@ -38,10 +38,10 @@ _Auto-exported from SkillForge DB on 2026-03-25. Edit in the DB, not here._
 - [x] ITEM-025: Edge CRUD in tree store — add/remove/update edges via Zustand + Supabase
 
 ## Phase 6: Skill Tree View
-- [ ] ITEM-029: Orthographic top — down camera preset with pan/zoom controls
+- [ ] ITEM-031: Glow shader on node status — locked=dark, in_progress=amber pulse, completed=green glow
 - [x] ITEM-032: Edge renderer — glowing lines between nodes, highlight prerequisite path on hover
 - [x] ITEM-033: Unlock animation — locked to in_progress transition with particle burst
-- [ ] ITEM-031: Glow shader on node status — locked=dark, in_progress=amber pulse, completed=green glow
+- [x] ITEM-029: Orthographic top — down camera preset with pan/zoom controls
 - [ ] ITEM-034: View switcher UI — toggle between Solar System and Skill Tree
 
 ## Phase 7: 3D Gantt View

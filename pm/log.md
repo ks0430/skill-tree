@@ -4,10 +4,6 @@ Append-only log of completed tickets.
 
 ---
 
-## TICKET-006: Node description visible in detail panel — 2026-03-24
-Commit: f6b48c62c7447009b3208bb5c7e0615d1173394b
-NodeDetailPanel refactored into `src/components/panel/` with description rendered below the title using `node.data.description` when present.
-
 ## TICKET-007: acceptAll fix for update_node — 2026-03-24
 Added `removeNode` and `updateNode` from tree-store to the `acceptAll` function in `ChatPanel.tsx`. Previously, bulk accept only handled `add_node` with a TODO comment for the other cases. Now `remove_node` deletes the node and its children from both the store and Supabase, and `update_node` applies field updates to both the store and DB — matching the logic already present in `PendingChange.tsx` for individual accepts.
 
@@ -279,3 +275,7 @@ Decisions: re-used dagre layout logic from `SkillTreeView2D` rather than duplica
 ## TICKET-055: Wire edges to AI tools — 2026-03-25
 Commit: dc8e0e2
 The `add_edge` and `remove_edge` tools were already defined in `tools.ts` and wired up in `PendingChange.tsx` and `ChatPanel.tsx` to apply/persist edge changes. What was missing was Claude having visibility into the existing edges when deciding whether to create new ones. This change loads the tree's edges in the chat route and injects them into the system prompt, giving Claude full context of existing `depends_on` and `related` connections before it responds. No new types or components were needed — just plumbing the data through the existing prompt builder.
+
+## TICKET-056: Orthographic top — 2026-03-25
+Commit: 6a6a725
+Upgraded the existing top-down camera preset from a perspective camera locked overhead to a true orthographic projection. When the user presses `T` (or the ⊤ button), a `drei` `OrthographicCamera` replaces the default perspective camera and a `OrthoZoomSync` component keeps its frustum bounds in sync with an `orthoZoom` store value. Two overlay buttons (`+` / `−`) allow stepwise zoom in and out. Pan still works via mouse drag (OrbitControls, rotation locked). Exiting top-down mode restores the original perspective camera automatically.
