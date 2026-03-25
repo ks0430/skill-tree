@@ -140,3 +140,11 @@ _Auto-exported from SkillForge DB on 2026-03-25. Edit in the DB, not here._
 - [x] ITEM-108: Merge Weight + Memory views — keep WeightGraphView as the base; add a mode toggle (weight mode = edge-weight pull vs associative mode = edge-type pull); remove MemoryMapView component and memory mode
 - [x] ITEM-109: Update ViewSwitcher UI — consolidate to 5 buttons: Solar / Skill Tree / Graph / Kanban / Timeline; remove duplicate buttons; persist selected view to localStorage
 - [x] ITEM-110: Clean up ViewMode type — remove worldmap and memory from ViewMode union in tree-store.ts; update all references
+
+## Phase 22: Event-Driven PM Architecture
+- [ ] ITEM-111: Simplify pm_cycle.py — queue manager only: check if any node is in_progress, if none pick highest priority locked node and set in_progress; remove all agent spawning logic
+- [ ] ITEM-112: OpenClaw webhook endpoint for coding agent — register a webhook trigger so PM can POST to it to start a coding agent session; coding agent task comes from the in_progress node in Supabase
+- [ ] ITEM-113: PM posts webhook call on ticket activation — when PM sets a node to in_progress, POST to the coding agent webhook endpoint with ticket details
+- [ ] ITEM-114: PM re-triggers webhook on stale heartbeat — if in_progress node heartbeat is stale (>35min), PM re-POSTs to coding agent webhook to restart it; posts ⚠️ to Telegram
+- [ ] ITEM-115: PM posts Telegram summary on every action — on ticket activation, re-trigger, or all-done, post a clear summary message to the group via PM bot
+- [ ] ITEM-116: Coding agent reads ticket from Supabase — on webhook trigger, coding agent reads ticket details (brief, item_id) from skill_nodes properties/content instead of receiving them in the spawn payload
