@@ -18,6 +18,7 @@ import { PanelHeader } from "./PanelHeader";
 import { PanelStatus } from "./PanelStatus";
 import { PanelChecklist } from "./PanelChecklist";
 import { PanelDates } from "./PanelDates";
+import { PanelRelations } from "./PanelRelations";
 
 interface NodeDetailPanelProps {
   node: Node3D;
@@ -158,6 +159,10 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
             </div>
           ))}
         </div>
+      )}
+
+      {!readOnly && (
+        <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />
       )}
     </motion.div>
   );
