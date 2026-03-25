@@ -134,9 +134,9 @@ function pointsToPath(points: { x: number; y: number }[]): string {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: "#22d3ee",
-  in_progress: "#f59e0b",
-  locked: "#475569",
+  completed: "#34d399",  // green — matches glow
+  in_progress: "#f59e0b", // amber — matches pulse
+  locked: "#334155",      // dark/muted slate
 };
 
 const TYPE_BORDER: Record<string, string> = {
@@ -272,11 +272,17 @@ export function SkillTreeView2D() {
           const isHighlighted = id === searchHighlightId;
           const isPinned = id === pinnedNodeId;
 
+          // Determine glow class based on status (only when not overridden by pin/highlight)
+          const glowClass = isPinned || isHighlighted
+            ? ""
+            : `node-status-${status}`;
+
           return (
             <div
               key={id}
               data-node="true"
               onClick={() => setPinnedNode(isPinned ? null : id)}
+              className={glowClass}
               style={{
                 position: "absolute",
                 left: x,
@@ -287,12 +293,14 @@ export function SkillTreeView2D() {
                 border: `1.5px solid ${isPinned ? "#818cf8" : TYPE_BORDER[type] ?? "#475569"}`,
                 background: isPinned
                   ? "rgba(99,102,241,0.18)"
+                  : status === "locked"
+                  ? "rgba(10,14,26,0.75)"
                   : "rgba(15,22,41,0.85)",
                 boxShadow: isHighlighted
                   ? "0 0 0 3px #f59e0b"
                   : isPinned
                   ? "0 0 0 2px rgba(129,140,248,0.5)"
-                  : "none",
+                  : undefined,
                 cursor: "pointer",
                 userSelect: "none",
                 display: "flex",
@@ -300,7 +308,8 @@ export function SkillTreeView2D() {
                 justifyContent: "center",
                 padding: "6px 10px",
                 gap: 3,
-                transition: "box-shadow 0.15s, border-color 0.15s",
+                transition: "border-color 0.15s",
+                opacity: status === "locked" ? 0.55 : 1,
               }}
             >
               {/* Label */}
