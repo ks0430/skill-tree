@@ -91,6 +91,32 @@ export function KanbanView() {
 
   const supabase = createClient();
 
+  // Polling fallback: re-fetch all nodes every 8s to catch updates
+  // when Supabase Realtime isn't delivering (table not in publication).
+  useEffect(() => {
+    if (!treeId) return;
+    let active = true;
+
+    async function pollNodes() {
+      const { data, error } = await supabase
+        .from("skill_nodes")
+        .select("id, status, icon, properties, priority, label, description")
+        .eq("tree_id", treeId!);
+      if (!active || error || !data) return;
+
+      for (const row of data) {
+        const { id: nodeId, ...rest } = row;
+        updateNode(nodeId, rest as Partial<SkillNode>);
+      }
+    }
+
+    const interval = setInterval(pollNodes, 8000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [treeId]);
+
   // Supabase Realtime subscription for live board updates
   useEffect(() => {
     if (!treeId) return;

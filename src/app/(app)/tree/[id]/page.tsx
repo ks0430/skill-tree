@@ -43,6 +43,8 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   }, [id]);
 
   // Supabase Realtime: live node status updates
+  // Note: requires skill_nodes to be in supabase_realtime publication
+  // (see supabase/migrations/005_enable_realtime.sql)
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -67,6 +69,31 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [id]);
+
+  // Polling fallback: re-fetch node statuses every 10s
+  // Ensures board stays in sync even if Realtime publication isn't configured.
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+
+    async function pollNodeStatuses() {
+      const { data, error } = await supabase
+        .from("skill_nodes")
+        .select("id, status, icon, properties, priority, label, description")
+        .eq("tree_id", id);
+      if (!active || error || !data) return;
+      for (const row of data) {
+        const { id: nodeId, ...rest } = row;
+        updateNode(nodeId, rest as Partial<SkillNode>);
+      }
+    }
+
+    const interval = setInterval(pollNodeStatuses, 10000);
+    return () => {
+      active = false;
+      clearInterval(interval);
     };
   }, [id]);
 
