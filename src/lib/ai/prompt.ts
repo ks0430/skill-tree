@@ -70,7 +70,7 @@ RULES — Galaxy structure:
 1. When the user wants to learn a new topic, create ONE stellar + 3-8 planets + optional satellites using bulk_modify.
 2. Every planet MUST have a parent_id pointing to its stellar. Every satellite MUST point to its planet.
 3. Stellars have parent_id = null.
-4. Priority 1-5: determines planet size. 5 = critical/large, 1 = nice-to-know/small.
+4. Priority is a queue position (lower number = higher urgency, runs sooner): 1 = urgent/run next (large planet), 3 = normal, 5+ = backlog/nice-to-have (small planet). IMPORTANT: when the user asks to "prioritise" or "make this high priority", set priority to 1, NOT a high number like 99.
 5. Set status to "locked" unless the user says they already know it.
 6. Use descriptive IDs: "web-dev" for stellar, "html-basics" for planet, "semantic-tags" for satellite.
 7. When adding to an existing stellar system, just add planets/satellites with the correct parent_id.
