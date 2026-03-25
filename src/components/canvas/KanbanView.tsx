@@ -226,32 +226,51 @@ export function KanbanView() {
       className="w-full h-full relative overflow-hidden select-none"
       style={{ background: "#0a0e1a" }}
     >
-      {/* Phase filter — compact dropdown */}
+      {/* Phase filter — styled pill dropdown */}
       <div className="flex items-center gap-2 px-4 pt-3 pb-1 shrink-0">
-        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase:</span>
-        <select
-          value={phaseFilter ?? ""}
-          onChange={(e) => setPhaseFilter(e.target.value === "" ? null : Number(e.target.value))}
-          style={{
-            fontFamily: "monospace", fontSize: 11,
-            background: "rgba(15,23,42,0.8)",
-            border: "1px solid rgba(148,163,184,0.2)",
-            borderRadius: 4, padding: "2px 8px",
-            color: phaseFilter === null ? "#64748b" : "#818cf8",
-            cursor: "pointer", outline: "none",
-          }}
-        >
-          <option value="">All phases</option>
-          {phases.map((p) => (
-            <option key={p.id} value={p.phase}>Phase {p.phase}</option>
-          ))}
-        </select>
+        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Filter</span>
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+          <select
+            value={phaseFilter ?? ""}
+            onChange={(e) => setPhaseFilter(e.target.value === "" ? null : Number(e.target.value))}
+            style={{
+              fontFamily: "monospace", fontSize: 11,
+              background: phaseFilter !== null ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderRadius: 20,
+              padding: "4px 28px 4px 12px",
+              color: phaseFilter !== null ? "#a5b4fc" : "#64748b",
+              cursor: "pointer", outline: "none",
+              appearance: "none",
+              WebkitAppearance: "none",
+              transition: "all 0.15s",
+            }}
+          >
+            <option value="">All phases</option>
+            {phases.map((p) => (
+              <option key={p.id} value={p.phase}>Phase {p.phase}</option>
+            ))}
+          </select>
+          {/* Chevron icon */}
+          <svg
+            style={{ position: "absolute", right: 8, pointerEvents: "none", color: phaseFilter !== null ? "#a5b4fc" : "#475569" }}
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
         {phaseFilter !== null && (
           <button
             onClick={() => setPhaseFilter(null)}
-            style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}
+            style={{
+              fontFamily: "monospace", fontSize: 10,
+              color: "#64748b", background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(148,163,184,0.15)",
+              borderRadius: 20, padding: "3px 8px",
+              cursor: "pointer", transition: "all 0.15s",
+            }}
             title="Clear filter"
-          >✕</button>
+          >✕ clear</button>
         )}
       </div>
 
