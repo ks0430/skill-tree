@@ -7,6 +7,7 @@ import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
 import { GanttView } from "@/components/canvas/GanttView";
+import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
@@ -79,11 +80,29 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
 
   function shareTree() {
     const shareUrl = `${window.location.origin}/share/${id}`;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      toast.success("Share link copied to clipboard!");
-    }).catch(() => {
-      toast.error("Failed to copy link");
-    });
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        toast.success("Share link copied to clipboard!");
+      }).catch(() => {
+        toast.error("Failed to copy link");
+      });
+    } else {
+      // Fallback for HTTP (clipboard API requires HTTPS)
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = shareUrl;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        toast.success("Share link copied to clipboard!");
+      } catch {
+        toast.error("Copy failed — URL: " + shareUrl);
+      }
+    }
   }
 
   function exportTree() {
@@ -158,6 +177,17 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             >
               📅 Gantt
             </button>
+            <button
+              onClick={() => setViewMode("weight")}
+              title="Weight Graph view (force-directed)"
+              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
+                viewMode === "weight"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              🕸️ Graph
+            </button>
           </div>
 
           <button
@@ -186,8 +216,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             </CanvasErrorBoundary>
           ) : viewMode === "tree" ? (
             <SkillTreeView2D />
-          ) : (
+          ) : viewMode === "gantt" ? (
             <GanttView />
+          ) : (
+            <WeightGraphView />
           )}
         </div>
 
