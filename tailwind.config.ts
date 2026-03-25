@@ -22,6 +22,11 @@ const config: Config = {
           border: "rgba(255, 255, 255, 0.08)",
           hover: "rgba(255, 255, 255, 0.04)",
         },
+        // Theme-aware semantic tokens (map to CSS vars)
+        "theme-bg": "var(--bg-primary)",
+        "theme-bg-secondary": "var(--bg-secondary)",
+        "theme-text": "var(--text-primary)",
+        "theme-text-muted": "var(--text-secondary)",
         "node-locked": "#6b7280",
         "node-progress": "#f59e0b",
         "node-completed": "#10b981",

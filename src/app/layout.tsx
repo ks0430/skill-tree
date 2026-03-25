@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "SkillForge — AI Skill Tree Builder",
@@ -13,14 +14,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Prevent flash of wrong theme */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem("skillforge-theme")||"dark";document.documentElement.classList.add(t);})()`,
+          }}
+        />
+      </head>
       <body className="min-h-screen antialiased">
         {children}
+        <ThemeToggle />
         <Toaster
           position="bottom-right"
-          theme="dark"
           toastOptions={{
-            style: { background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" },
+            style: { background: "var(--toast-bg)", border: "1px solid var(--glass-border)", color: "var(--text-primary)" },
           }}
         />
       </body>
