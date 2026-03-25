@@ -9,6 +9,7 @@ import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
 import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { MemoryMapView } from "@/components/canvas/MemoryMapView";
+import { KanbanView } from "@/components/canvas/KanbanView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
@@ -200,6 +201,17 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             >
               🧠 Memory
             </button>
+            <button
+              onClick={() => setViewMode("kanban")}
+              title="Kanban board view (Backlog / Active / Done)"
+              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
+                viewMode === "kanban"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              📋 Board
+            </button>
           </div>
 
           <button
@@ -232,8 +244,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             <GanttView />
           ) : viewMode === "weight" ? (
             <WeightGraphView />
-          ) : (
+          ) : viewMode === "memory" ? (
             <MemoryMapView />
+          ) : (
+            <KanbanView />
           )}
         </div>
 
