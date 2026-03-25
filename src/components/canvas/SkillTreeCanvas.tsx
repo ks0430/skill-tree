@@ -27,6 +27,9 @@ const ZOOM_DISTANCE: Record<string, number> = {
   satellite: 2,
 };
 
+const IDLE_TIMEOUT_MS = 5000; // ms before ambient drift kicks in
+const AMBIENT_ROTATE_SPEED = 0.3; // slow gentle drift
+
 function CameraController() {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
@@ -42,6 +45,7 @@ function CameraController() {
   const isFlying = useRef(false);
   const lastTrackedPos = useRef<THREE.Vector3 | null>(null);
   const isTopDownFlying = useRef(false);
+  const lastInteractionTime = useRef<number>(Date.now());
 
   // ESC exits tracking mode
   useEffect(() => {
@@ -53,6 +57,16 @@ function CameraController() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [trackingNodeId, setTrackingNode]);
+
+  // Track user interaction to reset idle timer
+  useEffect(() => {
+    function onInteract() {
+      lastInteractionTime.current = Date.now();
+    }
+    const events = ["mousedown", "mousemove", "wheel", "touchstart", "keydown"];
+    events.forEach((e) => window.addEventListener(e, onInteract, { passive: true }));
+    return () => events.forEach((e) => window.removeEventListener(e, onInteract));
+  }, []);
 
   // Top-down mode: snap camera to overhead orthographic view
   useEffect(() => {
@@ -152,7 +166,10 @@ function CameraController() {
       controls.enablePan = false;
     } else {
       lastTrackedPos.current = null;
-      controls.autoRotate = false;
+      // Ambient drift: enable slow auto-rotation when idle
+      const idle = Date.now() - lastInteractionTime.current > IDLE_TIMEOUT_MS;
+      controls.autoRotate = idle;
+      controls.autoRotateSpeed = AMBIENT_ROTATE_SPEED;
       controls.enablePan = true;
     }
 
