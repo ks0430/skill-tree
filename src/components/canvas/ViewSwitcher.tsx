@@ -9,13 +9,11 @@ interface ViewOption {
 }
 
 const VIEW_OPTIONS: ViewOption[] = [
-  { mode: "solar",    label: "🪐 Solar",  title: "Solar System view (3D)" },
-  { mode: "tree",     label: "🌿 Tree",   title: "Skill Tree view (2D)" },
-  { mode: "gantt",    label: "📅 Gantt",  title: "Gantt chart view" },
-  { mode: "weight",   label: "🕸️ Graph",  title: "Weight Graph view (force-directed)" },
-  { mode: "memory",   label: "🧠 Memory", title: "Memory Map view (associative, edge-type-weighted)" },
-  { mode: "kanban",   label: "📋 Board",  title: "Kanban board view (Backlog / Active / Done)" },
-  { mode: "worldmap", label: "🗺️ Map",    title: "World Map view (RPG-style dependency map)" },
+  { mode: "solar",  label: "🪐 Solar",      title: "Solar System view (3D)" },
+  { mode: "tree",   label: "🌿 Skill Tree", title: "Skill Tree view — dependency graph (2D)" },
+  { mode: "weight", label: "🕸️ Graph",      title: "Graph view — force-directed, clusters by connections" },
+  { mode: "kanban", label: "📋 Board",      title: "Kanban board — Backlog / Active / Done" },
+  { mode: "gantt",  label: "📅 Timeline",   title: "Gantt / Timeline view" },
 ];
 
 export function ViewSwitcher() {

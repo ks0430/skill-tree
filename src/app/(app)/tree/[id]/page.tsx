@@ -8,9 +8,7 @@ import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
 import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
-import { MemoryMapView } from "@/components/canvas/MemoryMapView";
 import { KanbanView } from "@/components/canvas/KanbanView";
-import { WorldMapView } from "@/components/canvas/WorldMapView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ViewSwitcher } from "@/components/canvas/ViewSwitcher";
@@ -179,10 +177,6 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             <GanttView />
           ) : viewMode === "weight" ? (
             <WeightGraphView />
-          ) : viewMode === "memory" ? (
-            <MemoryMapView />
-          ) : viewMode === "worldmap" ? (
-            <WorldMapView />
           ) : (
             <KanbanView />
           )}

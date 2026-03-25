@@ -4,10 +4,6 @@ Append-only log of completed tickets.
 
 ---
 
-## TICKET-009: AI context: include current tree nodes in chat prompt — 2026-03-24
-Commit: 35af7723f6933467f73a452f13888e01ba55c09b
-The `/api/chat` route already fetched all tree nodes and passed them to `buildSystemPrompt`. The system prompt was missing node descriptions — added `descriptionSuffix()` to include each node's `description` field in the hierarchical tree view sent to Claude, giving it full context about every existing node before responding.
-
 ## TICKET-010: Suggested follow — 2026-03-24
 Commit: f00b65bc1b4fcf83ff7b589be1f41537a0450af0
 After each AI response, the API generates 2-3 short contextual follow-up suggestions using claude-haiku. These appear as clickable pill buttons below the conversation. Clicking a suggestion sends it as the next message and clears the suggestions.
@@ -280,3 +276,7 @@ Added a per-node status glow using the existing shared atmosphere sphere geometr
 ## TICKET-058: View switcher UI — 2026-03-25
 Commit: 9b360c2
 Extracted the inline view-mode button group from the tree page into a standalone `ViewSwitcher` component. The 7-view segmented toggle (🪐 Solar, 🌿 Tree, 📅 Gantt, 🕸️ Graph, 🧠 Memory, 📋 Board, 🗺️ Map) now lives in its own file, reads state directly from `useTreeStore`, and is referenced from the page with a single element. The view options array makes it easy to add future views without touching the render logic. Behaviour is identical to before — active view is highlighted in indigo, all transitions work, and TypeScript compiles clean with no regressions.
+
+## TICKET-059: Force-directed layout engine — 2026-03-25
+Commit: 082b166
+Force-directed layout engine is fully implemented for the Weight Graph view: Coulomb repulsion keeps nodes apart, Hooke springs along edges cluster connected nodes, center gravity prevents drift, an alpha cooling schedule makes the simulation converge smoothly, and a restart button lets users re-run the physics from a fresh layout.
