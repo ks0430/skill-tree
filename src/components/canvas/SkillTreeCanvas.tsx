@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useEffect, useState } from "react";
+import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -213,17 +213,22 @@ function CameraController() {
 const BATCH_SIZE = 8;  // nodes per frame
 const BATCH_DELAY = 1; // frames between batches
 
-function StaggeredNodes({ nodes, nodeMap }: { nodes: Node3D[]; nodeMap: Map<string, Node3D> }) {
-  // Stellars mount immediately, planets stagger in batches
+function StaggeredNodes({ nodes, nodeMap, onProgress }: {
+  nodes: Node3D[];
+  nodeMap: Map<string, Node3D>;
+  onProgress: (loaded: number, total: number) => void;
+}) {
   const stellars = useMemo(() => nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar"), [nodes]);
   const planets = useMemo(() => nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar"), [nodes]);
   const [mountedCount, setMountedCount] = useState(0);
 
   useEffect(() => {
-    setMountedCount(0); // reset when nodes change
+    setMountedCount(0);
+    onProgress(0, planets.length);
   }, [planets.length]);
 
   useEffect(() => {
+    onProgress(mountedCount, planets.length);
     if (mountedCount >= planets.length) return;
     let frame = 0;
     let raf: number;
@@ -252,7 +257,7 @@ function StaggeredNodes({ nodes, nodeMap }: { nodes: Node3D[]; nodeMap: Map<stri
   );
 }
 
-function Scene() {
+function Scene({ onProgress }: { onProgress: (loaded: number, total: number) => void }) {
   const nodes = useTreeStore((s) => s.nodes);
   const topDownMode = useTreeStore((s) => s.topDownMode);
 
@@ -305,12 +310,18 @@ function Scene() {
 
       <EdgeRenderer />
 
-      <StaggeredNodes nodes={nodes} nodeMap={orbitalData.nodeMap} />
+      <StaggeredNodes nodes={nodes} nodeMap={orbitalData.nodeMap} onProgress={onProgress} />
     </>
   );
 }
 
 export function SkillTreeCanvas() {
+  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number } | null>(null);
+  const handleProgress = useCallback((loaded: number, total: number) => {
+    if (loaded >= total) setLoadProgress(null);
+    else setLoadProgress({ loaded, total });
+  }, []);
+
   const hoveredNodeId = useTreeStore((s) => s.hoveredNodeId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
@@ -362,10 +373,32 @@ export function SkillTreeCanvas() {
         style={{ background: "#0a0e1a" }}
       >
         <Suspense fallback={null}>
-          <Scene />
+          <Scene onProgress={handleProgress} />
         </Suspense>
         <CameraController />
       </Canvas>
+      {/* Node loading progress overlay */}
+      {loadProgress && (
+        <div style={{
+          position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)",
+          zIndex: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+          background: "rgba(10,14,26,0.85)", border: "1px solid rgba(148,163,184,0.15)",
+          borderRadius: 8, padding: "8px 16px", backdropFilter: "blur(8px)",
+        }}>
+          <div style={{ fontFamily: "monospace", fontSize: 10, color: "#64748b", letterSpacing: "0.08em" }}>
+            LOADING NODES {loadProgress.loaded}/{loadProgress.total}
+          </div>
+          <div style={{ width: 160, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2 }}>
+            <div style={{
+              height: "100%", borderRadius: 2,
+              width: `${Math.round((loadProgress.loaded / loadProgress.total) * 100)}%`,
+              background: "linear-gradient(90deg, #6366f1, #818cf8)",
+              transition: "width 0.1s ease",
+            }} />
+          </div>
+        </div>
+      )}
+
       {/* Orthographic pan/zoom controls — shown only in top-down mode */}
       {topDownMode && (
         <div className="absolute bottom-12 right-14 z-10 flex flex-col gap-1">
