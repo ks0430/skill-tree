@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useEffect } from "react";
+import { Suspense, useMemo, useRef, useEffect, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -210,6 +210,48 @@ function CameraController() {
 
 
 
+const BATCH_SIZE = 8;  // nodes per frame
+const BATCH_DELAY = 1; // frames between batches
+
+function StaggeredNodes({ nodes, nodeMap }: { nodes: Node3D[]; nodeMap: Map<string, Node3D> }) {
+  // Stellars mount immediately, planets stagger in batches
+  const stellars = useMemo(() => nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar"), [nodes]);
+  const planets = useMemo(() => nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar"), [nodes]);
+  const [mountedCount, setMountedCount] = useState(0);
+
+  useEffect(() => {
+    setMountedCount(0); // reset when nodes change
+  }, [planets.length]);
+
+  useEffect(() => {
+    if (mountedCount >= planets.length) return;
+    let frame = 0;
+    let raf: number;
+    function tick() {
+      frame++;
+      if (frame % BATCH_DELAY === 0) {
+        setMountedCount((c) => Math.min(c + BATCH_SIZE, planets.length));
+      }
+      if (mountedCount + BATCH_SIZE < planets.length) {
+        raf = requestAnimationFrame(tick);
+      }
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [mountedCount, planets.length]);
+
+  return (
+    <>
+      {stellars.map((node) => (
+        <SkillNode3D key={node.id} node={node} parentMap={nodeMap} />
+      ))}
+      {planets.slice(0, mountedCount).map((node) => (
+        <SkillNode3D key={node.id} node={node} parentMap={nodeMap} />
+      ))}
+    </>
+  );
+}
+
 function Scene() {
   const nodes = useTreeStore((s) => s.nodes);
   const topDownMode = useTreeStore((s) => s.topDownMode);
@@ -263,9 +305,7 @@ function Scene() {
 
       <EdgeRenderer />
 
-      {nodes.map((node) => (
-        <SkillNode3D key={node.id} node={node} parentMap={orbitalData.nodeMap} />
-      ))}
+      <StaggeredNodes nodes={nodes} nodeMap={orbitalData.nodeMap} />
     </>
   );
 }
