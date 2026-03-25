@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -52,6 +52,17 @@ export function GanttView() {
     const diff = (today.getTime() - layout.epochDate.getTime()) / (1000 * 60 * 60 * 24);
     return Math.round(diff * PX_PER_DAY);
   }, [layout.epochDate]);
+
+  // Auto-scroll to center today on mount
+  useEffect(() => {
+    if (todayOffset <= 0) return;
+    const containerWidth = containerRef.current?.clientWidth ?? 800;
+    const viewableWidth = containerWidth - LABEL_COL_WIDTH;
+    // Center today in the visible timeline
+    const target = Math.max(0, todayOffset - Math.floor(viewableWidth / 2));
+    setScrollLeft(target);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayOffset]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
@@ -278,7 +289,8 @@ export function GanttView() {
                   left: todayOffset,
                   top: 0,
                   bottom: 0,
-                  borderLeft: "1.5px solid rgba(245,158,11,0.4)",
+                  borderLeft: "2px solid rgba(245,158,11,0.75)",
+                  boxShadow: "0 0 6px 1px rgba(245,158,11,0.35)",
                   pointerEvents: "none",
                   zIndex: 1,
                 }}
