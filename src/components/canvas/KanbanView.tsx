@@ -226,32 +226,33 @@ export function KanbanView() {
       className="w-full h-full relative overflow-hidden select-none"
       style={{ background: "#0a0e1a" }}
     >
-      {/* Phase filter bar */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-1 flex-wrap shrink-0">
+      {/* Phase filter — compact dropdown */}
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1 shrink-0">
         <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase:</span>
-        <button
-          onClick={() => setPhaseFilter(null)}
+        <select
+          value={phaseFilter ?? ""}
+          onChange={(e) => setPhaseFilter(e.target.value === "" ? null : Number(e.target.value))}
           style={{
-            fontFamily: "monospace", fontSize: 10, padding: "2px 8px", borderRadius: 4,
-            border: `1px solid ${phaseFilter === null ? "#818cf8" : "rgba(148,163,184,0.2)"}`,
-            background: phaseFilter === null ? "rgba(129,140,248,0.15)" : "transparent",
-            color: phaseFilter === null ? "#818cf8" : "#64748b", cursor: "pointer",
+            fontFamily: "monospace", fontSize: 11,
+            background: "rgba(15,23,42,0.8)",
+            border: "1px solid rgba(148,163,184,0.2)",
+            borderRadius: 4, padding: "2px 8px",
+            color: phaseFilter === null ? "#64748b" : "#818cf8",
+            cursor: "pointer", outline: "none",
           }}
-        >All</button>
-        {phases.map((p) => (
+        >
+          <option value="">All phases</option>
+          {phases.map((p) => (
+            <option key={p.id} value={p.phase}>Phase {p.phase}</option>
+          ))}
+        </select>
+        {phaseFilter !== null && (
           <button
-            key={p.id}
-            onClick={() => setPhaseFilter(phaseFilter === p.phase ? null : p.phase)}
-            style={{
-              fontFamily: "monospace", fontSize: 10, padding: "2px 8px", borderRadius: 4,
-              border: `1px solid ${phaseFilter === p.phase ? "#818cf8" : "rgba(148,163,184,0.2)"}`,
-              background: phaseFilter === p.phase ? "rgba(129,140,248,0.15)" : "transparent",
-              color: phaseFilter === p.phase ? "#818cf8" : "#64748b", cursor: "pointer",
-              maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}
-            title={p.label}
-          >Phase {p.phase}</button>
-        ))}
+            onClick={() => setPhaseFilter(null)}
+            style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}
+            title="Clear filter"
+          >✕</button>
+        )}
       </div>
 
       {/* Column layout */}
