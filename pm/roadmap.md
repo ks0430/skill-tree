@@ -51,7 +51,7 @@ _Auto-exported from SkillForge DB on 2026-03-25. Edit in the DB, not here._
 - [x] ITEM-039: Today marker — vertical line at current date in Gantt view
 
 ## Phase 8: Weight Graph View
-- [ ] ITEM-041: Force — directed layout engine (spring physics, repulsion)
+- [x] ITEM-041: Force — directed layout engine (spring physics, repulsion)
 - [x] ITEM-042: Edge weight visualisation — line thickness + opacity by weight
 
 ## Phase 9: Memory Map View

@@ -72,8 +72,11 @@ export function WeightGraphView() {
 
   // Animated node positions — start from batch layout, then settle
   const [forceNodes, setForceNodes] = useState<ForceNode[]>([]);
+  const [simRunning, setSimRunning] = useState(false);
   const animFrameRef = useRef<number | null>(null);
   const forceNodesRef = useRef<ForceNode[]>([]);
+  // Alpha cooling: starts at 1.0 and decays toward 0 as the simulation settles
+  const alphaRef = useRef(1.0);
 
   // Build ForceEdge list from store edges
   const forceEdges = useMemo<ForceEdge[]>(() => {
@@ -101,8 +104,11 @@ export function WeightGraphView() {
     forceNodesRef.current = initial;
     setForceNodes([...initial]);
 
-    // Continue settling with animation
+    // Continue settling with animated alpha-cooled simulation
     let stopped = false;
+    alphaRef.current = 1.0;
+    setSimRunning(true);
+
     const stepCfg = {
       springLength: 180,
       springK: 0.04,
@@ -112,12 +118,19 @@ export function WeightGraphView() {
       minDist: 30,
     };
 
+    const ALPHA_DECAY = 0.995; // cooling rate per frame
+    const ALPHA_MIN = 0.001;   // stop threshold
+
     const tick = () => {
       if (stopped) return;
-      const maxV = stepForce(forceNodesRef.current, forceEdges, stepCfg);
+      const alpha = alphaRef.current;
+      const maxV = stepForce(forceNodesRef.current, forceEdges, stepCfg, alpha);
       setForceNodes([...forceNodesRef.current]);
-      if (maxV > 0.15) {
+      alphaRef.current *= ALPHA_DECAY;
+      if (maxV > 0.05 && alphaRef.current > ALPHA_MIN) {
         animFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        setSimRunning(false);
       }
     };
     animFrameRef.current = requestAnimationFrame(tick);
@@ -125,9 +138,53 @@ export function WeightGraphView() {
     return () => {
       stopped = true;
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+      setSimRunning(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, edges.length]);
+
+  // Restart the simulation from a fresh random seed
+  const restartSim = useCallback(() => {
+    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    const nodeIds = nodes.map((n) => n.id);
+    if (nodeIds.length === 0) return;
+
+    const initial = computeForceLayout(nodeIds, forceEdges, {
+      width: CANVAS_W,
+      height: CANVAS_H,
+      iterations: 80,
+    });
+    forceNodesRef.current = initial;
+    setForceNodes([...initial]);
+
+    alphaRef.current = 1.0;
+    setSimRunning(true);
+
+    const stepCfg = {
+      springLength: 180,
+      springK: 0.04,
+      repulsionK: 8000,
+      damping: 0.8,
+      iterations: 150,
+      minDist: 30,
+    };
+
+    const ALPHA_DECAY = 0.995;
+    const ALPHA_MIN = 0.001;
+
+    const tick = () => {
+      const alpha = alphaRef.current;
+      const maxV = stepForce(forceNodesRef.current, forceEdges, stepCfg, alpha);
+      setForceNodes([...forceNodesRef.current]);
+      alphaRef.current *= ALPHA_DECAY;
+      if (maxV > 0.05 && alphaRef.current > ALPHA_MIN) {
+        animFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        setSimRunning(false);
+      }
+    };
+    animFrameRef.current = requestAnimationFrame(tick);
+  }, [nodes, forceEdges]);
 
   // Build node lookup map (id → Node3D)
   const nodeMap = useMemo(
@@ -376,9 +433,18 @@ export function WeightGraphView() {
 
       <SearchPanel />
 
-      {/* Hint */}
-      <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
-        Force graph — node size = connections · edge thickness = weight · drag to pan · scroll to zoom · / to search
+      {/* Controls */}
+      <div className="absolute bottom-4 left-4 flex items-center gap-3">
+        <span className="text-[10px] text-slate-600 pointer-events-none">
+          Force graph — node size = connections · edge thickness = weight · drag to pan · scroll to zoom · / to search
+        </span>
+        <button
+          onClick={restartSim}
+          title="Restart force simulation"
+          className="text-[10px] px-2 py-0.5 rounded border border-slate-700 text-slate-400 hover:text-white hover:border-indigo-500 transition-colors font-mono"
+        >
+          {simRunning ? "⚡ settling…" : "↺ restart"}
+        </button>
       </div>
     </div>
   );

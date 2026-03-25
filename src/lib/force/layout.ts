@@ -88,12 +88,23 @@ const DEFAULTS: Required<Omit<ForceConfig, "width" | "height">> = {
 
 /**
  * Apply one tick of force simulation to `nodes` in-place.
+ *
+ * Forces applied each tick:
+ *   1. Coulomb repulsion — every node pair pushes apart (inverse-square law).
+ *   2. Hooke spring attraction — connected node pairs pull toward ideal length.
+ *   3. Center gravity — weak pull toward canvas centre prevents graph drift.
+ *
  * Returns the maximum velocity magnitude (useful for detecting convergence).
+ *
+ * @param alpha  Cooling factor in [0, 1]. Multiply forces by alpha so the
+ *               simulation gradually settles. Pass 1.0 for no cooling (batch
+ *               mode), or decrease each frame for animated settlement.
  */
 export function stepForce(
   nodes: ForceNode[],
   edges: ForceEdge[],
-  cfg: Required<Omit<ForceConfig, "width" | "height">>
+  cfg: Required<Omit<ForceConfig, "width" | "height">>,
+  alpha = 1.0
 ): number {
   const { springLength, springK, repulsionK, damping, minDist } = cfg;
 
@@ -104,7 +115,7 @@ export function stepForce(
   const fx = new Float64Array(nodes.length);
   const fy = new Float64Array(nodes.length);
 
-  // ── Repulsion: every pair of nodes pushes apart ──────────────────────────
+  // ── Repulsion: every pair of nodes pushes apart (Coulomb) ────────────────
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const dx = nodes[i].x - nodes[j].x;
@@ -121,7 +132,7 @@ export function stepForce(
     }
   }
 
-  // ── Spring attraction: edges pull endpoints toward each other ─────────────
+  // ── Spring attraction: edges pull endpoints toward each other (Hooke) ────
   for (const e of edges) {
     const si = idx.get(e.source);
     const ti = idx.get(e.target);
@@ -142,11 +153,19 @@ export function stepForce(
     fy[ti] -= force * uy;
   }
 
-  // ── Integrate: update velocity + position ────────────────────────────────
+  // ── Center gravity: weak pull toward origin prevents unbounded drift ──────
+  // Strength scales with distance from origin so distant nodes are pulled more.
+  const GRAVITY_K = 0.005;
+  for (let i = 0; i < nodes.length; i++) {
+    fx[i] -= nodes[i].x * GRAVITY_K;
+    fy[i] -= nodes[i].y * GRAVITY_K;
+  }
+
+  // ── Integrate with cooling: update velocity + position ───────────────────
   let maxV = 0;
   for (let i = 0; i < nodes.length; i++) {
-    nodes[i].vx = (nodes[i].vx + fx[i]) * damping;
-    nodes[i].vy = (nodes[i].vy + fy[i]) * damping;
+    nodes[i].vx = (nodes[i].vx + fx[i] * alpha) * damping;
+    nodes[i].vy = (nodes[i].vy + fy[i] * alpha) * damping;
     nodes[i].x += nodes[i].vx;
     nodes[i].y += nodes[i].vy;
     const v = Math.sqrt(nodes[i].vx ** 2 + nodes[i].vy ** 2);
