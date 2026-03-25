@@ -10,6 +10,7 @@ import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { MemoryMapView } from "@/components/canvas/MemoryMapView";
 import { KanbanView } from "@/components/canvas/KanbanView";
+import { WorldMapView } from "@/components/canvas/WorldMapView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
@@ -212,6 +213,17 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             >
               📋 Board
             </button>
+            <button
+              onClick={() => setViewMode("worldmap")}
+              title="World Map view (RPG-style dependency map)"
+              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
+                viewMode === "worldmap"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              🗺️ Map
+            </button>
           </div>
 
           <button
@@ -246,6 +258,8 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             <WeightGraphView />
           ) : viewMode === "memory" ? (
             <MemoryMapView />
+          ) : viewMode === "worldmap" ? (
+            <WorldMapView />
           ) : (
             <KanbanView />
           )}

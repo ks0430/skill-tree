@@ -31,7 +31,7 @@ export interface NewEdgeInput {
   metadata?: Record<string, unknown> | null;
 }
 
-export type ViewMode = "solar" | "tree" | "gantt" | "weight" | "memory" | "kanban";
+export type ViewMode = "solar" | "tree" | "gantt" | "weight" | "memory" | "kanban" | "worldmap";
 
 interface TreeState {
   treeId: string | null;

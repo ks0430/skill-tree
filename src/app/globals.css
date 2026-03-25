@@ -58,3 +58,23 @@ canvas {
 .node-status-completed {
   animation: node-glow-green 2.4s ease-in-out infinite;
 }
+
+/* World Map view animations */
+@keyframes wm-pulse {
+  0%, 100% { r: 14; opacity: 0.6; }
+  50%       { r: 20; opacity: 0.15; }
+}
+
+@keyframes wm-glow {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.75; }
+}
+
+.wm-pulse-ring {
+  animation: wm-pulse 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.wm-glow-ring {
+  animation: wm-glow 2.4s ease-in-out infinite;
+}
