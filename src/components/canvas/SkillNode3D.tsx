@@ -189,7 +189,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
 
-    // Skip expensive animation for nodes far from camera (no React state — pure ref check)
+    // Distance-based visibility culling — toggle Three.js visible flag directly (no React state)
     if (groupRef.current) {
       const dx = camera.position.x - groupRef.current.position.x;
       const dy = camera.position.y - groupRef.current.position.y;
@@ -197,7 +197,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
       const distSq = dx * dx + dy * dy + dz * dz;
       const role = node.data.type ?? node.data.role;
       const cullDistSq = role === "stellar" ? Infinity : role === "planet" ? 3600 : 900; // 60^2, 30^2
-      if (distSq > cullDistSq) return;
+      const shouldBeVisible = distSq <= cullDistSq;
+      if (groupRef.current.visible !== shouldBeVisible) {
+        groupRef.current.visible = shouldBeVisible;
+      }
+      if (!shouldBeVisible) return;
     }
 
     if (planetRef.current) planetRef.current.rotation.y = t * config.rotationSpeed;
