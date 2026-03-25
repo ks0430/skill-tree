@@ -8,6 +8,7 @@ import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
 import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
+import { MemoryMapView } from "@/components/canvas/MemoryMapView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
@@ -188,6 +189,17 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             >
               🕸️ Graph
             </button>
+            <button
+              onClick={() => setViewMode("memory")}
+              title="Memory Map view (associative, edge-type-weighted)"
+              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
+                viewMode === "memory"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              🧠 Memory
+            </button>
           </div>
 
           <button
@@ -218,8 +230,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             <SkillTreeView2D />
           ) : viewMode === "gantt" ? (
             <GanttView />
-          ) : (
+          ) : viewMode === "weight" ? (
             <WeightGraphView />
+          ) : (
+            <MemoryMapView />
           )}
         </div>
 

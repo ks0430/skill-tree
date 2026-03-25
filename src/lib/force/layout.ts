@@ -10,7 +10,20 @@
  *   - Simulation runs for a fixed number of iterations (non-animated, returns
  *     stable positions) but the WeightGraph component can also call
  *     `stepForce` incrementally for animated settlement.
+ *
+ * Memory Map extension:
+ *   - `ForceEdge` carries an optional `edgeType` field.
+ *   - `MEMORY_MAP_PULL_STRENGTH` defines per-type spring multipliers:
+ *       parent       → 2.0  (strong hierarchical pull — cluster children near parents)
+ *       depends_on   → 1.4  (moderate dependency pull)
+ *       blocks       → 1.2  (slightly weaker blocker pull)
+ *       related      → 0.5  (soft associative drift)
+ *       references   → 0.3  (very soft citation link)
+ *   - Weight-graph view ignores `edgeType` and uses only `weight`.
+ *   - Memory-map view multiplies `weight` by the type multiplier.
  */
+
+import type { EdgeType } from "@/types/skill-tree";
 
 export interface ForceNode {
   id: string;
@@ -26,7 +39,23 @@ export interface ForceEdge {
   source: string;
   target: string;
   weight: number; // 0–1 (or higher); 1 = default spring strength
+  /** Optional edge type — used by memory map for tiered pull strengths. */
+  edgeType?: EdgeType;
 }
+
+/**
+ * Per-edge-type spring-strength multipliers for the Memory Map view.
+ * `parent` edges cluster children tightly; `references` edges provide only a
+ * faint gravitational hint — reflecting how semantic closeness differs from
+ * structural hierarchy.
+ */
+export const MEMORY_MAP_PULL_STRENGTH: Record<EdgeType, number> = {
+  parent: 2.0,
+  depends_on: 1.4,
+  blocks: 1.2,
+  related: 0.5,
+  references: 0.3,
+};
 
 export interface ForceConfig {
   /** Canvas area (layout will be centred in this box). */
@@ -192,6 +221,105 @@ export function computeForceLayout(
   // Centre the layout in the canvas
   const mx = nodes.reduce((s, n) => s + n.x, 0) / Math.max(n, 1);
   const my = nodes.reduce((s, n) => s + n.y, 0) / Math.max(n, 1);
+  const shift = { x: cx - mx, y: cy - my };
+  nodes.forEach((nd) => {
+    nd.x += shift.x;
+    nd.y += shift.y;
+  });
+
+  return nodes;
+}
+
+// ─── Memory Map Layout ────────────────────────────────────────────────────────
+
+/**
+ * Run the force simulation for the Memory Map view.
+ *
+ * Identical to `computeForceLayout` except each edge's effective spring
+ * constant is multiplied by `MEMORY_MAP_PULL_STRENGTH[edgeType]` so that
+ * hierarchical (`parent`) edges cluster nodes tightly while associative
+ * (`related`, `references`) edges provide only a gentle semantic drift.
+ *
+ * The effective weight passed to the spring calculation is:
+ *   effectiveWeight = edge.weight * typeMultiplier
+ *
+ * Memory-map-specific defaults differ slightly from the weight-graph to
+ * produce looser, more organic clustering:
+ *   - Shorter spring length (tighter clusters overall)
+ *   - Lower repulsion (nodes can sit closer together)
+ *   - More iterations (softer edges need more time to settle)
+ */
+export function computeMemoryMapLayout(
+  nodeIds: string[],
+  edges: ForceEdge[],
+  config: ForceConfig
+): ForceNode[] {
+  const memoryDefaults = {
+    ...DEFAULTS,
+    springLength: 140,
+    springK: 0.05,
+    repulsionK: 6000,
+    damping: 0.78,
+    iterations: 300,
+  };
+
+  const cfg = { ...memoryDefaults, ...config } as Required<Omit<ForceConfig, "width" | "height">> & ForceConfig;
+  const { width, height, iterations, minDist } = cfg as Required<ForceConfig>;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  // Degree map
+  const degreeMap = new Map<string, number>(nodeIds.map((id) => [id, 0]));
+  for (const e of edges) {
+    degreeMap.set(e.source, (degreeMap.get(e.source) ?? 0) + 1);
+    degreeMap.set(e.target, (degreeMap.get(e.target) ?? 0) + 1);
+  }
+
+  // Seed positions
+  const n = nodeIds.length;
+  let rng = 42;
+  const nextRand = () => {
+    rng = (rng * 1664525 + 1013904223) & 0xffffffff;
+    return (rng >>> 0) / 0xffffffff;
+  };
+
+  const radius = Math.min(width, height) * 0.35;
+  const nodes: ForceNode[] = nodeIds.map((id, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(n, 1);
+    return {
+      id,
+      x: cx + radius * Math.cos(angle) + (nextRand() - 0.5) * 40,
+      y: cy + radius * Math.sin(angle) + (nextRand() - 0.5) * 40,
+      vx: 0,
+      vy: 0,
+      degree: degreeMap.get(id) ?? 0,
+    };
+  });
+
+  // Scale each edge's weight by its type multiplier before simulation
+  const scaledEdges: ForceEdge[] = edges.map((e) => {
+    const typeMultiplier =
+      e.edgeType !== undefined ? (MEMORY_MAP_PULL_STRENGTH[e.edgeType] ?? 1) : 1;
+    return { ...e, weight: (e.weight > 0 ? e.weight : 1) * typeMultiplier };
+  });
+
+  const stepCfg = {
+    springLength: cfg.springLength,
+    springK: cfg.springK,
+    repulsionK: cfg.repulsionK,
+    damping: cfg.damping,
+    iterations,
+    minDist,
+  };
+
+  for (let i = 0; i < iterations; i++) {
+    const maxV = stepForce(nodes, scaledEdges, stepCfg);
+    if (maxV < 0.05) break;
+  }
+
+  // Centre the layout
+  const mx = nodes.reduce((s, nd) => s + nd.x, 0) / Math.max(n, 1);
+  const my = nodes.reduce((s, nd) => s + nd.y, 0) / Math.max(n, 1);
   const shift = { x: cx - mx, y: cy - my };
   nodes.forEach((nd) => {
     nd.x += shift.x;
