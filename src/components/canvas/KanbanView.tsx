@@ -83,6 +83,20 @@ export function KanbanView() {
 
   const supabase = createClient();
 
+  const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
+
+  // Derive available phases from stellar nodes
+  const phases = useMemo(() => {
+    return nodes
+      .filter((n) => (n.data.type ?? n.data.role) === "stellar")
+      .map((n) => ({
+        id: n.id,
+        label: n.data.label,
+        phase: (n.data.properties as Record<string, unknown>)?.phase_number as number ?? 0,
+      }))
+      .sort((a, b) => a.phase - b.phase);
+  }, [nodes]);
+
   // Group nodes into columns, sorted by priority desc
   const columns = useMemo(() => {
     const grouped: Record<"backlog" | "active" | "done", Node3D[]> = {
@@ -92,6 +106,14 @@ export function KanbanView() {
     };
 
     for (const node of nodes) {
+      const nodeType = node.data.type ?? node.data.role;
+      // Skip stellar (phase) nodes — only show planets (tickets)
+      if (nodeType === "stellar") continue;
+      // Apply phase filter
+      if (phaseFilter !== null) {
+        const nodePhase = (node.data.properties as Record<string, unknown>)?.phase as number;
+        if (nodePhase !== phaseFilter) continue;
+      }
       const col = STATUS_COLUMN[node.data.status] ?? "backlog";
       grouped[col].push(node);
     }
@@ -204,9 +226,37 @@ export function KanbanView() {
       className="w-full h-full relative overflow-hidden select-none"
       style={{ background: "#0a0e1a" }}
     >
+      {/* Phase filter bar */}
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1 flex-wrap shrink-0">
+        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase:</span>
+        <button
+          onClick={() => setPhaseFilter(null)}
+          style={{
+            fontFamily: "monospace", fontSize: 10, padding: "2px 8px", borderRadius: 4,
+            border: `1px solid ${phaseFilter === null ? "#818cf8" : "rgba(148,163,184,0.2)"}`,
+            background: phaseFilter === null ? "rgba(129,140,248,0.15)" : "transparent",
+            color: phaseFilter === null ? "#818cf8" : "#64748b", cursor: "pointer",
+          }}
+        >All</button>
+        {phases.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPhaseFilter(phaseFilter === p.phase ? null : p.phase)}
+            style={{
+              fontFamily: "monospace", fontSize: 10, padding: "2px 8px", borderRadius: 4,
+              border: `1px solid ${phaseFilter === p.phase ? "#818cf8" : "rgba(148,163,184,0.2)"}`,
+              background: phaseFilter === p.phase ? "rgba(129,140,248,0.15)" : "transparent",
+              color: phaseFilter === p.phase ? "#818cf8" : "#64748b", cursor: "pointer",
+              maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}
+            title={p.label}
+          >Phase {p.phase}</button>
+        ))}
+      </div>
+
       {/* Column layout */}
       <div
-        className="flex gap-4 p-4 h-full overflow-x-auto overflow-y-hidden"
+        className="flex gap-4 p-4 pt-2 h-full overflow-x-auto overflow-y-hidden"
         style={{ alignItems: "stretch" }}
       >
         {COLUMN_CONFIG.map((col) => {
