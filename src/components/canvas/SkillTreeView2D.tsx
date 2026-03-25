@@ -24,6 +24,8 @@ interface PositionedEdge {
   points: { x: number; y: number }[];
 }
 
+const VIRTUAL_ROOT_ID = "__ROOT__";
+
 function buildDagreLayout(
   nodes: Node3D[],
   edges: { source_id: string; target_id: string; type: string; id: string }[]
@@ -38,7 +40,10 @@ function buildDagreLayout(
   });
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Add all nodes
+  // Add virtual ROOT node (hidden — zero size so dagre treats it as a layout anchor)
+  g.setNode(VIRTUAL_ROOT_ID, { width: 0, height: 0 });
+
+  // Add all real nodes
   nodes.forEach((n) => {
     g.setNode(n.id, { width: NODE_W, height: NODE_H });
   });
@@ -55,6 +60,13 @@ function buildDagreLayout(
         g.setEdge(e.target_id, e.source_id, { id: e.id });
       }
     });
+    // Connect stellars (nodes with no incoming dep-edge) to ROOT
+    const hasIncoming = new Set(depEdges.map((e) => e.source_id));
+    nodes.forEach((n) => {
+      if ((n.data.type ?? n.data.role) === "stellar" && !hasIncoming.has(n.id)) {
+        g.setEdge(VIRTUAL_ROOT_ID, n.id, { id: `${VIRTUAL_ROOT_ID}-${n.id}` });
+      }
+    });
   } else {
     // Fallback: use parent_id hierarchy as edges
     nodes.forEach((n) => {
@@ -63,10 +75,17 @@ function buildDagreLayout(
         g.setEdge(parentId, n.id, { id: `${parentId}-${n.id}` });
       }
     });
+    // Connect all phase stellars (no parent_id) to ROOT
+    nodes.forEach((n) => {
+      if ((n.data.type ?? n.data.role) === "stellar" && !n.data.parent_id) {
+        g.setEdge(VIRTUAL_ROOT_ID, n.id, { id: `${VIRTUAL_ROOT_ID}-${n.id}` });
+      }
+    });
   }
 
   dagre.layout(g);
 
+  // Exclude virtual ROOT from rendered nodes
   const posNodes: PositionedNode[] = nodes.map((n) => {
     const pos = g.node(n.id);
     return {
@@ -78,14 +97,17 @@ function buildDagreLayout(
     };
   });
 
-  const posEdges: PositionedEdge[] = g.edges().map((e) => {
-    const edgeObj = g.edge(e);
-    const edgeId = edgeObj.id ?? `${e.v}-${e.w}`;
-    return {
-      id: edgeId,
-      points: edgeObj.points ?? [],
-    };
-  });
+  // Exclude edges connected to ROOT from rendered edges
+  const posEdges: PositionedEdge[] = g.edges()
+    .filter((e) => e.v !== VIRTUAL_ROOT_ID && e.w !== VIRTUAL_ROOT_ID)
+    .map((e) => {
+      const edgeObj = g.edge(e);
+      const edgeId = edgeObj.id ?? `${e.v}-${e.w}`;
+      return {
+        id: edgeId,
+        points: edgeObj.points ?? [],
+      };
+    });
 
   const graphInfo = g.graph() as { width?: number; height?: number };
   const width = (graphInfo.width ?? 400) + 80;
