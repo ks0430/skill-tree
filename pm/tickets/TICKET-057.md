@@ -4,7 +4,7 @@
 **Roadmap item:** ITEM-031
 **Created:** 2026-03-25T11:10:14Z
 **Completed:** 2026-03-25
-**Commit:**
+**Commit:** 0c6ad01
 
 ## Brief
 locked=dark, in_progress=amber pulse, completed=green glow
