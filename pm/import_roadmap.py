@@ -104,14 +104,16 @@ def parse_roadmap(path):
     phases = []
     current_phase = None
 
+    phase_counter = 0
     with open(path) as f:
         for line in f:
-            # Phase heading
-            m = re.match(r'^##\s+Phase\s+(\d+):\s+(.+)', line)
+            # Phase heading — match "## Phase N:", "## Phase 5c:", "## Phase 12: Title" etc.
+            m = re.match(r'^##\s+Phase\s+([\w]+):\s+(.+)', line)
             if m:
+                phase_counter += 1
                 current_phase = {
-                    "number": int(m.group(1)),
-                    "title": m.group(2).strip(),
+                    "number": phase_counter,
+                    "title": m.group(2).strip().split('(')[0].strip(),  # strip trailing notes
                     "items": []
                 }
                 phases.append(current_phase)

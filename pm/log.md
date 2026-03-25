@@ -4,13 +4,6 @@ Append-only log of completed tickets.
 
 ---
 
-## TICKET-007: acceptAll fix for update_node — 2026-03-24
-Added `removeNode` and `updateNode` from tree-store to the `acceptAll` function in `ChatPanel.tsx`. Previously, bulk accept only handled `add_node` with a TODO comment for the other cases. Now `remove_node` deletes the node and its children from both the store and Supabase, and `update_node` applies field updates to both the store and DB — matching the logic already present in `PendingChange.tsx` for individual accepts.
-
-## TICKET-008: Persist chat messages to Supabase — 2026-03-24
-Commit: 4432836ec6073863598ed73f3209dff90a097846
-Added chat history loading on mount in ChatPanel — fetches up to 50 messages from Supabase `chat_messages` table and populates the store, completing the save/load cycle.
-
 ## TICKET-009: AI context: include current tree nodes in chat prompt — 2026-03-24
 Commit: 35af7723f6933467f73a452f13888e01ba55c09b
 The `/api/chat` route already fetched all tree nodes and passed them to `buildSystemPrompt`. The system prompt was missing node descriptions — added `descriptionSuffix()` to include each node's `description` field in the hierarchical tree view sent to Claude, giving it full context about every existing node before responding.
@@ -279,3 +272,11 @@ The `add_edge` and `remove_edge` tools were already defined in `tools.ts` and wi
 ## TICKET-056: Orthographic top — 2026-03-25
 Commit: 6a6a725
 Upgraded the existing top-down camera preset from a perspective camera locked overhead to a true orthographic projection. When the user presses `T` (or the ⊤ button), a `drei` `OrthographicCamera` replaces the default perspective camera and a `OrthoZoomSync` component keeps its frustum bounds in sync with an `orthoZoom` store value. Two overlay buttons (`+` / `−`) allow stepwise zoom in and out. Pan still works via mouse drag (OrbitControls, rotation locked). Exiting top-down mode restores the original perspective camera automatically.
+
+## TICKET-057: Glow shader on node status — 2026-03-25
+Commit: 0c6ad01
+Added a per-node status glow using the existing shared atmosphere sphere geometry. The glow mesh sits just outside the planet at 1.35× scale and is driven in `useFrame` each frame: locked nodes keep it invisible (dark/dormant feel), in-progress nodes get an amber pulse with a faster sin cycle, and completed nodes get a calm green steady glow. No new geometry or shader was needed — reused `sharedGeo.atmosphere` with a `meshBasicMaterial` color swap and opacity animation.
+
+## TICKET-058: View switcher UI — 2026-03-25
+Commit: 9b360c2
+Extracted the inline view-mode button group from the tree page into a standalone `ViewSwitcher` component. The 7-view segmented toggle (🪐 Solar, 🌿 Tree, 📅 Gantt, 🕸️ Graph, 🧠 Memory, 📋 Board, 🗺️ Map) now lives in its own file, reads state directly from `useTreeStore`, and is referenced from the page with a single element. The view options array makes it easy to add future views without touching the render logic. Behaviour is identical to before — active view is highlighted in indigo, all transitions work, and TypeScript compiles clean with no regressions.
