@@ -294,6 +294,18 @@ export default function DashboardPage() {
               {creating && <Spinner />}
               {creating ? "Creating..." : "Create Galaxy"}
             </button>
+            {/* Example name chips */}
+            <div className="flex flex-wrap gap-2 justify-center mt-2">
+              {["Web Development", "Machine Learning", "System Design", "DevOps"].map((example) => (
+                <button
+                  key={example}
+                  onClick={() => setNewName(example)}
+                  className="px-3 py-1 rounded-full text-xs border border-glass-border text-slate-400 hover:text-white hover:border-accent-blue/50 transition-colors bg-navy-800/50"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
           </div>
         </motion.div>
       ) : (
