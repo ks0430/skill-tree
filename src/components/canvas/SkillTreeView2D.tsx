@@ -158,6 +158,54 @@ export function SkillTreeView2D() {
   const lastPointer = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Hover state for path highlighting
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+  // Compute full unlock chain: ancestors (prereqs) + hovered node + descendants (dependents)
+  const hoveredChain = useMemo(() => {
+    if (!hoveredNodeId) return null;
+    const depEdges = edges.filter((e) => e.type === "depends_on");
+    const chain = new Set<string>([hoveredNodeId]);
+
+    // Ancestors: edges where source_id === current → target_id is a prerequisite
+    const ancestorQueue = [hoveredNodeId];
+    while (ancestorQueue.length > 0) {
+      const current = ancestorQueue.shift()!;
+      depEdges.forEach((e) => {
+        if (e.source_id === current && !chain.has(e.target_id)) {
+          chain.add(e.target_id);
+          ancestorQueue.push(e.target_id);
+        }
+      });
+    }
+
+    // Descendants: edges where target_id === current → source_id depends on this node
+    const descendantQueue = [hoveredNodeId];
+    while (descendantQueue.length > 0) {
+      const current = descendantQueue.shift()!;
+      depEdges.forEach((e) => {
+        if (e.target_id === current && !chain.has(e.source_id)) {
+          chain.add(e.source_id);
+          descendantQueue.push(e.source_id);
+        }
+      });
+    }
+
+    return chain;
+  }, [hoveredNodeId, edges]);
+
+  // Set of edge IDs that connect nodes within the hovered chain
+  const chainEdgeIds = useMemo(() => {
+    if (!hoveredChain) return null;
+    const ids = new Set<string>();
+    edges.forEach((e) => {
+      if (e.type === "depends_on" && hoveredChain.has(e.source_id) && hoveredChain.has(e.target_id)) {
+        ids.add(e.id);
+      }
+    });
+    return ids;
+  }, [hoveredChain, edges]);
+
   // Build dagre layout from dependency edges
   const { posNodes, posEdges, svgWidth, svgHeight } = useMemo(() => {
     const { posNodes, posEdges, width, height } = buildDagreLayout(nodes, edges);
@@ -235,19 +283,33 @@ export function SkillTreeView2D() {
           >
             <polygon points="0 0, 10 3.5, 0 7" fill="rgba(148,163,184,0.85)" />
           </marker>
+          <marker
+            id="arrowhead-chain"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="#818cf8" />
+          </marker>
         </defs>
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
           {posEdges.map((edge) => {
             const d = pointsToPath(edge.points);
             if (!d) return null;
+            const isChainEdge = chainEdgeIds ? chainEdgeIds.has(edge.id) : false;
+            const isDimmed = hoveredNodeId !== null && !isChainEdge;
             return (
               <path
                 key={edge.id}
                 d={d}
                 fill="none"
-                stroke="rgba(148,163,184,0.7)"
-                strokeWidth={1.5}
-                markerEnd="url(#arrowhead)"
+                stroke={isChainEdge ? "#818cf8" : "rgba(148,163,184,0.7)"}
+                strokeWidth={isChainEdge ? 2.5 : 1.5}
+                strokeOpacity={isDimmed ? 0.15 : 1}
+                markerEnd={isChainEdge ? "url(#arrowhead-chain)" : "url(#arrowhead)"}
+                style={{ transition: "stroke-opacity 0.15s, stroke-width 0.15s" }}
               />
             );
           })}
@@ -271,9 +333,12 @@ export function SkillTreeView2D() {
           const status = node.data.status;
           const isHighlighted = id === searchHighlightId;
           const isPinned = id === pinnedNodeId;
+          const isInChain = hoveredChain ? hoveredChain.has(id) : false;
+          const isHovered = id === hoveredNodeId;
+          const isDimmedByHover = hoveredNodeId !== null && !isInChain;
 
-          // Determine glow class based on status (only when not overridden by pin/highlight)
-          const glowClass = isPinned || isHighlighted
+          // Determine glow class based on status (only when not overridden by pin/highlight/hover)
+          const glowClass = isPinned || isHighlighted || isInChain
             ? ""
             : `node-status-${status}`;
 
@@ -282,6 +347,8 @@ export function SkillTreeView2D() {
               key={id}
               data-node="true"
               onClick={() => setPinnedNode(isPinned ? null : id)}
+              onMouseEnter={() => setHoveredNodeId(id)}
+              onMouseLeave={() => setHoveredNodeId(null)}
               className={glowClass}
               style={{
                 position: "absolute",
@@ -290,14 +357,26 @@ export function SkillTreeView2D() {
                 width: NODE_W,
                 height: NODE_H,
                 borderRadius: 8,
-                border: `1.5px solid ${isPinned ? "#818cf8" : TYPE_BORDER[type] ?? "#475569"}`,
-                background: isPinned
+                border: isHovered
+                  ? "2px solid #a5b4fc"
+                  : isInChain
+                  ? "1.5px solid #818cf8"
+                  : `1.5px solid ${isPinned ? "#818cf8" : TYPE_BORDER[type] ?? "#475569"}`,
+                background: isHovered
+                  ? "rgba(99,102,241,0.28)"
+                  : isInChain
+                  ? "rgba(99,102,241,0.12)"
+                  : isPinned
                   ? "rgba(99,102,241,0.18)"
                   : status === "locked"
                   ? "rgba(10,14,26,0.75)"
                   : "rgba(15,22,41,0.85)",
                 boxShadow: isHighlighted
                   ? "0 0 0 3px #f59e0b"
+                  : isHovered
+                  ? "0 0 10px rgba(129,140,248,0.6)"
+                  : isInChain
+                  ? "0 0 6px rgba(129,140,248,0.3)"
                   : isPinned
                   ? "0 0 0 2px rgba(129,140,248,0.5)"
                   : undefined,
@@ -308,8 +387,8 @@ export function SkillTreeView2D() {
                 justifyContent: "center",
                 padding: "6px 10px",
                 gap: 3,
-                transition: "border-color 0.15s",
-                opacity: status === "locked" ? 0.55 : 1,
+                transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s, opacity 0.15s",
+                opacity: isDimmedByHover ? 0.25 : status === "locked" ? 0.55 : 1,
               }}
             >
               {/* Label */}
