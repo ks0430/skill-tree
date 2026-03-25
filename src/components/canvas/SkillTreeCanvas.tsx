@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { Suspense, useMemo, useRef, useEffect, useState, useCallback, startTransition } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -210,8 +210,8 @@ function CameraController() {
 
 
 
-const BATCH_SIZE = 10;    // nodes per batch
-const BATCH_INTERVAL = 3000; // ms between batches
+const BATCH_SIZE = 2; // nodes per frame — small enough to not block
+
 
 function StaggeredNodes({ nodes, nodeMap, onProgress }: {
   nodes: Node3D[];
@@ -230,10 +230,13 @@ function StaggeredNodes({ nodes, nodeMap, onProgress }: {
   useEffect(() => {
     onProgress(mountedCount, planets.length);
     if (mountedCount >= planets.length) return;
-    const timer = setTimeout(() => {
-      setMountedCount((c) => Math.min(c + BATCH_SIZE, planets.length));
-    }, BATCH_INTERVAL);
-    return () => clearTimeout(timer);
+    // startTransition marks this update as non-urgent — React yields to animation/input first
+    const raf = requestAnimationFrame(() => {
+      startTransition(() => {
+        setMountedCount((c) => Math.min(c + BATCH_SIZE, planets.length));
+      });
+    });
+    return () => cancelAnimationFrame(raf);
   }, [mountedCount, planets.length]);
 
   return (
