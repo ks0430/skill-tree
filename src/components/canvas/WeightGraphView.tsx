@@ -46,6 +46,12 @@ function edgeStrokeWidth(weight: number): number {
   return Math.max(1, Math.min(6, 1 + weight * 3));
 }
 
+/** Map edge weight to base stroke opacity (0.25–0.85).
+ *  Low-weight edges are faint; high-weight edges are vivid. */
+function edgeBaseOpacity(weight: number): number {
+  return Math.max(0.25, Math.min(0.85, 0.25 + weight * 0.6));
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export function WeightGraphView() {
@@ -256,7 +262,8 @@ export function WeightGraphView() {
             const isChain = chainEdgeIds ? chainEdgeIds.has(e.id) : false;
             const isDimmed = hoveredNodeId !== null && !isChain;
             const strokeW = edgeStrokeWidth(e.weight ?? 1);
-            const stroke = isChain ? "#818cf8" : "rgba(148,163,184,0.55)";
+            const baseOpacity = edgeBaseOpacity(e.weight ?? 1);
+            const stroke = isChain ? "#818cf8" : "rgba(148,163,184,0.9)";
 
             return (
               <line
@@ -267,7 +274,7 @@ export function WeightGraphView() {
                 y2={y2}
                 stroke={stroke}
                 strokeWidth={strokeW}
-                strokeOpacity={isDimmed ? 0.08 : 1}
+                strokeOpacity={isDimmed ? 0.06 : baseOpacity}
                 markerEnd={isChain ? "url(#wg-arrow-chain)" : "url(#wg-arrow)"}
                 style={{ transition: "stroke-opacity 0.15s" }}
               />

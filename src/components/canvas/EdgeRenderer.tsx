@@ -74,6 +74,19 @@ function collectPrereqPath(
   return path;
 }
 
+/** Map edge weight (0–1) to a base opacity for 3D lines.
+ *  Low-weight edges are subtle; high-weight edges are vivid. */
+function edgeBaseOpacity3D(weight: number): number {
+  return Math.max(0.15, Math.min(0.65, 0.15 + weight * 0.5));
+}
+
+/** Map edge weight (0–1) to line width (pixels) for 3D lines.
+ *  Three.js LineBasicMaterial only honours linewidth on some renderers,
+ *  but we set it for future compatibility. */
+function edgeLineWidth3D(weight: number): number {
+  return Math.max(1, Math.min(4, 1 + weight * 3));
+}
+
 interface SingleEdgeLineProps {
   edge: SkillEdge;
   isHighlighted: boolean;
@@ -128,7 +141,12 @@ function SingleEdgeLine({ edge, isHighlighted, anyHovered }: SingleEdgeLineProps
       ? (EDGE_COLORS_HOVER[edge.type] ?? DEFAULT_COLOR_HOVER)
       : (EDGE_COLORS[edge.type] ?? DEFAULT_COLOR);
     mat.color.set(targetColor);
-    const targetOpacity = anyHovered ? (isHighlighted ? 0.9 : 0.08) : 0.35;
+    // Base opacity scales with edge weight; highlighted edges boost to 0.9
+    const baseOpacity = edgeBaseOpacity3D(edge.weight ?? 1);
+    const targetOpacity = anyHovered
+      ? (isHighlighted ? 0.9 : 0.06)
+      : baseOpacity;
+    mat.linewidth = edgeLineWidth3D(edge.weight ?? 1);
     mat.opacity += (targetOpacity - mat.opacity) * 0.12;
 
     // Update arrowhead position and orientation
