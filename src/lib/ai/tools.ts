@@ -229,4 +229,46 @@ export const skillTreeTools: Tool[] = [
       required: ["id"],
     },
   },
+  {
+    name: "manage_relationship",
+    description:
+      "Create or remove typed relationship edges between two skill nodes. Use this as the primary way to manage explicit connections. Supports depends_on (prerequisite ordering), related (loose thematic connection), and references (one node cites or points to another for more context).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        action: {
+          type: "string",
+          enum: ["create", "remove"],
+          description: "create = add a new edge; remove = delete an existing edge by ID",
+        },
+        id: {
+          type: "string",
+          description: "Edge ID slug. For create: a unique descriptive slug e.g. 'html-css-dep'. For remove: the ID of the existing edge to delete.",
+        },
+        source_id: {
+          type: "string",
+          description: "ID of the source node. Required for create.",
+        },
+        target_id: {
+          type: "string",
+          description: "ID of the target node. Required for create.",
+        },
+        type: {
+          type: "string",
+          enum: ["depends_on", "related", "references"],
+          description:
+            "depends_on = source is a prerequisite of target (learn source before target); related = loose thematic connection; references = source node cites or links to target for additional context. Required for create.",
+        },
+        label: {
+          type: "string",
+          description: "Optional short label describing the relationship (e.g. 'prerequisite', 'see also').",
+        },
+        weight: {
+          type: "number",
+          description: "Relationship strength 0.1–1.0, default 1.0. Only used for create.",
+        },
+      },
+      required: ["action", "id"],
+    },
+  },
 ];

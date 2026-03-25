@@ -102,6 +102,20 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         });
       } else if (change.action === "remove_edge") {
         await removeEdge(change.params.id as string);
+      } else if (change.action === "manage_relationship") {
+        if (change.params.action === "remove") {
+          await removeEdge(change.params.id as string);
+        } else {
+          // create
+          await addEdge({
+            id: change.params.id as string,
+            source_id: change.params.source_id as string,
+            target_id: change.params.target_id as string,
+            type: (change.params.type as EdgeType) ?? "related",
+            label: (change.params.label as string) ?? null,
+            weight: (change.params.weight as number) ?? 1.0,
+          });
+        }
       } else if (
         change.action === "update_content" ||
         change.action === "set_checklist" ||

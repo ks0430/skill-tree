@@ -63,7 +63,7 @@ Current galaxy: "${treeName}"
 
 ${systemView || "(empty galaxy — no systems yet)"}
 
-Explicit edges (depends_on / related):
+Explicit edges (depends_on / related / references):
 ${edgeView}
 
 RULES — Galaxy structure:
@@ -90,12 +90,14 @@ RULES — Content (checklists + notes):
 13. Prefer update_content over the legacy set_checklist/add_checklist_items tools for new content updates.
 
 RULES — Edges (explicit relationships):
-15. Use add_edge to connect nodes across or within systems when it adds meaningful context.
-16. Use type "depends_on" when one skill is a prerequisite for another (e.g. "html-basics" depends_on before "css-basics").
-17. Use type "related" for loose thematic connections (e.g. "react-state" related to "redux").
-18. Edge IDs should be descriptive slugs: "html-css-dep", "react-redux-related".
-19. Only create edges that are genuinely useful — don't add them by default to every node.
-20. Use remove_edge when the user asks to disconnect two skills.
+15. Use manage_relationship to create or remove typed edges between nodes.
+16. Use type "depends_on" when one skill is a prerequisite for another (e.g. "html-basics" must come before "css-basics"). Set action="create".
+17. Use type "related" for loose thematic connections (e.g. "react-state" and "redux"). Set action="create".
+18. Use type "references" when one node cites or points to another for extra context (e.g. a project node references a theory node). Set action="create".
+19. Edge IDs should be descriptive slugs: "html-css-dep", "react-redux-related", "project-refs-theory".
+20. Only create edges that are genuinely useful — don't add them by default to every node.
+21. To disconnect two nodes, use manage_relationship with action="remove" and the edge ID shown in the edge list above.
+22. You may still use the legacy add_edge / remove_edge tools, but prefer manage_relationship for new operations.
 
 Always explain your actions conversationally.`;
 }

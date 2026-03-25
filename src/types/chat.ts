@@ -23,7 +23,8 @@ export type PendingChangeAction =
   | "add_checklist_items"
   | "update_checklist_item"
   | "add_edge"
-  | "remove_edge";
+  | "remove_edge"
+  | "manage_relationship";
 
 export interface PendingChange {
   id: string;

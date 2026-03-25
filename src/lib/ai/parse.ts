@@ -51,6 +51,11 @@ export function describeChange(change: PendingChange): string {
     }
     case "remove_edge":
       return `Remove edge "${params.id}"`;
+    case "manage_relationship": {
+      if (params.action === "remove") return `Remove relationship "${params.id}"`;
+      const relLabel = params.label ? ` ("${params.label}")` : "";
+      return `Add ${params.type} relationship${relLabel}: "${params.source_id}" → "${params.target_id}"`;
+    }
     default:
       return `${action}`;
   }
