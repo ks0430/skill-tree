@@ -88,7 +88,15 @@ Coding agent writes `pm/agent-heartbeat.json` at start + every ~10 min:
 }
 ```
 
-PM checks: age < 35 min AND node_id matches current in_progress node → alive.
+PM checks: age < 10 min AND node_id matches current in_progress node → alive.
+
+The agent MUST write heartbeat every ~5 min while working. If it stops for 10+ min,
+PM assumes it crashed and re-triggers. For a 1-5 min ticket this means:
+- T+0:  agent starts → writes heartbeat
+- T+3:  agent commits → writes heartbeat  
+- T+5:  agent marks done → PM detects on next tick
+- T+30: PM fires → ticket done → picks next (normal)
+- T+30: PM fires → ticket NOT done + heartbeat 30min old → re-trigger (crashed)
 
 ---
 

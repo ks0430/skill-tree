@@ -18,6 +18,6 @@
     "tree_id": "58dd93f9-726a-498c-982e-d89a8aa538b9"
   },
   "coding_agent_webhook": "",
-  "heartbeat_max_age_minutes": 35,
+  "heartbeat_max_age_minutes": 10,
   "max_retriggers": 3
 }
