@@ -6,6 +6,7 @@ import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
+import { GanttView } from "@/components/canvas/GanttView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
@@ -146,6 +147,17 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             >
               🌿 Tree
             </button>
+            <button
+              onClick={() => setViewMode("gantt")}
+              title="Gantt chart view"
+              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
+                viewMode === "gantt"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              📅 Gantt
+            </button>
           </div>
 
           <button
@@ -172,8 +184,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             <CanvasErrorBoundary>
               <SkillTreeCanvas />
             </CanvasErrorBoundary>
-          ) : (
+          ) : viewMode === "tree" ? (
             <SkillTreeView2D />
+          ) : (
+            <GanttView />
           )}
         </div>
 
