@@ -24,9 +24,10 @@ export async function POST(request: Request) {
   }
 
   // Load tree data
-  const [treeRes, nodesRes, messagesRes] = await Promise.all([
+  const [treeRes, nodesRes, edgesRes, messagesRes] = await Promise.all([
     supabase.from("skill_trees").select("*").eq("id", treeId).single(),
     supabase.from("skill_nodes").select("*").eq("tree_id", treeId),
+    supabase.from("skill_edges").select("*").eq("tree_id", treeId),
     supabase
       .from("chat_messages")
       .select("*")
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
     ...n,
     content: parseContent(n.content ?? { blocks: [] }),
   }));
-  const systemPrompt = buildSystemPrompt(treeRes.data.name, nodes);
+  const systemPrompt = buildSystemPrompt(treeRes.data.name, nodes, edgesRes.data ?? []);
 
   // Build conversation history
   const history = (messagesRes.data ?? []).map((m) => ({

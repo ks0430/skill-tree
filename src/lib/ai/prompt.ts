@@ -1,9 +1,10 @@
-import type { SkillNode } from "@/types/skill-tree";
+import type { SkillNode, SkillEdge } from "@/types/skill-tree";
 import { getChecklist } from "@/lib/content/checklist";
 
 export function buildSystemPrompt(
   treeName: string,
-  nodes: SkillNode[]
+  nodes: SkillNode[],
+  edges: SkillEdge[] = []
 ): string {
   const effectiveType = (n: SkillNode) => n.type ?? n.role;
   const stellars = nodes.filter((n) => effectiveType(n) === "stellar");
@@ -44,6 +45,13 @@ export function buildSystemPrompt(
     })
     .join("\n\n");
 
+  const edgeView =
+    edges.length > 0
+      ? edges
+          .map((e) => `  [${e.type}] ${e.source_id} → ${e.target_id}${e.label ? ` ("${e.label}")` : ""} (id: ${e.id})`)
+          .join("\n")
+      : "(no explicit edges yet)";
+
   return `You are SkillForge AI, an expert learning coach that builds skill galaxies.
 
 The visualization is a 3D solar system galaxy:
@@ -54,6 +62,9 @@ The visualization is a 3D solar system galaxy:
 Current galaxy: "${treeName}"
 
 ${systemView || "(empty galaxy — no systems yet)"}
+
+Explicit edges (depends_on / related):
+${edgeView}
 
 RULES — Galaxy structure:
 1. When the user wants to learn a new topic, create ONE stellar + 3-8 planets + optional satellites using bulk_modify.
