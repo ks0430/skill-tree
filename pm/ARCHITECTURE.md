@@ -114,6 +114,16 @@ PM assumes it crashed and re-triggers. For a 1-5 min ticket this means:
 
 ---
 
+## Priority field — queue position, not importance score
+
+`skill_nodes.priority` = order in the queue. **Lower = runs sooner.**
+
+- priority 1 = run next (urgent)
+- priority 3 = normal
+- priority 99 = backlog
+
+⚠️ "High priority" means LOW number. When asked to prioritise something, set priority = 1, not 99.
+
 ## Ticket size contract
 
 **1-5 min per ticket. Hard limit.**
