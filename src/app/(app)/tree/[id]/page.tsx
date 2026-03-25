@@ -13,6 +13,7 @@ import { KanbanView } from "@/components/canvas/KanbanView";
 import { WorldMapView } from "@/components/canvas/WorldMapView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ViewSwitcher } from "@/components/canvas/ViewSwitcher";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
 import { toast } from "sonner";
 
@@ -20,7 +21,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, setViewMode } = useTreeStore();
+  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -146,85 +147,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
         </div>
         <div className="flex items-center gap-2">
           {/* View mode switcher */}
-          <div className="flex items-center rounded border border-glass-border overflow-hidden text-xs font-mono">
-            <button
-              onClick={() => setViewMode("solar")}
-              title="Solar System view (3D)"
-              className={`px-3 py-1.5 transition-colors ${
-                viewMode === "solar"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🪐 Solar
-            </button>
-            <button
-              onClick={() => setViewMode("tree")}
-              title="Skill Tree view (2D)"
-              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
-                viewMode === "tree"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🌿 Tree
-            </button>
-            <button
-              onClick={() => setViewMode("gantt")}
-              title="Gantt chart view"
-              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
-                viewMode === "gantt"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              📅 Gantt
-            </button>
-            <button
-              onClick={() => setViewMode("weight")}
-              title="Weight Graph view (force-directed)"
-              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
-                viewMode === "weight"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🕸️ Graph
-            </button>
-            <button
-              onClick={() => setViewMode("memory")}
-              title="Memory Map view (associative, edge-type-weighted)"
-              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
-                viewMode === "memory"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🧠 Memory
-            </button>
-            <button
-              onClick={() => setViewMode("kanban")}
-              title="Kanban board view (Backlog / Active / Done)"
-              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
-                viewMode === "kanban"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              📋 Board
-            </button>
-            <button
-              onClick={() => setViewMode("worldmap")}
-              title="World Map view (RPG-style dependency map)"
-              className={`px-3 py-1.5 transition-colors border-l border-glass-border ${
-                viewMode === "worldmap"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🗺️ Map
-            </button>
-          </div>
+          <ViewSwitcher />
 
           <button
             onClick={shareTree}
