@@ -152,7 +152,7 @@ export function GanttView() {
               </span>
             </div>
           ))}
-          {/* Today marker on axis */}
+          {/* Today marker on axis — pill chip */}
           {todayOffset >= 0 && (
             <div
               style={{
@@ -162,12 +162,26 @@ export function GanttView() {
                 height: AXIS_HEIGHT,
                 borderLeft: "1.5px solid #f59e0b",
                 display: "flex",
-                alignItems: "flex-start",
-                paddingTop: 4,
-                paddingLeft: 3,
+                alignItems: "center",
+                paddingLeft: 4,
               }}
             >
-              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#f59e0b", whiteSpace: "nowrap" }}>Today</span>
+              <span
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: "#0a0e1a",
+                  background: "#f59e0b",
+                  borderRadius: 3,
+                  padding: "1px 5px",
+                  whiteSpace: "nowrap",
+                  lineHeight: "14px",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </span>
             </div>
           )}
         </div>
