@@ -208,36 +208,39 @@ function CameraController() {
   />;
 }
 
-// Distance-culled node renderer — only renders nodes within camera range
-// Stellars always render; planets/satellites cull beyond threshold
-const PLANET_CULL_DIST = 60;
-const SATELLITE_CULL_DIST = 30;
-const CULL_CHECK_INTERVAL = 8; // frames between cull recalculations
+// Render all nodes but limit based on role — only show stellars + limit planets to MAX_VISIBLE
+const MAX_PLANET_NODES = 30; // show closest 30 planets at a time
 
 function CulledNodes({ nodes, nodeMap }: { nodes: Node3D[]; nodeMap: Map<string, Node3D> }) {
   const { camera } = useThree();
   const frameCount = useRef(0);
-  const [visibleIds, setVisibleIds] = useState<Set<string>>(() => new Set(nodes.map((n) => n.id)));
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(() => {
+    const init = new Set<string>();
+    nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar").forEach((n) => init.add(n.id));
+    nodes.filter((n) => (n.data.type ?? n.data.role) === "planet").slice(0, MAX_PLANET_NODES).forEach((n) => init.add(n.id));
+    return init;
+  });
 
   useFrame(() => {
     frameCount.current++;
-    if (frameCount.current % CULL_CHECK_INTERVAL !== 0) return;
+    if (frameCount.current % 20 !== 0) return; // check every 20 frames
 
     const camPos = camera.position;
     const next = new Set<string>();
 
-    for (const node of nodes) {
-      const role = node.data.type ?? node.data.role;
-      if (role === "stellar") {
-        next.add(node.id);
-        continue;
-      }
-      const [x, y, z] = node.position;
+    // Always show stellars
+    const stellars = nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar");
+    stellars.forEach((n) => next.add(n.id));
+
+    // Sort planets by distance, show closest MAX_PLANET_NODES
+    const planets = nodes.filter((n) => (n.data.type ?? n.data.role) === "planet");
+    const withDist = planets.map((n) => {
+      const [x, y, z] = n.position;
       const dx = camPos.x - x, dy = camPos.y - y, dz = camPos.z - z;
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const threshold = role === "satellite" ? SATELLITE_CULL_DIST : PLANET_CULL_DIST;
-      if (dist <= threshold) next.add(node.id);
-    }
+      return { id: n.id, dist: dx * dx + dy * dy + dz * dz };
+    });
+    withDist.sort((a, b) => a.dist - b.dist);
+    withDist.slice(0, MAX_PLANET_NODES).forEach((n) => next.add(n.id));
 
     setVisibleIds((prev) => {
       if (prev.size === next.size && [...next].every((id) => prev.has(id))) return prev;
@@ -286,7 +289,7 @@ function Scene() {
           <OrthoZoomSync />
         </>
       )}
-      <Stars radius={80} depth={50} count={800} factor={3} saturation={0.3} fade speed={0} />
+      <Stars radius={80} depth={50} count={300} factor={3} saturation={0.3} fade speed={0} />
 
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={0.8} color="#ffffff" />
@@ -359,9 +362,10 @@ export function SkillTreeCanvas() {
     <div className="w-full h-full relative">
       <Canvas
         camera={{ position: [0, 15, 30], fov: 60, near: 0.1, far: 300 }}
-        gl={{ antialias: true, alpha: true, powerPreference: "high-performance", stencil: false, depth: true }}
-        dpr={[1, 1.5]}
+        gl={{ antialias: false, alpha: true, powerPreference: "high-performance", stencil: false, depth: true }}
+        dpr={[1, 1]}
         frameloop="always"
+        performance={{ min: 0.5 }}
         style={{ background: "#0a0e1a" }}
       >
         <Suspense fallback={null}>
