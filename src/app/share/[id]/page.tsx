@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { ReadOnlyCanvas } from "@/components/canvas/ReadOnlyCanvas";
+import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import type { SkillNode } from "@/types/skill-tree";
 
 export default function SharePage({ params }: { params: Promise<{ id: string }> }) {
@@ -77,7 +78,9 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
       </header>
 
       <div className="flex-1 overflow-hidden">
-        <ReadOnlyCanvas />
+        <CanvasErrorBoundary>
+          <ReadOnlyCanvas />
+        </CanvasErrorBoundary>
       </div>
     </div>
   );
