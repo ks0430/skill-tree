@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -84,6 +84,19 @@ export function KanbanView() {
   const supabase = createClient();
 
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
+  const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
+  const phaseDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(e.target as Node)) {
+        setPhaseDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   // Derive available phases from stellar nodes
   const phases = useMemo(() => {
@@ -226,52 +239,63 @@ export function KanbanView() {
       className="w-full h-full relative overflow-hidden select-none"
       style={{ background: "#0a0e1a" }}
     >
-      {/* Phase filter — styled pill dropdown */}
+      {/* Phase filter — custom dropdown */}
       <div className="flex items-center gap-2 px-4 pt-3 pb-1 shrink-0">
         <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Filter</span>
-        <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-          <select
-            value={phaseFilter ?? ""}
-            onChange={(e) => setPhaseFilter(e.target.value === "" ? null : Number(e.target.value))}
+        <div ref={phaseDropdownRef} style={{ position: "relative" }}>
+          {/* Trigger button */}
+          <button
+            onClick={() => setPhaseDropdownOpen((o) => !o)}
             style={{
               fontFamily: "monospace", fontSize: 11,
               background: phaseFilter !== null ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
-              borderRadius: 20,
-              padding: "4px 28px 4px 12px",
+              borderRadius: 20, padding: "4px 10px 4px 12px",
               color: phaseFilter !== null ? "#a5b4fc" : "#64748b",
-              cursor: "pointer", outline: "none",
-              appearance: "none",
-              WebkitAppearance: "none",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
               transition: "all 0.15s",
             }}
           >
-            <option value="">All phases</option>
-            {phases.map((p) => (
-              <option key={p.id} value={p.phase}>Phase {p.phase}</option>
-            ))}
-          </select>
-          {/* Chevron icon */}
-          <svg
-            style={{ position: "absolute", right: 8, pointerEvents: "none", color: phaseFilter !== null ? "#a5b4fc" : "#475569" }}
-            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+            {phaseFilter !== null ? `Phase ${phaseFilter}` : "All phases"}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ transform: phaseDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {/* Custom dropdown menu */}
+          {phaseDropdownOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
+              background: "#0f172a", border: "1px solid rgba(148,163,184,0.15)",
+              borderRadius: 8, padding: "4px 0", minWidth: 130,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+              maxHeight: 260, overflowY: "auto",
+            }}>
+              {[{ label: "All phases", value: null }, ...phases.map((p) => ({ label: `Phase ${p.phase}`, value: p.phase }))].map((opt) => (
+                <button
+                  key={opt.value ?? "all"}
+                  onClick={() => { setPhaseFilter(opt.value); setPhaseDropdownOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    width: "100%", padding: "7px 14px", textAlign: "left",
+                    fontFamily: "monospace", fontSize: 11,
+                    background: phaseFilter === opt.value ? "rgba(129,140,248,0.12)" : "transparent",
+                    color: phaseFilter === opt.value ? "#a5b4fc" : "#94a3b8",
+                    border: "none", cursor: "pointer",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = phaseFilter === opt.value ? "rgba(129,140,248,0.12)" : "transparent")}
+                >
+                  {phaseFilter === opt.value && <span style={{ color: "#a5b4fc", fontSize: 10 }}>✓</span>}
+                  {phaseFilter !== opt.value && <span style={{ width: 14 }} />}
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {phaseFilter !== null && (
-          <button
-            onClick={() => setPhaseFilter(null)}
-            style={{
-              fontFamily: "monospace", fontSize: 10,
-              color: "#64748b", background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(148,163,184,0.15)",
-              borderRadius: 20, padding: "3px 8px",
-              cursor: "pointer", transition: "all 0.15s",
-            }}
-            title="Clear filter"
-          >✕ clear</button>
-        )}
       </div>
 
       {/* Column layout */}
