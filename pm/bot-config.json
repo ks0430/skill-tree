@@ -17,7 +17,7 @@
     "service_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuYW5pbHhrYWZvdW5jYmlnYm5uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDE4NDY4NSwiZXhwIjoyMDg5NzYwNjg1fQ.jWBdlk7NdfTIkDUEFeyhazl_IAZSOYstNduTuF3XAa8",
     "tree_id": "58dd93f9-726a-498c-982e-d89a8aa538b9"
   },
-  "coding_agent_webhook": "",
+  "coding_agent_webhook": "http://localhost:3000/api/coding-agent",
   "heartbeat_max_age_minutes": 10,
   "max_retriggers": 3,
   "openclaw_hooks_url": "http://localhost:18789",
