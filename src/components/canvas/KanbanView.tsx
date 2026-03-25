@@ -96,10 +96,11 @@ export function KanbanView() {
       grouped[col].push(node);
     }
 
-    // Sort each column by priority descending
-    for (const col of ["backlog", "active", "done"] as const) {
-      grouped[col].sort((a, b) => b.data.priority - a.data.priority);
-    }
+    // Backlog: sort ascending (lowest priority number = next to run)
+    grouped["backlog"].sort((a, b) => a.data.priority - b.data.priority);
+    // Active + Done: sort descending (most recent first)
+    grouped["active"].sort((a, b) => b.data.priority - a.data.priority);
+    grouped["done"].sort((a, b) => b.data.priority - a.data.priority);
 
     return grouped;
   }, [nodes]);
@@ -348,6 +349,24 @@ export function KanbanView() {
                               : "none",
                         }}
                       >
+                        {/* NEXT badge + priority for backlog */}
+                        {col.id === "backlog" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                            {index === 0 && (
+                              <span style={{
+                                fontFamily: "monospace", fontSize: 9, fontWeight: 800,
+                                background: "#22c55e22", color: "#22c55e",
+                                border: "1px solid #22c55e66",
+                                borderRadius: 3, padding: "1px 5px", letterSpacing: "0.08em"
+                              }}>▶ NEXT</span>
+                            )}
+                            <span style={{
+                              fontFamily: "monospace", fontSize: 9, color: "#64748b",
+                              marginLeft: "auto"
+                            }}>priority {node.data.priority}</span>
+                          </div>
+                        )}
+
                         {/* Node label */}
                         <div
                           style={{
