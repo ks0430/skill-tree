@@ -195,6 +195,53 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
       return;
     }
 
+    // Intercept /pm next command
+    if (content.trim().toLowerCase() === "/pm next") {
+      const userMsg = {
+        id: generateId(),
+        tree_id: treeId,
+        role: "user" as const,
+        content,
+        tool_calls: null,
+        created_at: new Date().toISOString(),
+      };
+      addMessage(userMsg);
+      setStreaming(true);
+      resetStreamContent();
+      try {
+        const res = await fetch("/api/pm-next", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ treeId }),
+        });
+        const data = await res.json();
+        const replyContent = res.ok
+          ? data.message
+          : `⚠️ Failed to advance ticket: ${data.message ?? "Unknown error"}`;
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: replyContent,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: "⚠️ Failed to advance to next ticket. Please try again.",
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } finally {
+        setStreaming(false);
+        resetStreamContent();
+      }
+      return;
+    }
+
     // Intercept /pm status command
     if (content.trim().toLowerCase() === "/pm status") {
       const userMsg = {
