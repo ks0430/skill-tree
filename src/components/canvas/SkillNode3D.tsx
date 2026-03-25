@@ -106,6 +106,25 @@ import {
 } from "./planets";
 import { sharedGeo } from "./SkillTreeCanvas";
 
+// ── Global texture cache — generated once per planet type, reused across all nodes ──
+const textureCache = new Map<string, { surface: THREE.CanvasTexture; clouds?: THREE.CanvasTexture; ring?: THREE.CanvasTexture }>();
+
+function getCachedTextures(planetType: ReturnType<typeof pickPlanetType>, seed: number, config: ReturnType<typeof getPlanetConfig>) {
+  const key = `${planetType}-${seed % 8}`; // group by type+seed bucket to limit variants
+  if (textureCache.has(key)) return textureCache.get(key)!;
+  const surface = new THREE.CanvasTexture(generatePlanetTexture(planetType, seed));
+  surface.colorSpace = THREE.SRGBColorSpace;
+  const result: { surface: THREE.CanvasTexture; clouds?: THREE.CanvasTexture; ring?: THREE.CanvasTexture } = { surface };
+  if (config.hasClouds) {
+    const c = new THREE.CanvasTexture(generateCloudTexture(seed));
+    c.colorSpace = THREE.SRGBColorSpace;
+    result.clouds = c;
+  }
+  if (config.hasRings) result.ring = new THREE.CanvasTexture(generateRingTexture(config.ringColor, seed));
+  textureCache.set(key, result);
+  return result;
+}
+
 function progressRingColor(progress: number): string {
   if (progress >= 1) return "#00ff88";
   if (progress >= 0.5) return "#ffdd00";
@@ -170,20 +189,9 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const parent = node.data.parent_id ? parentMap.get(node.data.parent_id) : null;
 
   interface Textures { surface?: THREE.CanvasTexture; clouds?: THREE.CanvasTexture; ring?: THREE.CanvasTexture; }
-  const textures = useMemo<Textures>(() => {
+    const textures = useMemo<Textures>(() => {
     if (typeof window === "undefined") return {};
-    const surface = new THREE.CanvasTexture(generatePlanetTexture(planetType, seed));
-    surface.colorSpace = THREE.SRGBColorSpace;
-    const result: Textures = { surface };
-    if (config.hasClouds) {
-      const c = new THREE.CanvasTexture(generateCloudTexture(seed));
-      c.colorSpace = THREE.SRGBColorSpace;
-      result.clouds = c;
-    }
-    if (config.hasRings) {
-      result.ring = new THREE.CanvasTexture(generateRingTexture(config.ringColor, seed));
-    }
-    return result;
+    return getCachedTextures(planetType, seed, config);
   }, [planetType, seed, config]);
 
   useFrame(({ clock, camera }) => {

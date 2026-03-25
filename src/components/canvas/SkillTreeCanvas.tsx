@@ -210,7 +210,8 @@ function CameraController() {
 
 
 
-const BATCH_SIZE = 2; // nodes per frame — small enough to not block
+const BATCH_SIZE = 5;     // nodes per batch
+const BATCH_GAP_MS = 100; // ms between batches
 
 
 function StaggeredNodes({ nodes, nodeMap, onProgress }: {
@@ -230,13 +231,12 @@ function StaggeredNodes({ nodes, nodeMap, onProgress }: {
   useEffect(() => {
     onProgress(mountedCount, planets.length);
     if (mountedCount >= planets.length) return;
-    // startTransition marks this update as non-urgent — React yields to animation/input first
-    const raf = requestAnimationFrame(() => {
+    const timer = setTimeout(() => {
       startTransition(() => {
         setMountedCount((c) => Math.min(c + BATCH_SIZE, planets.length));
       });
-    });
-    return () => cancelAnimationFrame(raf);
+    }, BATCH_GAP_MS);
+    return () => clearTimeout(timer);
   }, [mountedCount, planets.length]);
 
   return (
