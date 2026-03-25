@@ -149,3 +149,19 @@ Built a new `EdgeRenderer` component that draws glowing lines between skill node
 ## TICKET-030: Unlock animation — 2026-03-24
 Commit: ab067b4
 Added an unlock animation that fires a particle burst whenever a skill node transitions from `locked` to `in_progress` status. The `UnlockParticles` component creates 48 points with randomised directions on a unit sphere, animates them outward over 1.4 seconds (scaled to node size), and fades their opacity to zero before cleaning up. A `prevStatusRef` in `SkillNode3D` tracks the previous status so the burst fires exactly once per unlock event. The burst colour is warm amber (`#ffcc44`) to complement the existing in_progress amber glow.
+
+## TICKET-031: View switcher UI — 2026-03-24
+Commit: a5bf402
+Added a view switcher that lets users toggle between the existing 3D Solar System canvas and a new flat 2D Skill Tree diagram.
+
+The 2D view (`SkillTreeView2D`) computes a top-down hierarchical tree layout from the same node data used by the 3D view — stellars are roots, planets their children, satellites their grandchildren. Layout is computed with a bottom-up width-measure pass then a top-down position pass, with bezier curve edges drawn on an SVG layer. The view supports drag-to-pan and scroll-to-zoom, and reuses the existing `NodeDetailPanel` and `SearchPanel` components so all detail/search functionality carries over.
+
+The toggle is a segmented button group ("🪐 Solar / 🌿 Tree") placed in the page header, consistent with the existing button style. Selection persists to `localStorage` so the user's preferred view survives page refreshes. No regressions to the 3D solar view.
+
+## TICKET-032: Date properties UI — 2026-03-24
+Commit: 29a8415
+Added a `PanelDates` component that shows `start_date`, `due_date`, and `estimate` fields in the `NodeDetailPanel`. Fields are read from `node.data.properties` (the existing jsonb column in Supabase). In editable mode, clicking any field activates an inline input (date picker for dates, free text for estimate); changes are optimistically committed to the tree store and persisted to Supabase. In read-only mode, the section is hidden when no dates are set. No schema changes required — the `properties` column already exists.
+
+## TICKET-033: Gantt layout engine — 2026-03-25
+Commit: 04190c00385633ac99ab22163cf817a80289eb35
+Added Gantt layout engine (`src/lib/gantt/layout.ts`) that maps nodes to horizontal time-bar positions using `start_date`, `due_date`, and `estimate` from node properties. Created `GanttView.tsx` with scrollable timeline, month axis ticks, today marker, status-fill bars, and pinnable node detail panel. Added "📅 Gantt" view mode button to the tree page alongside Solar and Tree views.

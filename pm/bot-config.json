@@ -11,5 +11,10 @@
   },
   "ticket_summary_max_chars": 500,
   "diff_summary_max_chars": 200,
-  "log_max_entries": 50
+  "log_max_entries": 50,
+  "skillforge": {
+    "supabase_url": "https://cnanilxkafouncbigbnn.supabase.co",
+    "service_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuYW5pbHhrYWZvdW5jYmlnYm5uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDE4NDY4NSwiZXhwIjoyMDg5NzYwNjg1fQ.jWBdlk7NdfTIkDUEFeyhazl_IAZSOYstNduTuF3XAa8",
+    "tree_id": "0bec1b7c-e751-4549-9df8-efc12b15552d"
+  }
 }

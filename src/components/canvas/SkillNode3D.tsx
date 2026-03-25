@@ -60,6 +60,7 @@ function UnlockParticles({ nodeScale, playing, onDone }: UnlockParticlesProps) {
     const t = Math.min(elapsed / DURATION, 1);
 
     // Update positions outward
+    if (!geoRef.current.attributes.position) return;
     const posAttr = geoRef.current.attributes.position as THREE.BufferAttribute;
     const posArr = posAttr.array as Float32Array;
     const speed = nodeScale * 3.5;

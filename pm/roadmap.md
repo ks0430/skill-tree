@@ -37,23 +37,29 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 
 ## Phase 5: Schema + Edge Foundation
 - [x] ITEM-023: Add type column to nodes — migrate role → type, keep backward compat
-- [ ] ITEM-024: Add type + weight columns to edges table in Supabase
+- [x] ITEM-024: Add type + weight columns to edges table in Supabase
 - [x] ITEM-025: Edge CRUD in tree store — add/remove/update edges via Zustand + Supabase
 - [x] ITEM-026: Add properties jsonb to nodes — Supabase migration + TypeScript type update
 - [x] ITEM-027: Wire edges to AI tools — Claude can create depends_on / related edges
 
-## Phase 6: Skill Tree View
-- [ ] ITEM-028: Install dagre.js + build skill tree layout engine
+## Phase 6: Skill Tree View (Dagre — Priority)
+- [ ] ITEM-055: Install dagre + rebuild SkillTreeView2D — replace column layout with dagre directed graph layout driven by depends_on edges; nodes positioned by dependency flow not phase grouping
+- [ ] ITEM-056: Single root node — add a virtual ROOT node all phase stellars connect to, so the tree flows from one origin point upward
+- [ ] ITEM-057: Visible edge lines — render SVG lines between connected nodes in tree view, with arrowheads showing dependency direction
+- [ ] ITEM-058: Node glow by status — locked=dark/muted, in_progress=amber pulse, completed=green glow; matches game skill tree aesthetic
+- [ ] ITEM-059: Hover path highlight — on hover, highlight the full unlock chain (ancestors + descendants) so user can trace what unlocks what
+
+- [x] ITEM-028: Install dagre.js + build skill tree layout engine
 - [x] ITEM-029: Orthographic top-down camera preset with pan/zoom controls
-- [ ] ITEM-030: Diamond + circle node renderer with icon support
+- [x] ITEM-030: Diamond + circle node renderer with icon support
 - [x] ITEM-031: Glow shader on node status — locked=dark, in_progress=amber pulse, completed=green glow
 - [x] ITEM-032: Edge renderer — glowing lines between nodes, highlight prerequisite path on hover
 - [x] ITEM-033: Unlock animation — locked to in_progress transition with particle burst
-- [ ] ITEM-034: View switcher UI — toggle between Solar System and Skill Tree
+- [x] ITEM-034: View switcher UI — toggle between Solar System and Skill Tree
 
 ## Phase 7: 3D Gantt View
-- [ ] ITEM-035: Date properties UI — add due_date / start_date / estimate to NodeDetailPanel
-- [ ] ITEM-036: Gantt layout engine — map nodes to time axis positions
+- [x] ITEM-035: Date properties UI — add due_date / start_date / estimate to NodeDetailPanel
+- [x] ITEM-036: Gantt layout engine — map nodes to time axis positions
 - [ ] ITEM-037: Orthographic front camera preset for Gantt
 - [ ] ITEM-038: Dependency arrow renderer — depends_on / blocks edges as arrows
 - [ ] ITEM-039: Today marker — vertical line at current date in Gantt view
@@ -70,3 +76,15 @@ SkillForge is an AI-powered 3D skill tree builder using a solar system metaphor 
 - [ ] ITEM-046: Ambient camera drift — slow auto-rotation when idle
 - [ ] ITEM-047: Related/references edge creation UI — quick-link two nodes from detail panel
 - [ ] ITEM-048: Add Memory Map to view switcher
+
+## Phase 10: PM Loop Integration
+- [ ] ITEM-049: Board view (Kanban) — Backlog / Active / Done columns with drag-to-reprioritise
+- [ ] ITEM-050: Flip PM source of truth — pm_cycle.py reads ticket order from SkillForge DB instead of roadmap.md, auto-exports markdown as changelog
+- [ ] ITEM-051: PM loop writes back to SkillForge — ticket start/done syncs node status in real time (extend current mirror to be bidirectional)
+- [ ] ITEM-052: Skill tree view as world map — dependency graph top-down, locked nodes dark, active pulsing, completed glowing
+
+## Phase 11: Bug Fixes
+- [ ] ITEM-053a: UnlockParticles crash fix — guard against missing position attribute in useFrame (SkillNode3D.tsx:64)
+- [ ] ITEM-053: layoutGalaxy should respect type field — currently only renders nodes with type stellar/planet/satellite; should fall back to role if type is not a NodeRole value
+- [ ] ITEM-054: SkillForge Dev tree — re-import after ITEM-053 fix so milestone/task typed nodes render correctly in solar system view
+- [ ] ITEM-060: UnlockParticles useFrame crash — Cannot read properties of undefined (reading 'array') at SkillNode3D.tsx:64; guard against position attribute not yet initialised

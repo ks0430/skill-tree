@@ -1,94 +1,116 @@
 "use client";
 
 import { useMemo, useState, useRef, useCallback } from "react";
+import dagre from "dagre";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
 
-// Layout constants
+// Node dimensions fed into dagre
 const NODE_W = 140;
 const NODE_H = 52;
-const H_GAP = 40;   // horizontal gap between sibling subtrees
-const V_GAP = 80;   // vertical gap between levels
+const RANK_SEP = 90; // vertical gap between dependency levels
+const NODE_SEP = 50; // horizontal gap between sibling nodes
 
-interface LayoutNode {
+interface PositionedNode {
   id: string;
   node: Node3D;
   x: number;
   y: number;
-  width: number; // subtree width used for centering
-  children: LayoutNode[];
 }
 
-function buildTree(nodes: Node3D[]): LayoutNode[] {
-  const map = new Map<string, LayoutNode>();
-  // Initialise all
+interface PositionedEdge {
+  id: string;
+  points: { x: number; y: number }[];
+}
+
+function buildDagreLayout(
+  nodes: Node3D[],
+  edges: { source_id: string; target_id: string; type: string; id: string }[]
+): { posNodes: PositionedNode[]; posEdges: PositionedEdge[]; width: number; height: number } {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({
+    rankdir: "TB", // top-to-bottom dependency flow
+    ranksep: RANK_SEP,
+    nodesep: NODE_SEP,
+    marginx: 40,
+    marginy: 40,
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  // Add all nodes
   nodes.forEach((n) => {
-    map.set(n.id, { id: n.id, node: n, x: 0, y: 0, width: NODE_W, children: [] });
+    g.setNode(n.id, { width: NODE_W, height: NODE_H });
   });
 
-  const roots: LayoutNode[] = [];
-  nodes.forEach((n) => {
-    const parentId = n.data.parent_id;
-    if (parentId && map.has(parentId)) {
-      map.get(parentId)!.children.push(map.get(n.id)!);
-    } else {
-      roots.push(map.get(n.id)!);
-    }
-  });
-  return roots;
-}
+  // Prefer depends_on edges; fall back to parent_id edges when none exist
+  const depEdges = edges.filter((e) => e.type === "depends_on");
+  const nodeIds = new Set(nodes.map((n) => n.id));
 
-/** Recursively compute subtree widths bottom-up, then assign positions top-down. */
-function measureSubtree(node: LayoutNode): number {
-  if (node.children.length === 0) {
-    node.width = NODE_W;
-    return NODE_W;
-  }
-  const childrenTotal = node.children.reduce((sum, c) => sum + measureSubtree(c) + H_GAP, -H_GAP);
-  node.width = Math.max(NODE_W, childrenTotal);
-  return node.width;
-}
-
-function placeSubtree(node: LayoutNode, cx: number, y: number) {
-  node.x = cx - NODE_W / 2;
-  node.y = y;
-
-  if (node.children.length === 0) return;
-  const childY = y + NODE_H + V_GAP;
-  let startX = cx - node.width / 2;
-  node.children.forEach((c) => {
-    const childCx = startX + c.width / 2;
-    placeSubtree(c, childCx, childY);
-    startX += c.width + H_GAP;
-  });
-}
-
-function flattenLayout(roots: LayoutNode[]): LayoutNode[] {
-  const all: LayoutNode[] = [];
-  function walk(n: LayoutNode) {
-    all.push(n);
-    n.children.forEach(walk);
-  }
-  roots.forEach(walk);
-  return all;
-}
-
-/** Build edges list: parent → child connections. */
-function buildEdges(flat: LayoutNode[]): { x1: number; y1: number; x2: number; y2: number; id: string }[] {
-  const edges: { x1: number; y1: number; x2: number; y2: number; id: string }[] = [];
-  flat.forEach((n) => {
-    n.children.forEach((c) => {
-      edges.push({
-        id: `${n.id}-${c.id}`,
-        x1: n.x + NODE_W / 2,
-        y1: n.y + NODE_H,
-        x2: c.x + NODE_W / 2,
-        y2: c.y,
-      });
+  if (depEdges.length > 0) {
+    // Use dependency edges: source depends on target → target is a prerequisite → target ranks above source
+    depEdges.forEach((e) => {
+      if (nodeIds.has(e.source_id) && nodeIds.has(e.target_id)) {
+        // Edge direction: prerequisite → dependent (target → source in depends_on semantics)
+        g.setEdge(e.target_id, e.source_id, { id: e.id });
+      }
     });
+  } else {
+    // Fallback: use parent_id hierarchy as edges
+    nodes.forEach((n) => {
+      const parentId = n.data.parent_id;
+      if (parentId && nodeIds.has(parentId)) {
+        g.setEdge(parentId, n.id, { id: `${parentId}-${n.id}` });
+      }
+    });
+  }
+
+  dagre.layout(g);
+
+  const posNodes: PositionedNode[] = nodes.map((n) => {
+    const pos = g.node(n.id);
+    return {
+      id: n.id,
+      node: n,
+      // dagre returns center coordinates; convert to top-left
+      x: pos.x - NODE_W / 2,
+      y: pos.y - NODE_H / 2,
+    };
   });
-  return edges;
+
+  const posEdges: PositionedEdge[] = g.edges().map((e) => {
+    const edgeObj = g.edge(e);
+    const edgeId = edgeObj.id ?? `${e.v}-${e.w}`;
+    return {
+      id: edgeId,
+      points: edgeObj.points ?? [],
+    };
+  });
+
+  const graphInfo = g.graph() as { width?: number; height?: number };
+  const width = (graphInfo.width ?? 400) + 80;
+  const height = (graphInfo.height ?? 300) + 80;
+
+  return { posNodes, posEdges, width, height };
+}
+
+function pointsToPath(points: { x: number; y: number }[]): string {
+  if (points.length < 2) return "";
+  const [first, ...rest] = points;
+  const parts = [`M ${first.x} ${first.y}`];
+  for (let i = 0; i < rest.length - 1; i++) {
+    const p0 = i === 0 ? first : rest[i - 1];
+    const p1 = rest[i];
+    const p2 = rest[i + 1];
+    const mx = (p1.x + p2.x) / 2;
+    const my = (p1.y + p2.y) / 2;
+    void p0;
+    parts.push(`L ${p1.x} ${p1.y}`);
+    void mx; void my;
+  }
+  const last = rest[rest.length - 1];
+  parts.push(`L ${last.x} ${last.y}`);
+  return parts.join(" ");
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -105,6 +127,7 @@ const TYPE_BORDER: Record<string, string> = {
 
 export function SkillTreeView2D() {
   const nodes = useTreeStore((s) => s.nodes);
+  const edges = useTreeStore((s) => s.edges);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const searchHighlightId = useTreeStore((s) => s.searchHighlightId);
@@ -115,26 +138,11 @@ export function SkillTreeView2D() {
   const lastPointer = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Build layout
-  const { flat, edges, svgWidth, svgHeight } = useMemo(() => {
-    const roots = buildTree(nodes);
-    roots.forEach(measureSubtree);
-
-    // Place roots side by side
-    let xCursor = H_GAP;
-    roots.forEach((r) => {
-      placeSubtree(r, xCursor + r.width / 2, V_GAP);
-      xCursor += r.width + H_GAP * 2;
-    });
-
-    const flat = flattenLayout(roots);
-    const edges = buildEdges(flat);
-
-    const maxX = flat.reduce((m, n) => Math.max(m, n.x + NODE_W), 0) + H_GAP;
-    const maxY = flat.reduce((m, n) => Math.max(m, n.y + NODE_H), 0) + V_GAP;
-
-    return { flat, edges, svgWidth: Math.max(maxX, 400), svgHeight: Math.max(maxY, 300) };
-  }, [nodes]);
+  // Build dagre layout from dependency edges
+  const { posNodes, posEdges, svgWidth, svgHeight } = useMemo(() => {
+    const { posNodes, posEdges, width, height } = buildDagreLayout(nodes, edges);
+    return { posNodes, posEdges, svgWidth: Math.max(width, 400), svgHeight: Math.max(height, 300) };
+  }, [nodes, edges]);
 
   const pinnedNode = useMemo(() => nodes.find((n) => n.id === pinnedNodeId), [nodes, pinnedNodeId]);
 
@@ -163,7 +171,6 @@ export function SkillTreeView2D() {
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     setTransform((t) => {
       const newScale = Math.min(2.5, Math.max(0.25, t.scale * factor));
-      // zoom toward cursor
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return { ...t, scale: newScale };
       const mx = e.clientX - rect.left;
@@ -197,17 +204,30 @@ export function SkillTreeView2D() {
           overflow: "visible",
         }}
       >
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth="8"
+            markerHeight="6"
+            refX="8"
+            refY="3"
+            orient="auto"
+          >
+            <polygon points="0 0, 8 3, 0 6" fill="rgba(148,163,184,0.4)" />
+          </marker>
+        </defs>
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
-          {edges.map((e) => {
-            const mx = (e.x1 + e.x2) / 2;
-            const my = (e.y1 + e.y2) / 2;
+          {posEdges.map((edge) => {
+            const d = pointsToPath(edge.points);
+            if (!d) return null;
             return (
               <path
-                key={e.id}
-                d={`M ${e.x1} ${e.y1} C ${e.x1} ${my}, ${e.x2} ${my}, ${e.x2} ${e.y2}`}
+                key={edge.id}
+                d={d}
                 fill="none"
-                stroke="rgba(148,163,184,0.25)"
+                stroke="rgba(148,163,184,0.3)"
                 strokeWidth={1.5}
+                markerEnd="url(#arrowhead)"
               />
             );
           })}
@@ -226,7 +246,7 @@ export function SkillTreeView2D() {
           height: svgHeight,
         }}
       >
-        {flat.map(({ id, node, x, y }) => {
+        {posNodes.map(({ id, node, x, y }) => {
           const type = node.data.type ?? node.data.role;
           const status = node.data.status;
           const isHighlighted = id === searchHighlightId;
