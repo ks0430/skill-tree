@@ -125,6 +125,56 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   async function sendMessage(content: string) {
     clearSuggestions();
 
+    // Intercept /pm pause and /pm resume commands
+    const trimmed = content.trim().toLowerCase();
+    if (trimmed === "/pm pause" || trimmed === "/pm resume") {
+      const action = trimmed === "/pm pause" ? "pause" : "resume";
+      const userMsg = {
+        id: generateId(),
+        tree_id: treeId,
+        role: "user" as const,
+        content,
+        tool_calls: null,
+        created_at: new Date().toISOString(),
+      };
+      addMessage(userMsg);
+      setStreaming(true);
+      resetStreamContent();
+      try {
+        const res = await fetch("/api/pm-control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const data = await res.json();
+        const icon = action === "pause" ? "⏸️" : "▶️";
+        const replyContent = res.ok
+          ? `${icon} **PM ${action === "pause" ? "Paused" : "Resumed"}**\n\n${data.message}`
+          : `⚠️ Failed to ${action} PM: ${data.errors?.join(", ") ?? "Unknown error"}`;
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: replyContent,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        addMessage({
+          id: generateId(),
+          tree_id: treeId,
+          role: "assistant",
+          content: `⚠️ Failed to ${action} PM. Please try again.`,
+          tool_calls: null,
+          created_at: new Date().toISOString(),
+        });
+      } finally {
+        setStreaming(false);
+        resetStreamContent();
+      }
+      return;
+    }
+
     // Intercept /pm status command
     if (content.trim().toLowerCase() === "/pm status") {
       const userMsg = {
