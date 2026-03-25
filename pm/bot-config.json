@@ -19,5 +19,7 @@
   },
   "coding_agent_webhook": "",
   "heartbeat_max_age_minutes": 10,
-  "max_retriggers": 3
+  "max_retriggers": 3,
+  "openclaw_hooks_url": "http://localhost:18789",
+  "openclaw_hooks_token": "df850757635b3fc814d166e2d06972ed325e8246ef4967bc"
 }
