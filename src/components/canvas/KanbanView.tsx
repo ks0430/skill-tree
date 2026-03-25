@@ -7,6 +7,7 @@ import { SearchPanel } from "./SearchPanel";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import type { NodeStatus } from "@/types/skill-tree";
+import type { SkillNode } from "@/types/skill-tree";
 
 // Map NodeStatus to Kanban column
 const STATUS_COLUMN: Record<NodeStatus, "backlog" | "active" | "done"> = {
@@ -75,13 +76,95 @@ export function KanbanView() {
   const searchHighlightId = useTreeStore((s) => s.searchHighlightId);
   const treeId = useTreeStore((s) => s.treeId);
 
+  const addNode = useTreeStore((s) => s.addNode);
+  const removeNode = useTreeStore((s) => s.removeNode);
+
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<{
     column: "backlog" | "active" | "done";
     index: number;
   } | null>(null);
+  // Track recently updated node IDs for flash animation
+  const [flashNodeIds, setFlashNodeIds] = useState<Set<string>>(new Set());
+  // Realtime connection state
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   const supabase = createClient();
+
+  // Supabase Realtime subscription for live board updates
+  useEffect(() => {
+    if (!treeId) return;
+
+    const channel = supabase
+      .channel(`kanban:skill_nodes:${treeId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "skill_nodes",
+          filter: `tree_id=eq.${treeId}`,
+        },
+        (payload) => {
+          const newNode = payload.new as SkillNode;
+          if (newNode?.id) {
+            addNode({ ...newNode, content: newNode.content ?? { blocks: [] } });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "skill_nodes",
+          filter: `tree_id=eq.${treeId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Partial<SkillNode> & { id?: string };
+          if (updated?.id) {
+            const { id: nodeId, ...rest } = updated;
+            updateNode(nodeId, rest);
+            // Flash the updated card
+            setFlashNodeIds((prev) => {
+              const next = new Set(prev);
+              next.add(nodeId);
+              return next;
+            });
+            setTimeout(() => {
+              setFlashNodeIds((prev) => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+              });
+            }, 1200);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "skill_nodes",
+          filter: `tree_id=eq.${treeId}`,
+        },
+        (payload) => {
+          const deleted = payload.old as { id?: string };
+          if (deleted?.id) {
+            removeNode(deleted.id);
+          }
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+      setRealtimeConnected(false);
+    };
+  }, [treeId]);
 
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
@@ -241,6 +324,26 @@ export function KanbanView() {
     >
       {/* Phase filter — custom dropdown */}
       <div className="flex items-center gap-2 px-4 pt-3 pb-1 shrink-0">
+        {/* Realtime live indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 4 }}>
+          <div
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: realtimeConnected ? "#22c55e" : "#475569",
+              boxShadow: realtimeConnected ? "0 0 6px #22c55e" : "none",
+              transition: "background 0.3s, box-shadow 0.3s",
+            }}
+          />
+          <span style={{
+            fontFamily: "monospace", fontSize: 9, color: realtimeConnected ? "#22c55e" : "#475569",
+            textTransform: "uppercase", letterSpacing: "0.08em",
+            transition: "color 0.3s",
+          }}>
+            {realtimeConnected ? "live" : "connecting…"}
+          </span>
+        </div>
         <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Filter</span>
         <div ref={phaseDropdownRef} style={{ position: "relative" }}>
           {/* Trigger button */}
@@ -395,6 +498,7 @@ export function KanbanView() {
                   const typeColor = TYPE_COLORS[type] ?? "#475569";
                   const isPinned = node.id === pinnedNodeId;
                   const isBeingDragged = dragState?.nodeId === node.id;
+                  const isFlashing = flashNodeIds.has(node.id);
                   const isDropIndicator =
                     dropTarget?.column === col.id && dropTarget.index === index;
 
@@ -428,24 +532,27 @@ export function KanbanView() {
                         onDragEnd={onDragEnd}
                         onClick={() => setPinnedNode(isPinned ? null : node.id)}
                         style={{
-                          background: isPinned
+                          background: isFlashing
+                            ? "rgba(34,197,94,0.12)"
+                            : isPinned
                             ? "rgba(99,102,241,0.15)"
                             : "rgba(255,255,255,0.03)",
-                          borderTop: `1px solid ${isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
-                          borderRight: `1px solid ${isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
-                          borderBottom: `1px solid ${isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
-                          borderLeft: `3px solid ${typeColor}`,
+                          borderTop: `1px solid ${isFlashing ? "#22c55e" : isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
+                          borderRight: `1px solid ${isFlashing ? "#22c55e" : isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
+                          borderBottom: `1px solid ${isFlashing ? "#22c55e" : isPinned ? "#818cf8" : node.id === searchHighlightId ? "#f59e0b" : "rgba(148,163,184,0.1)"}`,
+                          borderLeft: `3px solid ${isFlashing ? "#22c55e" : typeColor}`,
                           borderRadius: 6,
                           padding: "10px 12px",
                           cursor: "grab",
                           opacity: isBeingDragged ? 0.4 : 1,
-                          transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                          boxShadow:
-                            node.id === searchHighlightId
-                              ? "0 0 0 2px #f59e0b"
-                              : isPinned
-                              ? "0 0 0 1px rgba(129,140,248,0.4)"
-                              : "none",
+                          transition: "opacity 0.15s, border-color 0.3s, background 0.3s",
+                          boxShadow: isFlashing
+                            ? "0 0 0 1px rgba(34,197,94,0.4)"
+                            : node.id === searchHighlightId
+                            ? "0 0 0 2px #f59e0b"
+                            : isPinned
+                            ? "0 0 0 1px rgba(129,140,248,0.4)"
+                            : "none",
                         }}
                       >
                         {/* NEXT badge + priority for backlog */}
@@ -573,7 +680,7 @@ export function KanbanView() {
 
       {/* Hint */}
       <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
-        Drag cards to reprioritise · Click to pin details · / to search
+        Drag cards to reprioritise · Click to pin details · / to search · Updates live
       </div>
 
       {/* Empty state */}
