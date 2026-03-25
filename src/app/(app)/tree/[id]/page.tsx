@@ -43,20 +43,33 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   }, [id]);
 
   async function loadTree() {
-    const [treeRes, nodesRes, edgesRes, messagesRes] = await Promise.all([
+    // Phase 1: load tree metadata + stellar nodes immediately (fast first paint)
+    const [treeRes, stellarRes] = await Promise.all([
       supabase.from("skill_trees").select("*").eq("id", id).single(),
-      supabase.from("skill_nodes").select("*").eq("tree_id", id),
-      supabase.from("skill_edges").select("*").eq("tree_id", id),
-      supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("tree_id", id)
-        .order("created_at", { ascending: true }),
+      supabase.from("skill_nodes").select("*").eq("tree_id", id).eq("role", "stellar"),
     ]);
 
-    if (treeRes.data) {
-      setTreeName(treeRes.data.name);
-    }
+    if (treeRes.data) setTreeName(treeRes.data.name);
+
+    // Show stellars immediately so canvas renders fast
+    const stellarNodes = (stellarRes.data ?? []).map((n) => ({
+      ...n, content: n.content ?? { blocks: [] },
+    })) as SkillNode[];
+    setNodes(layoutGalaxy(stellarNodes));
+    setLoading(false); // unblock canvas render
+
+    // Phase 2: load remaining nodes + edges + messages in background
+    const [nodesRes, edgesRes, messagesRes] = await Promise.all([
+      supabase.from("skill_nodes").select("*").eq("tree_id", id).neq("role", "stellar"),
+      supabase.from("skill_edges").select("*").eq("tree_id", id),
+      supabase.from("chat_messages").select("*").eq("tree_id", id).order("created_at", { ascending: true }),
+    ]);
+
+    const allNodes = [
+      ...stellarNodes,
+      ...(nodesRes.data ?? []).map((n) => ({ ...n, content: n.content ?? { blocks: [] } })) as SkillNode[],
+    ];
+    setNodes(layoutGalaxy(allNodes));
 
     const nodes = (nodesRes.data ?? []).map((n) => ({
       ...n,
@@ -76,8 +89,6 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
         created_at: m.created_at,
       }))
     );
-
-    setLoading(false);
   }
 
   function shareTree() {
