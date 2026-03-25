@@ -157,9 +157,8 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const setHoveredNode = useTreeStore((s) => s.setHoveredNode);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
-  const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
-  const searchHighlightId = useTreeStore((s) => s.searchHighlightId);
-  const isSearchHighlight = searchHighlightId === node.id;
+  const isPinned = useTreeStore((s) => s.pinnedNodeId === node.id);
+  const isSearchHighlight = useTreeStore((s) => s.searchHighlightId === node.id);
   const highlightStartRef = useRef<number | null>(null);
   const pulseRingRef = useRef<THREE.Mesh>(null);
   const statusGlowRef = useRef<THREE.Mesh>(null);
@@ -307,8 +306,8 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
       supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
     }
     setFocusTarget(node.id);
-    setPinnedNode(pinnedNodeId === node.id ? null : node.id);
-  }, [readOnly, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, pinnedNodeId]);
+    setPinnedNode(isPinned ? null : node.id);
+  }, [readOnly, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, isPinned]);
 
   // Checklist progress
   const { checklistTotal, checklistDone } = useMemo(() => {
