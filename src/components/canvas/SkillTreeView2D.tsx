@@ -21,6 +21,7 @@ interface PositionedNode {
 
 interface PositionedEdge {
   id: string;
+  type: string;
   points: { x: number; y: number }[];
 }
 
@@ -50,14 +51,22 @@ function buildDagreLayout(
 
   // Prefer depends_on edges; fall back to parent_id edges when none exist
   const depEdges = edges.filter((e) => e.type === "depends_on");
+  const blocksEdges = edges.filter((e) => e.type === "blocks");
   const nodeIds = new Set(nodes.map((n) => n.id));
+  // Build a map from edge id → type so posEdges can carry it
+  const edgeTypeMap = new Map<string, string>(edges.map((e) => [e.id, e.type]));
 
-  if (depEdges.length > 0) {
-    // Use dependency edges: source depends on target → target is a prerequisite → target ranks above source
+  if (depEdges.length > 0 || blocksEdges.length > 0) {
+    // depends_on: source depends on target → target is prerequisite → layout target above source
     depEdges.forEach((e) => {
       if (nodeIds.has(e.source_id) && nodeIds.has(e.target_id)) {
-        // Edge direction: prerequisite → dependent (target → source in depends_on semantics)
         g.setEdge(e.target_id, e.source_id, { id: e.id });
+      }
+    });
+    // blocks: source blocks target → source must come before target → layout source above target
+    blocksEdges.forEach((e) => {
+      if (nodeIds.has(e.source_id) && nodeIds.has(e.target_id)) {
+        g.setEdge(e.source_id, e.target_id, { id: e.id });
       }
     });
     // Connect stellars (nodes with no incoming dep-edge) to ROOT
@@ -105,6 +114,7 @@ function buildDagreLayout(
       const edgeId = edgeObj.id ?? `${e.v}-${e.w}`;
       return {
         id: edgeId,
+        type: edgeTypeMap.get(edgeId) ?? "depends_on",
         points: edgeObj.points ?? [],
       };
     });
@@ -161,17 +171,18 @@ export function SkillTreeView2D() {
   // Hover state for path highlighting
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-  // Compute full unlock chain: ancestors (prereqs) + hovered node + descendants (dependents)
+  // Compute full unlock chain: ancestors (prereqs) + hovered node + descendants (dependents/blocked)
   const hoveredChain = useMemo(() => {
     if (!hoveredNodeId) return null;
-    const depEdges = edges.filter((e) => e.type === "depends_on");
+    const depEdges = edges.filter((e) => e.type === "depends_on" || e.type === "blocks");
     const chain = new Set<string>([hoveredNodeId]);
 
-    // Ancestors: edges where source_id === current → target_id is a prerequisite
+    // depends_on ancestors: source depends on target → follow target upward
+    const depOnlyEdges = edges.filter((e) => e.type === "depends_on");
     const ancestorQueue = [hoveredNodeId];
     while (ancestorQueue.length > 0) {
       const current = ancestorQueue.shift()!;
-      depEdges.forEach((e) => {
+      depOnlyEdges.forEach((e) => {
         if (e.source_id === current && !chain.has(e.target_id)) {
           chain.add(e.target_id);
           ancestorQueue.push(e.target_id);
@@ -179,7 +190,7 @@ export function SkillTreeView2D() {
       });
     }
 
-    // Descendants: edges where target_id === current → source_id depends on this node
+    // descendants: edges where target_id === current → source_id depends on / is blocked by this node
     const descendantQueue = [hoveredNodeId];
     while (descendantQueue.length > 0) {
       const current = descendantQueue.shift()!;
@@ -191,15 +202,32 @@ export function SkillTreeView2D() {
       });
     }
 
+    // blocks: source blocks target → follow forward
+    const blocksOnlyEdges = edges.filter((e) => e.type === "blocks");
+    const blockedQueue = [hoveredNodeId];
+    while (blockedQueue.length > 0) {
+      const current = blockedQueue.shift()!;
+      blocksOnlyEdges.forEach((e) => {
+        if (e.source_id === current && !chain.has(e.target_id)) {
+          chain.add(e.target_id);
+          blockedQueue.push(e.target_id);
+        }
+      });
+    }
+
     return chain;
   }, [hoveredNodeId, edges]);
 
-  // Set of edge IDs that connect nodes within the hovered chain
+  // Set of edge IDs that connect nodes within the hovered chain (depends_on and blocks)
   const chainEdgeIds = useMemo(() => {
     if (!hoveredChain) return null;
     const ids = new Set<string>();
     edges.forEach((e) => {
-      if (e.type === "depends_on" && hoveredChain.has(e.source_id) && hoveredChain.has(e.target_id)) {
+      if (
+        (e.type === "depends_on" || e.type === "blocks") &&
+        hoveredChain.has(e.source_id) &&
+        hoveredChain.has(e.target_id)
+      ) {
         ids.add(e.id);
       }
     });
@@ -273,6 +301,7 @@ export function SkillTreeView2D() {
         }}
       >
         <defs>
+          {/* depends_on default */}
           <marker
             id="arrowhead"
             markerWidth="10"
@@ -283,6 +312,7 @@ export function SkillTreeView2D() {
           >
             <polygon points="0 0, 10 3.5, 0 7" fill="rgba(148,163,184,0.85)" />
           </marker>
+          {/* depends_on highlighted (chain) */}
           <marker
             id="arrowhead-chain"
             markerWidth="10"
@@ -293,6 +323,28 @@ export function SkillTreeView2D() {
           >
             <polygon points="0 0, 10 3.5, 0 7" fill="#818cf8" />
           </marker>
+          {/* blocks default — red */}
+          <marker
+            id="arrowhead-blocks"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(248,113,113,0.85)" />
+          </marker>
+          {/* blocks highlighted — bright red */}
+          <marker
+            id="arrowhead-blocks-chain"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="#f87171" />
+          </marker>
         </defs>
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
           {posEdges.map((edge) => {
@@ -300,15 +352,27 @@ export function SkillTreeView2D() {
             if (!d) return null;
             const isChainEdge = chainEdgeIds ? chainEdgeIds.has(edge.id) : false;
             const isDimmed = hoveredNodeId !== null && !isChainEdge;
+            const isBlocks = edge.type === "blocks";
+            // Stroke colour: blocks=red, depends_on=violet/slate
+            const stroke = isChainEdge
+              ? (isBlocks ? "#f87171" : "#818cf8")
+              : (isBlocks ? "rgba(248,113,113,0.7)" : "rgba(148,163,184,0.7)");
+            // Arrowhead marker
+            const markerEnd = isChainEdge
+              ? (isBlocks ? "url(#arrowhead-blocks-chain)" : "url(#arrowhead-chain)")
+              : (isBlocks ? "url(#arrowhead-blocks)" : "url(#arrowhead)");
+            // Dashed stroke for blocks edges to visually distinguish from depends_on
+            const strokeDasharray = isBlocks ? "6 3" : undefined;
             return (
               <path
                 key={edge.id}
                 d={d}
                 fill="none"
-                stroke={isChainEdge ? "#818cf8" : "rgba(148,163,184,0.7)"}
+                stroke={stroke}
                 strokeWidth={isChainEdge ? 2.5 : 1.5}
                 strokeOpacity={isDimmed ? 0.15 : 1}
-                markerEnd={isChainEdge ? "url(#arrowhead-chain)" : "url(#arrowhead)"}
+                strokeDasharray={strokeDasharray}
+                markerEnd={markerEnd}
                 style={{ transition: "stroke-opacity 0.15s, stroke-width 0.15s" }}
               />
             );

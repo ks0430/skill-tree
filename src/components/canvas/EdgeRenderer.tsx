@@ -27,29 +27,50 @@ const EDGE_COLORS_HOVER: Record<string, string> = {
 const DEFAULT_COLOR       = "#60a5fa";
 const DEFAULT_COLOR_HOVER = "#93c5fd";
 
-/** Collect the full prerequisite path (depends_on ancestors) for a given node. */
+/** Edge types that should render a directional arrowhead at the target end. */
+const DIRECTIONAL_TYPES = new Set<string>(["depends_on", "blocks"]);
+
+/** Shared cone geometry for arrowheads (reused across all arrows). */
+const ARROWHEAD_GEO = new THREE.ConeGeometry(0.07, 0.28, 8);
+
+/** Collect the full prerequisite/blocker path for a given node. */
 function collectPrereqPath(
   hoveredId: string,
   edges: SkillEdge[]
 ): Set<string> {
-  // Build reverse depends_on map: for each node, which nodes does it depend on?
   const path = new Set<string>();
-  const queue = [hoveredId];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+
+  // depends_on ancestors: follow source → target chain upward
+  const depQueue = [hoveredId];
+  while (depQueue.length > 0) {
+    const current = depQueue.shift()!;
     for (const e of edges) {
       if (e.type === "depends_on" && e.source_id === current && !path.has(e.target_id)) {
         path.add(e.target_id);
-        queue.push(e.target_id);
+        depQueue.push(e.target_id);
       }
     }
   }
-  // Also include edges that point INTO this node (things that depend ON the hovered node)
+
+  // blocks descendants: follow source → target forward
+  const blocksQueue = [hoveredId];
+  while (blocksQueue.length > 0) {
+    const current = blocksQueue.shift()!;
+    for (const e of edges) {
+      if (e.type === "blocks" && e.source_id === current && !path.has(e.target_id)) {
+        path.add(e.target_id);
+        blocksQueue.push(e.target_id);
+      }
+    }
+  }
+
+  // Also include nodes that point INTO the hovered node (things that depend on / block it)
   for (const e of edges) {
-    if (e.type === "depends_on" && e.target_id === hoveredId) {
+    if ((e.type === "depends_on" || e.type === "blocks") && e.target_id === hoveredId) {
       path.add(e.source_id);
     }
   }
+
   return path;
 }
 
@@ -59,10 +80,15 @@ interface SingleEdgeLineProps {
   anyHovered: boolean;
 }
 
+/**
+ * Renders a single edge: a line from source→target plus, for directional edge types
+ * (depends_on, blocks), a small cone arrowhead pointing at the target node.
+ */
 function SingleEdgeLine({ edge, isHighlighted, anyHovered }: SingleEdgeLineProps) {
   const positionsRef = useRef(new Float32Array(6)); // 2 points × 3 coords
+  const isDirectional = DIRECTIONAL_TYPES.has(edge.type);
 
-  const { lineObj, geometry } = useMemo(() => {
+  const { lineObj, geometry, arrowMesh } = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(positionsRef.current, 3));
     const mat = new THREE.LineBasicMaterial({
@@ -71,8 +97,20 @@ function SingleEdgeLine({ edge, isHighlighted, anyHovered }: SingleEdgeLineProps
       blending: THREE.AdditiveBlending,
     });
     const obj = new THREE.Line(geo, mat);
-    return { lineObj: obj, geometry: geo };
-  }, []);
+
+    let arrow: THREE.Mesh | null = null;
+    if (isDirectional) {
+      const arrowMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      // Cone default points up (+Y); we'll rotate it to face the edge direction each frame
+      arrow = new THREE.Mesh(ARROWHEAD_GEO, arrowMat);
+    }
+
+    return { lineObj: obj, geometry: geo, arrowMesh: arrow };
+  }, [isDirectional]);
 
   useFrame(() => {
     const src = worldPositions.get(edge.source_id);
@@ -92,12 +130,38 @@ function SingleEdgeLine({ edge, isHighlighted, anyHovered }: SingleEdgeLineProps
     mat.color.set(targetColor);
     const targetOpacity = anyHovered ? (isHighlighted ? 0.9 : 0.08) : 0.35;
     mat.opacity += (targetOpacity - mat.opacity) * 0.12;
+
+    // Update arrowhead position and orientation
+    if (arrowMesh) {
+      const arrowMat = arrowMesh.material as THREE.MeshBasicMaterial;
+      arrowMat.color.set(targetColor);
+      arrowMat.opacity = mat.opacity;
+
+      // Place arrowhead 85% of the way along the edge (near target, not overlapping node)
+      arrowMesh.position.set(
+        src.x + (tgt.x - src.x) * 0.85,
+        src.y + (tgt.y - src.y) * 0.85,
+        src.z + (tgt.z - src.z) * 0.85,
+      );
+
+      // Rotate cone to point from source → target
+      // THREE.ConeGeometry points up (+Y by default); align +Y with edge direction
+      const dir = new THREE.Vector3(tgt.x - src.x, tgt.y - src.y, tgt.z - src.z).normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      arrowMesh.quaternion.setFromUnitVectors(up, dir);
+    }
   });
 
-  return <primitive object={lineObj} />;
+  return (
+    <>
+      <primitive object={lineObj} />
+      {arrowMesh && <primitive object={arrowMesh} />}
+    </>
+  );
 }
 
-/** Renders all edges in the tree with glowing lines, highlights prerequisite path on hover. */
+/** Renders all edges in the tree with glowing lines, highlights prerequisite path on hover.
+ *  depends_on and blocks edges include directional arrowhead cones at the target end. */
 export function EdgeRenderer() {
   const edges = useTreeStore((s) => s.edges);
   const hoveredNodeId = useTreeStore((s) => s.hoveredNodeId);
