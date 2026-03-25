@@ -120,15 +120,13 @@ function pointsToPath(points: { x: number; y: number }[]): string {
   if (points.length < 2) return "";
   const [first, ...rest] = points;
   const parts = [`M ${first.x} ${first.y}`];
+  // Smooth cubic bezier through waypoints: join via midpoints as control points
   for (let i = 0; i < rest.length - 1; i++) {
-    const p0 = i === 0 ? first : rest[i - 1];
     const p1 = rest[i];
     const p2 = rest[i + 1];
     const mx = (p1.x + p2.x) / 2;
     const my = (p1.y + p2.y) / 2;
-    void p0;
-    parts.push(`L ${p1.x} ${p1.y}`);
-    void mx; void my;
+    parts.push(`Q ${p1.x} ${p1.y} ${mx} ${my}`);
   }
   const last = rest[rest.length - 1];
   parts.push(`L ${last.x} ${last.y}`);
@@ -229,13 +227,13 @@ export function SkillTreeView2D() {
         <defs>
           <marker
             id="arrowhead"
-            markerWidth="8"
-            markerHeight="6"
-            refX="8"
-            refY="3"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
             orient="auto"
           >
-            <polygon points="0 0, 8 3, 0 6" fill="rgba(148,163,184,0.4)" />
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(148,163,184,0.85)" />
           </marker>
         </defs>
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
@@ -247,7 +245,7 @@ export function SkillTreeView2D() {
                 key={edge.id}
                 d={d}
                 fill="none"
-                stroke="rgba(148,163,184,0.3)"
+                stroke="rgba(148,163,184,0.7)"
                 strokeWidth={1.5}
                 markerEnd="url(#arrowhead)"
               />
