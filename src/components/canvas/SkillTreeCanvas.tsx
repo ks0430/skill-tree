@@ -210,8 +210,8 @@ function CameraController() {
 
 
 
-const BATCH_SIZE = 8;  // nodes per frame
-const BATCH_DELAY = 1; // frames between batches
+const BATCH_SIZE = 10;    // nodes per batch
+const BATCH_INTERVAL = 3000; // ms between batches
 
 function StaggeredNodes({ nodes, nodeMap, onProgress }: {
   nodes: Node3D[];
@@ -230,19 +230,10 @@ function StaggeredNodes({ nodes, nodeMap, onProgress }: {
   useEffect(() => {
     onProgress(mountedCount, planets.length);
     if (mountedCount >= planets.length) return;
-    let frame = 0;
-    let raf: number;
-    function tick() {
-      frame++;
-      if (frame % BATCH_DELAY === 0) {
-        setMountedCount((c) => Math.min(c + BATCH_SIZE, planets.length));
-      }
-      if (mountedCount + BATCH_SIZE < planets.length) {
-        raf = requestAnimationFrame(tick);
-      }
-    }
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const timer = setTimeout(() => {
+      setMountedCount((c) => Math.min(c + BATCH_SIZE, planets.length));
+    }, BATCH_INTERVAL);
+    return () => clearTimeout(timer);
   }, [mountedCount, planets.length]);
 
   return (
