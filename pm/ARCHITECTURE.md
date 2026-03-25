@@ -114,6 +114,14 @@ PM assumes it crashed and re-triggers. For a 1-5 min ticket this means:
 
 ---
 
+## Ticket size contract
+
+**1-5 min per ticket. Hard limit.**
+
+- Coding agent has a 10-min heartbeat window. If a ticket takes longer, the heartbeat will go stale and PM re-spawns a new agent — wasting tokens and causing duplicate work.
+- If a ticket is too large to finish in 5 min: stop, commit what's done, mark done with note, let PM pick up the next piece.
+- PM is responsible for splitting roadmap items small enough before they enter the queue.
+
 ## Error handling
 
 **Coding agent** — wrap the entire implementation in try/except:
