@@ -249,7 +249,10 @@ export function KanbanView() {
             style={{
               fontFamily: "monospace", fontSize: 11,
               background: phaseFilter !== null ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderTop: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderRight: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderBottom: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderLeft: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
               borderRadius: 20, padding: "4px 10px 4px 12px",
               color: phaseFilter !== null ? "#a5b4fc" : "#64748b",
               cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
@@ -267,7 +270,11 @@ export function KanbanView() {
           {phaseDropdownOpen && (
             <div style={{
               position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
-              background: "#0f172a", border: "1px solid rgba(148,163,184,0.15)",
+              background: "#0f172a",
+              borderTop: "1px solid rgba(148,163,184,0.15)",
+              borderRight: "1px solid rgba(148,163,184,0.15)",
+              borderBottom: "1px solid rgba(148,163,184,0.15)",
+              borderLeft: "1px solid rgba(148,163,184,0.15)",
               borderRadius: 8, padding: "4px 0", minWidth: 130,
               boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
               maxHeight: 260, overflowY: "auto",
