@@ -47,13 +47,29 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
 
+  function resolveNodeId(proposedId: string): string {
+    const existingIds = new Set(nodes.map((n) => n.id));
+    if (!existingIds.has(proposedId)) return proposedId;
+    // ID conflict: find next available item-NNN
+    const itemNums = Array.from(existingIds)
+      .map((id) => {
+        const m = id.match(/^item-(\d+)$/);
+        return m ? parseInt(m[1], 10) : 0;
+      });
+    const maxNum = itemNums.length > 0 ? Math.max(...itemNums) : 0;
+    let next = maxNum + 1;
+    while (existingIds.has(`item-${next}`)) next++;
+    return `item-${next}`;
+  }
+
   async function acceptAll() {
     pushHistory();
     const pending = pendingChanges.filter((c) => c.status === "pending");
     for (const change of pending) {
       if (change.action === "add_node") {
+        const resolvedId = resolveNodeId(change.params.id as string);
         const node: SkillNode = {
-          id: change.params.id as string,
+          id: resolvedId,
           tree_id: treeId,
           label: change.params.label as string,
           description: (change.params.description as string) ?? null,
