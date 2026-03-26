@@ -10,20 +10,22 @@ import type { NodeStatus } from "@/types/skill-tree";
 import type { SkillNode } from "@/types/skill-tree";
 
 // Map NodeStatus to Kanban column
-const STATUS_COLUMN: Record<NodeStatus, "backlog" | "active" | "done"> = {
+const STATUS_COLUMN: Record<NodeStatus, "backlog" | "queued" | "active" | "done"> = {
   locked: "backlog",
+  queued: "queued",
   in_progress: "active",
   completed: "done",
 };
 
-const COLUMN_TO_STATUS: Record<"backlog" | "active" | "done", NodeStatus> = {
+const COLUMN_TO_STATUS: Record<"backlog" | "queued" | "active" | "done", NodeStatus> = {
   backlog: "locked",
+  queued: "queued",
   active: "in_progress",
   done: "completed",
 };
 
 const COLUMN_CONFIG: {
-  id: "backlog" | "active" | "done";
+  id: "backlog" | "queued" | "active" | "done";
   label: string;
   emoji: string;
   headerColor: string;
@@ -37,6 +39,14 @@ const COLUMN_CONFIG: {
     headerColor: "#475569",
     borderColor: "rgba(71,85,105,0.4)",
     badgeColor: "rgba(71,85,105,0.35)",
+  },
+  {
+    id: "queued",
+    label: "Queued",
+    emoji: "🔖",
+    headerColor: "#8b5cf6",
+    borderColor: "rgba(139,92,246,0.4)",
+    badgeColor: "rgba(139,92,246,0.2)",
   },
   {
     id: "active",
@@ -64,7 +74,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 interface DragState {
   nodeId: string;
-  fromColumn: "backlog" | "active" | "done";
+  fromColumn: "backlog" | "queued" | "active" | "done";
   fromIndex: number;
 }
 
@@ -83,7 +93,7 @@ export function KanbanView() {
   const [hoverCardId, setHoverCardId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<{
-    column: "backlog" | "active" | "done";
+    column: "backlog" | "queued" | "active" | "done";
     index: number;
   } | null>(null);
   // Track recently updated node IDs for flash animation
@@ -223,8 +233,9 @@ export function KanbanView() {
 
   // Group nodes into columns, sorted by priority desc
   const columns = useMemo(() => {
-    const grouped: Record<"backlog" | "active" | "done", Node3D[]> = {
+    const grouped: Record<"backlog" | "queued" | "active" | "done", Node3D[]> = {
       backlog: [],
+      queued: [],
       active: [],
       done: [],
     };
@@ -250,8 +261,9 @@ export function KanbanView() {
       grouped[col].push(node);
     }
 
-    // Backlog: sort ascending (lowest priority number = next to run)
+    // Backlog + Queued: sort ascending (lowest priority number = next to run)
     grouped["backlog"].sort((a, b) => a.data.priority - b.data.priority);
+    grouped["queued"].sort((a, b) => a.data.priority - b.data.priority);
     // Active + Done: sort descending (most recent first)
     grouped["active"].sort((a, b) => b.data.priority - a.data.priority);
     grouped["done"].sort((a, b) => b.data.priority - a.data.priority);
@@ -297,7 +309,7 @@ export function KanbanView() {
   // ── Drag handlers ──────────────────────────────────────────────────────────
 
   const onDragStart = useCallback(
-    (e: React.DragEvent, node: Node3D, column: "backlog" | "active" | "done", index: number) => {
+    (e: React.DragEvent, node: Node3D, column: "backlog" | "queued" | "active" | "done", index: number) => {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", node.id);
       setDragState({ nodeId: node.id, fromColumn: column, fromIndex: index });
@@ -306,7 +318,7 @@ export function KanbanView() {
   );
 
   const onDragOver = useCallback(
-    (e: React.DragEvent, column: "backlog" | "active" | "done", index: number) => {
+    (e: React.DragEvent, column: "backlog" | "queued" | "active" | "done", index: number) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       setDropTarget({ column, index });
@@ -315,7 +327,7 @@ export function KanbanView() {
   );
 
   const onDragOverColumn = useCallback(
-    (e: React.DragEvent, column: "backlog" | "active" | "done") => {
+    (e: React.DragEvent, column: "backlog" | "queued" | "active" | "done") => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       // Only update if no specific card target
@@ -328,7 +340,7 @@ export function KanbanView() {
   );
 
   const onDrop = useCallback(
-    (e: React.DragEvent, targetColumn: "backlog" | "active" | "done", targetIndex: number) => {
+    (e: React.DragEvent, targetColumn: "backlog" | "queued" | "active" | "done", targetIndex: number) => {
       e.preventDefault();
       if (!dragState) return;
 

@@ -1,4 +1,4 @@
-export type NodeStatus = "locked" | "in_progress" | "completed";
+export type NodeStatus = "locked" | "queued" | "in_progress" | "completed";
 export type NodeRole = "stellar" | "planet" | "satellite";
 /** Canonical node type (replaces role). Seeded from role; user-extensible in future. */
 export type NodeType = NodeRole; // union may expand later
