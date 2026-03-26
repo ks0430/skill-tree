@@ -59,7 +59,7 @@ export function MarkdownContent({ markdown, blocks, description }: MarkdownConte
             <h3 style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: "#f59e0b", marginTop: 8, marginBottom: 2 }}>▸ {children}</h3>
           ),
           p: ({ children }) => (
-            <p style={{ fontFamily: "monospace", fontSize: 10, color: "#94a3b8", lineHeight: 1.65, marginBottom: 5 }}>{children}</p>
+            <div style={{ fontFamily: "monospace", fontSize: 10, color: "#94a3b8", lineHeight: 1.65, marginBottom: 5 }}>{children}</div>
           ),
           ul: ({ children }) => (
             <ul style={{ paddingLeft: 14, marginBottom: 6 }}>{children}</ul>
