@@ -893,7 +893,8 @@ export function KanbanView() {
           onClose={() => setPinnedNode(null)}
         />
       )}
-      <SearchPanel />
+      {/* SearchPanel hidden on board — board has its own search bar */}
+      {/* <SearchPanel /> */}
 
       {/* Hint */}
       <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
