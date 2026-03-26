@@ -295,11 +295,9 @@ export function KanbanView() {
       }
     }
 
-    // In All mode: paginate done column to avoid rendering hundreds of cards at once
+    // Always paginate done column to avoid rendering hundreds of cards at once
     const totalDone = grouped.done.length;
-    if (limit === 0) {
-      grouped.done = grouped.done.slice(0, donePageSize);
-    }
+    grouped.done = grouped.done.slice(0, donePageSize);
 
     return [grouped, totalDone] as const;
   }, [nodes, phaseFilter, searchText, limit, donePageSize]);
@@ -596,7 +594,7 @@ export function KanbanView() {
                     fontWeight: 700,
                   }}
                 >
-                  {col.id === "done" && limit === 0 ? doneTotal : colNodes.length}
+                  {col.id === "done" ? doneTotal : colNodes.length}
                 </div>
               </div>
 
@@ -613,6 +611,7 @@ export function KanbanView() {
                   borderLeft: `1px solid ${isDragTarget ? col.headerColor + "60" : col.borderColor}`,
                   transition: "background 0.15s, border-color 0.15s",
                   minHeight: 80,
+                  contain: "strict",
                 }}
               >
                 {colNodes.length === 0 && (
@@ -860,8 +859,8 @@ export function KanbanView() {
                     />
                   )}
 
-                {/* Load more button — done column in All mode only */}
-                {col.id === "done" && limit === 0 && doneTotal > donePageSize && (
+                {/* Load more button — done column */}
+                {col.id === "done" && doneTotal > donePageSize && (
                   <button
                     onClick={() => setDonePageSize((s) => s + 20)}
                     style={{

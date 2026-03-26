@@ -29,11 +29,9 @@ function formatDate(ts: string | undefined | null): string {
 
 function getNodeDate(node: Node3D): string | null {
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
-  // For completed nodes: use completed_at, then created_at
   if (node.data.status === "completed") {
     return (props.completed_at ?? props.created_at ?? null) as string | null;
   }
-  // For non-completed: no date → goes to Pending
   return null;
 }
 
@@ -42,14 +40,6 @@ function getDateKey(ts: string | null): string {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return "Pending";
   return d.toISOString().slice(0, 10);
-}
-
-function getPhaseName(node: Node3D): string {
-  const props = (node.data.properties ?? {}) as Record<string, unknown>;
-  const name = props.phase_name as string | undefined;
-  const num = props.phase as number | undefined;
-  if (name) return num ? `Phase ${num} · ${name}` : name;
-  return "";
 }
 
 interface PhaseGroup {
@@ -65,11 +55,114 @@ interface TimelineGroup {
   phases: PhaseGroup[];
 }
 
+// Lazy-rendered ticket card: shows a placeholder when outside the viewport,
+// switches to full content once intersected (and stays rendered).
+function LazyTicketCard({
+  node,
+  pinnedNodeId,
+  flashNodeIds,
+  setPinnedNode,
+}: {
+  node: Node3D;
+  pinnedNodeId: string | null;
+  flashNodeIds: Set<string>;
+  setPinnedNode: (id: string | null) => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
+      { rootMargin: "300px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const isPinned = node.id === pinnedNodeId;
+  const isFlashing = flashNodeIds.has(node.id);
+  const color = STATUS_COLOR[node.data.status] ?? "#475569";
+  const icon = STATUS_ICON[node.data.status] ?? "🔒";
+  const props = (node.data.properties ?? {}) as Record<string, unknown>;
+  const itemId = props.item_id as string | undefined;
+  const commitHash = props.commit_hash as string | undefined;
+
+  if (!visible) {
+    return (
+      <div
+        ref={ref}
+        style={{
+          minHeight: 80,
+          borderRadius: 4,
+          background: "rgba(255,255,255,0.01)",
+          border: "1px solid rgba(255,255,255,0.04)",
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={ref}
+      onClick={() => {
+        if (!isPinned) sfxPanelOpen();
+        setPinnedNode(isPinned ? null : node.id);
+      }}
+      style={{
+        background: isFlashing ? `${color}1a` : isPinned ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.02)",
+        borderTop: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+        borderRight: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+        borderBottom: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+        borderLeft: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+        borderRadius: 4, padding: "10px 10px 8px",
+        cursor: "pointer", transition: isFlashing ? "all 0.3s" : "all 0.12s",
+        boxShadow: isFlashing ? `0 0 10px ${color}55` : isPinned ? `0 0 12px ${color}33` : "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isPinned && !isFlashing) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isPinned && !isFlashing) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)";
+      }}
+    >
+      {/* ID */}
+      <div style={{ fontFamily: "monospace", fontSize: 9, color: "#475569", marginBottom: 3 }}>
+        {itemId ?? node.id.toUpperCase()}
+      </div>
+      {/* Title */}
+      <div style={{
+        fontFamily: "monospace", fontSize: 10, fontWeight: 600,
+        color: "#cbd5e1", lineHeight: 1.4, marginBottom: 6,
+        display: "-webkit-box", WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical", overflow: "hidden",
+      }}>
+        {node.data.label.replace(/^ITEM-\d+:\s*/, "")}
+      </div>
+      {/* Status row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 10, color: color, fontFamily: "monospace", fontWeight: 600 }}>
+          {icon} {node.data.status.replace("_", " ").toUpperCase()}
+        </span>
+        {commitHash && (
+          <span style={{ fontFamily: "monospace", fontSize: 8, color: "#334155" }}>
+            {commitHash.slice(0, 6)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TimelineView() {
   const nodes = useTreeStore((s) => s.nodes);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
+  const [showOlderDates, setShowOlderDates] = useState(false);
+  const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set());
 
   // Flash animation: track recently updated node IDs
   const [flashNodeIds, setFlashNodeIds] = useState<Set<string>>(new Set());
@@ -108,7 +201,7 @@ export function TimelineView() {
     [nodes, pinnedNodeId]
   );
 
-  // Only planet nodes (tickets)
+  // Only planet/satellite nodes (tickets)
   const tickets = useMemo(() =>
     nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar"),
     [nodes]
@@ -138,25 +231,18 @@ export function TimelineView() {
       return a.localeCompare(b);
     });
 
-    // Phase colors for sub-groups
     const PHASE_COLORS = ["#6366f1","#22d3ee","#f59e0b","#a78bfa","#34d399","#f87171","#60a5fa","#fb923c"];
 
     return entries.map(([dateKey, groupNodes]) => {
-      // Sub-group by phase within each date
       const phaseMap = new Map<string, Node3D[]>();
       groupNodes.forEach((n) => {
         const props = (n.data.properties ?? {}) as Record<string, unknown>;
         const phaseNum = props.phase as number | undefined;
-        const phaseName = props.phase_name as string | undefined;
         const phaseKey = phaseNum ? String(phaseNum) : "other";
-        const phaseLabel = phaseName ? `Phase ${phaseNum} · ${phaseName}` : phaseNum ? `Phase ${phaseNum}` : "Other";
         if (!phaseMap.has(phaseKey)) phaseMap.set(phaseKey, []);
         phaseMap.get(phaseKey)!.push(n);
-        // store label alongside (hack: prefix key with label)
-        (phaseMap as Map<string, Node3D[] & { _label?: string }>).get(phaseKey)!;
       });
 
-      // Sort phases numerically
       const phaseEntries = Array.from(phaseMap.entries()).sort(([a], [b]) => {
         if (a === "other") return 1;
         if (b === "other") return -1;
@@ -183,6 +269,37 @@ export function TimelineView() {
       };
     });
   }, [filtered]);
+
+  // 90-day window: show last 90 days + all Pending; older dates load on demand
+  const cutoffDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  const { visibleGroups, hasOlderGroups } = useMemo(() => {
+    if (showOlderDates) return { visibleGroups: groups, hasOlderGroups: false };
+    const visible: TimelineGroup[] = [];
+    let hasOlder = false;
+    for (const g of groups) {
+      if (g.dateKey === "Pending" || g.dateKey >= cutoffDate) {
+        visible.push(g);
+      } else {
+        hasOlder = true;
+      }
+    }
+    return { visibleGroups: visible, hasOlderGroups: hasOlder };
+  }, [groups, showOlderDates, cutoffDate]);
+
+  const togglePhaseCollapse = (dateKey: string, phaseKey: string) => {
+    const key = `${dateKey}:${phaseKey}`;
+    setCollapsedPhases((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const completedCount = tickets.filter((n) => n.data.status === "completed").length;
   const total = tickets.length;
@@ -234,7 +351,28 @@ export function TimelineView() {
           width: 1, background: "rgba(255,255,255,0.04)",
         }} />
 
-        {groups.map((group, gi) => (
+        {/* Load older button — shown when older data exists and hasn't been loaded */}
+        {hasOlderGroups && (
+          <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
+            <button
+              onClick={() => setShowOlderDates(true)}
+              style={{
+                fontFamily: "monospace", fontSize: 10,
+                background: "rgba(99,102,241,0.06)",
+                border: "1px solid rgba(99,102,241,0.25)",
+                borderRadius: 20, padding: "5px 16px",
+                color: "#818cf8", cursor: "pointer",
+                letterSpacing: "0.06em", transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.12)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.06)")}
+            >
+              ↑ Load older dates
+            </button>
+          </div>
+        )}
+
+        {visibleGroups.map((group) => (
           <div key={group.dateKey} style={{ marginBottom: 40, position: "relative" }}>
             {/* Date marker */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, position: "relative" }}>
@@ -258,94 +396,55 @@ export function TimelineView() {
             </div>
 
             {/* Phase sub-groups */}
-            {group.phases.map((phaseGroup) => (
-              <div key={phaseGroup.phaseKey} style={{ marginBottom: 16 }}>
-                {/* Phase label */}
-                <div style={{
-                  fontFamily: "monospace", fontSize: 9, color: phaseGroup.color,
-                  textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
-                  display: "flex", alignItems: "center", gap: 6,
-                }}>
-                  <div style={{ width: 8, height: 2, background: phaseGroup.color, borderRadius: 1 }} />
-                  {phaseGroup.phaseLabel}
-                  <span style={{ color: "#334155" }}>({phaseGroup.nodes.length})</span>
-                </div>
-
-                {/* Ticket grid */}
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                  gap: 8,
-                }}>
-                  {phaseGroup.nodes.map((node) => {
-                const isPinned = node.id === pinnedNodeId;
-                const isFlashing = flashNodeIds.has(node.id);
-                const color = STATUS_COLOR[node.data.status] ?? "#475569";
-                const icon = STATUS_ICON[node.data.status] ?? "🔒";
-                const phaseName = getPhaseName(node);
-                const props = (node.data.properties ?? {}) as Record<string, unknown>;
-                const itemId = props.item_id as string | undefined;
-                const commitHash = props.commit_hash as string | undefined;
-
-                return (
+            {group.phases.map((phaseGroup) => {
+              const collapseKey = `${group.dateKey}:${phaseGroup.phaseKey}`;
+              const isCollapsed = collapsedPhases.has(collapseKey);
+              return (
+                <div key={phaseGroup.phaseKey} style={{ marginBottom: 16 }}>
+                  {/* Phase label — clickable to collapse/expand */}
                   <div
-                    key={node.id}
-                    onClick={() => {
-                      if (!isPinned) sfxPanelOpen();
-                      setPinnedNode(isPinned ? null : node.id);
-                    }}
+                    onClick={() => togglePhaseCollapse(group.dateKey, phaseGroup.phaseKey)}
                     style={{
-                      background: isFlashing ? `${color}1a` : isPinned ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.02)",
-                      borderTop: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
-                      borderRight: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
-                      borderBottom: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
-                      borderLeft: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
-                      borderRadius: 4, padding: "10px 10px 8px",
-                      cursor: "pointer", transition: isFlashing ? "all 0.3s" : "all 0.12s",
-                      boxShadow: isFlashing ? `0 0 10px ${color}55` : isPinned ? `0 0 12px ${color}33` : "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isPinned && !isFlashing) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isPinned && !isFlashing) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)";
+                      fontFamily: "monospace", fontSize: 9, color: phaseGroup.color,
+                      textTransform: "uppercase", letterSpacing: "0.1em",
+                      marginBottom: isCollapsed ? 0 : 8,
+                      display: "flex", alignItems: "center", gap: 6,
+                      cursor: "pointer", userSelect: "none",
                     }}
                   >
-                    {/* ID */}
-                    <div style={{ fontFamily: "monospace", fontSize: 9, color: "#475569", marginBottom: 3 }}>
-                      {itemId ?? node.id.toUpperCase()}
-                    </div>
-                    {/* Title */}
-                    <div style={{
-                      fontFamily: "monospace", fontSize: 10, fontWeight: 600,
-                      color: "#cbd5e1", lineHeight: 1.4, marginBottom: 6,
-                      display: "-webkit-box", WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical", overflow: "hidden",
-                    }}>
-                      {node.data.label.replace(/^ITEM-\d+:\s*/, "")}
-                    </div>
-
-                    {/* Status row */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 10, color: color, fontFamily: "monospace", fontWeight: 600 }}>
-                        {icon} {node.data.status.replace("_", " ").toUpperCase()}
-                      </span>
-                      {commitHash && (
-                        <span style={{ fontFamily: "monospace", fontSize: 8, color: "#334155" }}>
-                          {commitHash.slice(0, 6)}
-                        </span>
-                      )}
-                    </div>
+                    <div style={{ width: 8, height: 2, background: phaseGroup.color, borderRadius: 1 }} />
+                    {phaseGroup.phaseLabel}
+                    <span style={{ color: "#334155" }}>({phaseGroup.nodes.length})</span>
+                    <span style={{ color: "#475569", fontSize: 8, marginLeft: 2 }}>
+                      {isCollapsed ? "▶" : "▼"}
+                    </span>
                   </div>
-                    );
-                  })}
+
+                  {/* Ticket grid — hidden when phase is collapsed */}
+                  {!isCollapsed && (
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                      gap: 8,
+                    }}>
+                      {phaseGroup.nodes.map((node) => (
+                        <LazyTicketCard
+                          key={node.id}
+                          node={node}
+                          pinnedNodeId={pinnedNodeId}
+                          flashNodeIds={flashNodeIds}
+                          setPinnedNode={setPinnedNode}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
 
-        {groups.length === 0 && (
+        {visibleGroups.length === 0 && (
           <div style={{ fontFamily: "monospace", fontSize: 12, color: "#334155", textAlign: "center", marginTop: 80 }}>
             No tickets match the current filter.
           </div>
