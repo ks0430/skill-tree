@@ -206,6 +206,7 @@ export function KanbanView() {
   }, [treeId]);
 
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
+  const [searchText, setSearchText] = useState("");
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
   const phaseDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -256,7 +257,14 @@ export function KanbanView() {
       // Apply phase filter
       if (phaseFilter !== null) {
         const nodePhase = (node.data.properties as Record<string, unknown>)?.phase as number;
-        if (nodePhase !== phaseFilter) continue;
+        if (Number(nodePhase) !== Number(phaseFilter)) continue;
+      }
+      // Apply search filter
+      if (searchText.trim()) {
+        const q = searchText.toLowerCase();
+        const label = (node.data.label ?? "").toLowerCase();
+        const desc = (node.data.description ?? "").toLowerCase();
+        if (!label.includes(q) && !desc.includes(q)) continue;
       }
       const col = STATUS_COLUMN[node.data.status] ?? "backlog";
       grouped[col].push(node);
@@ -270,7 +278,7 @@ export function KanbanView() {
     grouped["done"].sort((a, b) => b.data.priority - a.data.priority);
 
     return grouped;
-  }, [nodes]);
+  }, [nodes, phaseFilter, searchText]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId),
@@ -411,7 +419,27 @@ export function KanbanView() {
             {realtimeConnected ? "live" : "connecting…"}
           </span>
         </div>
-        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Filter</span>
+        {/* Search input */}
+        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+          <span style={{ position: "absolute", left: 8, color: "#475569", fontSize: 11, pointerEvents: "none" }}>🔍</span>
+          <input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search tickets..."
+            style={{
+              fontFamily: "monospace", fontSize: 11,
+              background: searchText ? "rgba(129,140,248,0.08)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${searchText ? "rgba(129,140,248,0.4)" : "rgba(148,163,184,0.15)"}`,
+              borderRadius: 20, padding: "4px 10px 4px 26px",
+              color: "#cbd5e1", outline: "none", width: 160,
+              transition: "all 0.15s",
+            }}
+          />
+          {searchText && (
+            <button onClick={() => setSearchText("")} style={{ position: "absolute", right: 8, background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12 }}>×</button>
+          )}
+        </div>
+        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase</span>
         <div ref={phaseDropdownRef} style={{ position: "relative" }}>
           {/* Trigger button */}
           <button
