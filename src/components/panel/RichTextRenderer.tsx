@@ -79,7 +79,7 @@ function EditableText({
   initialText: string;
   onSave: (blockId: string, text: string) => void;
   displayClass: string;
-  editClass: string;
+  editClass?: string;
   placeholder?: string;
   singleLine?: boolean;
 }) {
@@ -100,22 +100,23 @@ function EditableText({
 
   if (editing) {
     return (
-      <AutoTextarea
-        value={draft}
-        onChange={setDraft}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-        className={editClass}
-        placeholder={placeholder}
-      />
+      <div className="rounded bg-white/5 -mx-1 px-1">
+        <AutoTextarea
+          value={draft}
+          onChange={setDraft}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          className={displayClass}
+          placeholder={placeholder}
+        />
+      </div>
     );
   }
 
   return (
     <div
       onClick={() => { setDraft(initialText); setEditing(true); }}
-      className={`cursor-text ${displayClass} whitespace-pre-wrap break-words`}
-      title="Click to edit"
+      className={`cursor-text hover:bg-white/5 rounded -mx-1 px-1 transition-colors ${displayClass} whitespace-pre-wrap break-words`}
     >
       {initialText || <span className="opacity-30">{placeholder ?? "Click to edit..."}</span>}
     </div>
