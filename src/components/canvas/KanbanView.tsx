@@ -79,6 +79,8 @@ export function KanbanView() {
   const addNode = useTreeStore((s) => s.addNode);
   const removeNode = useTreeStore((s) => s.removeNode);
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [hoverCardId, setHoverCardId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<{
     column: "backlog" | "active" | "done";
@@ -266,6 +268,22 @@ export function KanbanView() {
         .eq("tree_id", treeId);
     },
     [treeId, updateNode, supabase]
+  );
+
+  // ── Delete handler ─────────────────────────────────────────────────────────
+
+  const deleteNode = useCallback(
+    async (nodeId: string) => {
+      if (!treeId) return;
+      removeNode(nodeId);
+      await supabase
+        .from("skill_nodes")
+        .delete()
+        .eq("id", nodeId)
+        .eq("tree_id", treeId);
+      setConfirmDeleteId(null);
+    },
+    [treeId, removeNode, supabase]
   );
 
   // ── Drag handlers ──────────────────────────────────────────────────────────
@@ -556,6 +574,8 @@ export function KanbanView() {
                           onDrop(e, col.id, index);
                         }}
                         onDragEnd={onDragEnd}
+                        onMouseEnter={() => setHoverCardId(node.id)}
+                        onMouseLeave={() => setHoverCardId(null)}
                         onClick={() => setPinnedNode(isPinned ? null : node.id)}
                         style={{
                           background: isFlashing
@@ -581,7 +601,7 @@ export function KanbanView() {
                             : "none",
                         }}
                       >
-                        {/* NEXT badge + priority for backlog */}
+                        {/* NEXT badge + priority + delete for backlog */}
                         {col.id === "backlog" && (
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
                             {index === 0 && (
@@ -596,6 +616,66 @@ export function KanbanView() {
                               fontFamily: "monospace", fontSize: 9, color: "#64748b",
                               marginLeft: "auto"
                             }}>priority {node.data.priority}</span>
+                            {/* Delete button — visible on hover */}
+                            {hoverCardId === node.id && confirmDeleteId !== node.id && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(node.id); }}
+                                title="Delete ticket"
+                                style={{
+                                  background: "transparent", border: "none", cursor: "pointer",
+                                  padding: "2px 3px", color: "#475569", lineHeight: 1,
+                                  borderRadius: 3, transition: "color 0.15s",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = "#475569")}
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14H6L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4h6v2" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Inline delete confirmation */}
+                        {col.id === "backlog" && confirmDeleteId === node.id && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              marginBottom: 6, padding: "6px 8px", borderRadius: 4,
+                              background: "rgba(239,68,68,0.08)",
+                              border: "1px solid rgba(239,68,68,0.3)",
+                              display: "flex", alignItems: "center", gap: 8,
+                            }}
+                          >
+                            <span style={{ fontFamily: "monospace", fontSize: 10, color: "#f87171", flex: 1 }}>
+                              Delete this ticket?
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
+                              style={{
+                                fontFamily: "monospace", fontSize: 9, fontWeight: 700,
+                                background: "rgba(239,68,68,0.2)", color: "#f87171",
+                                border: "1px solid rgba(239,68,68,0.4)",
+                                borderRadius: 3, padding: "2px 7px", cursor: "pointer",
+                              }}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                              style={{
+                                fontFamily: "monospace", fontSize: 9,
+                                background: "transparent", color: "#64748b",
+                                border: "1px solid rgba(100,116,139,0.3)",
+                                borderRadius: 3, padding: "2px 7px", cursor: "pointer",
+                              }}
+                            >
+                              No
+                            </button>
                           </div>
                         )}
 
