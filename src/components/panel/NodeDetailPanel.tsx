@@ -241,7 +241,12 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         }}>
           {stats.map(([label, value]) => (
             <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{ fontFamily: "monospace", fontSize: 8, color: "#334155", textTransform: "uppercase", letterSpacing: "0.12em", flexShrink: 0, width: 52 }}>{label}</span>
+              <span style={{
+                fontFamily: "monospace", fontSize: 8, color: "#64748b",
+                textTransform: "uppercase", letterSpacing: "0.12em", flexShrink: 0,
+                background: "rgba(255,255,255,0.05)", borderRadius: 2,
+                padding: "1px 4px", border: "1px solid rgba(255,255,255,0.06)",
+              }}>{label}</span>
               <span style={{ fontFamily: "monospace", fontSize: 11, color: "#cbd5e1", fontWeight: 600 }}>{value}</span>
             </div>
           ))}
