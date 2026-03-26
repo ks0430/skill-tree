@@ -222,18 +222,31 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /** Compute flat 2D graph positions: stellars in a circle, planets near their stellar */
+// Seeded pseudo-random from string — deterministic so layout is stable on reload
+function seededRand(seed: string, offset = 0): number {
+  let h = offset * 2654435761;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 2654435761);
+  }
+  return ((h >>> 0) % 10000) / 10000; // 0..1
+}
+
 function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, number]> {
   const pos = new Map<string, [number, number, number]>();
   const stellars = nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar");
   const planets = nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar");
 
-  // Phase nodes on inner ring — close to centre
-  const stellarRadius = 12;
+  // Phase nodes: inner ring with organic jitter
+  const stellarRadius = 11;
   stellars.forEach((stellar, i) => {
-    const angle = (i / stellars.length) * Math.PI * 2 - Math.PI / 2;
-    const x = Math.cos(angle) * stellarRadius;
-    const z = Math.sin(angle) * stellarRadius;
-    pos.set(stellar.id, [x, 0, z]);
+    const baseAngle = (i / stellars.length) * Math.PI * 2 - Math.PI / 2;
+    // Jitter angle slightly so phases aren't perfectly evenly spaced
+    const jitterAngle = (seededRand(stellar.id, 0) - 0.5) * 0.3;
+    // Jitter radius so some phases are closer/further from centre
+    const jitterR = (seededRand(stellar.id, 1) - 0.5) * 3;
+    const angle = baseAngle + jitterAngle;
+    const r = stellarRadius + jitterR;
+    pos.set(stellar.id, [Math.cos(angle) * r, 0, Math.sin(angle) * r]);
   });
 
   // Group planets by parent stellar
@@ -249,32 +262,41 @@ function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, nu
     const parentPos = pos.get(parentId);
     if (!parentPos) return;
 
-    // Direction outward from centre through this phase node
-    const outX = parentPos[0];
-    const outZ = parentPos[2];
-    const len = Math.sqrt(outX * outX + outZ * outZ) || 1;
-
-    // Spread children in concentric arcs outward from the phase
-    const baseAngle = Math.atan2(outZ, outX);
-    const arcWidth = Math.min(Math.PI * 0.5, (children.length / 6) * Math.PI * 0.4);
+    const baseAngle = Math.atan2(parentPos[2], parentPos[0]);
+    // Arc width grows with child count, varies per phase
+    const arcWidth = Math.min(Math.PI * 0.55, 0.2 + (children.length / 7) * Math.PI * 0.35);
+    // Each row gets a bit wider arc
+    const rowsNeeded = Math.ceil(children.length / 5);
 
     children.forEach((child, i) => {
-      const row = Math.floor(i / 5);        // 5 per row
+      const row = Math.floor(i / 5);
       const col = i % 5;
       const rowCount = Math.min(5, children.length - row * 5);
       const t = rowCount === 1 ? 0.5 : col / (rowCount - 1);
-      const angle = baseAngle - arcWidth / 2 + t * arcWidth;
-      const r = stellarRadius + 5 + row * 4.5;
-      pos.set(child.id, [Math.cos(angle) * r, 0, Math.sin(angle) * r]);
+
+      // Wider arc for outer rows
+      const rowArcWidth = arcWidth * (1 + row * 0.2);
+      const angle = baseAngle - rowArcWidth / 2 + t * rowArcWidth;
+
+      // Organic distance — vary per node using seeded random
+      const baseR = stellarRadius + 5 + row * 4.5;
+      const rJitter = (seededRand(child.id, 2) - 0.5) * 2;
+      const angleJitter = (seededRand(child.id, 3) - 0.5) * 0.25;
+      const r = baseR + rJitter;
+      const finalAngle = angle + angleJitter;
+
+      pos.set(child.id, [Math.cos(finalAngle) * r, 0, Math.sin(finalAngle) * r]);
     });
+
+    void rowsNeeded;
   });
 
-  // Any node without a position: place near origin
+  // Any node without a position: scatter organically
   nodes.forEach((n) => {
     if (!pos.has(n.id)) {
-      const seed = n.id.charCodeAt(0) + n.id.charCodeAt(n.id.length - 1);
-      const a = (seed * 137.5) % (Math.PI * 2);
-      pos.set(n.id, [Math.cos(a) * 3, 0, Math.sin(a) * 3]);
+      const a = seededRand(n.id, 0) * Math.PI * 2;
+      const r = 3 + seededRand(n.id, 1) * 4;
+      pos.set(n.id, [Math.cos(a) * r, 0, Math.sin(a) * r]);
     }
   });
 
