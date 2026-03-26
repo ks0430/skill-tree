@@ -85,7 +85,7 @@ interface TreeState {
   redo: () => void;
 }
 
-const STATUS_CYCLE: NodeStatus[] = ["locked", "in_progress", "completed"];
+const STATUS_CYCLE: NodeStatus[] = ["locked", "queued", "in_progress", "completed"];
 
 // --- Orbital Layout Engine ---
 
