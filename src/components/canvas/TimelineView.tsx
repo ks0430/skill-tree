@@ -29,14 +29,18 @@ function formatDate(ts: string | undefined | null): string {
 
 function getNodeDate(node: Node3D): string | null {
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
-  return (props.completed_at ?? props.created_at ?? null) as string | null;
+  // For completed nodes: use completed_at, then created_at
+  if (node.data.status === "completed") {
+    return (props.completed_at ?? props.created_at ?? null) as string | null;
+  }
+  // For non-completed: no date → goes to Pending
+  return null;
 }
 
 function getDateKey(ts: string | null): string {
   if (!ts) return "Pending";
   const d = new Date(ts);
   if (isNaN(d.getTime())) return "Pending";
-  // Group by date only (strip time)
   return d.toISOString().slice(0, 10);
 }
 
