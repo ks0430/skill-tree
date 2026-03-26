@@ -61,16 +61,16 @@ export function MarkdownContent({ markdown, blocks, description }: MarkdownConte
             <h3 style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: "#f59e0b", marginTop: 8, marginBottom: 2 }}>▸ {children}</h3>
           ),
           p: ({ children }) => (
-            <div style={{ fontFamily: "monospace", fontSize: 10, color: "#94a3b8", lineHeight: 1.65, marginBottom: 5 }}>{children}</div>
+            <div style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, color: "#94a3b8", lineHeight: 1.65, marginBottom: 6 }}>{children}</div>
           ),
           ul: ({ children }) => (
-            <ul style={{ paddingLeft: 14, marginBottom: 6 }}>{children}</ul>
+            <ul style={{ paddingLeft: 16, marginBottom: 6 }}>{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol style={{ paddingLeft: 14, marginBottom: 6 }}>{children}</ol>
+            <ol style={{ paddingLeft: 16, marginBottom: 6 }}>{children}</ol>
           ),
           li: ({ children }) => (
-            <li style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8", lineHeight: 1.6, marginBottom: 2 }}>{children}</li>
+            <li style={{ fontFamily: "system-ui, sans-serif", fontSize: 11, color: "#94a3b8", lineHeight: 1.6, marginBottom: 3 }}>{children}</li>
           ),
           code: ({ inline, children, ...props }: React.ComponentPropsWithRef<"code"> & { inline?: boolean }) =>
             inline ? (
