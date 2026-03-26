@@ -127,7 +127,6 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.15 }}
       className="absolute top-4 left-4 glass rounded-xl w-72 z-10 flex flex-col"
-      style={{ maxHeight: "calc(100vh - 2rem)" }}
       style={{ pointerEvents: pinned ? "auto" : "none", maxHeight: "calc(100vh - 2rem)" }}
     >
       {/* Fixed header: title, status, dates */}
