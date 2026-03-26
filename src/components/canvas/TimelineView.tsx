@@ -48,10 +48,17 @@ function getPhaseName(node: Node3D): string {
   return "";
 }
 
+interface PhaseGroup {
+  phaseKey: string;
+  phaseLabel: string;
+  color: string;
+  nodes: Node3D[];
+}
+
 interface TimelineGroup {
   dateKey: string;
   dateLabel: string;
-  nodes: Node3D[];
+  phases: PhaseGroup[];
 }
 
 export function TimelineView() {
@@ -95,19 +102,50 @@ export function TimelineView() {
       return a.localeCompare(b);
     });
 
-    return entries.map(([dateKey, groupNodes]) => ({
-      dateKey,
-      dateLabel: dateKey === "Pending"
-        ? "Pending / Not started"
-        : formatDate(dateKey + "T00:00:00Z"),
-      nodes: groupNodes.sort((a, b) => {
-        // Sort by phase then priority within group
-        const aPhase = ((a.data.properties ?? {}) as Record<string, unknown>).phase as number ?? 99;
-        const bPhase = ((b.data.properties ?? {}) as Record<string, unknown>).phase as number ?? 99;
-        if (aPhase !== bPhase) return aPhase - bPhase;
-        return (a.data.priority ?? 99) - (b.data.priority ?? 99);
-      }),
-    }));
+    // Phase colors for sub-groups
+    const PHASE_COLORS = ["#6366f1","#22d3ee","#f59e0b","#a78bfa","#34d399","#f87171","#60a5fa","#fb923c"];
+
+    return entries.map(([dateKey, groupNodes]) => {
+      // Sub-group by phase within each date
+      const phaseMap = new Map<string, Node3D[]>();
+      groupNodes.forEach((n) => {
+        const props = (n.data.properties ?? {}) as Record<string, unknown>;
+        const phaseNum = props.phase as number | undefined;
+        const phaseName = props.phase_name as string | undefined;
+        const phaseKey = phaseNum ? String(phaseNum) : "other";
+        const phaseLabel = phaseName ? `Phase ${phaseNum} · ${phaseName}` : phaseNum ? `Phase ${phaseNum}` : "Other";
+        if (!phaseMap.has(phaseKey)) phaseMap.set(phaseKey, []);
+        phaseMap.get(phaseKey)!.push(n);
+        // store label alongside (hack: prefix key with label)
+        (phaseMap as Map<string, Node3D[] & { _label?: string }>).get(phaseKey)!;
+      });
+
+      // Sort phases numerically
+      const phaseEntries = Array.from(phaseMap.entries()).sort(([a], [b]) => {
+        if (a === "other") return 1;
+        if (b === "other") return -1;
+        return parseInt(a) - parseInt(b);
+      });
+
+      const phases: PhaseGroup[] = phaseEntries.map(([phaseKey, phaseNodes], pi) => {
+        const firstNode = phaseNodes[0];
+        const props = (firstNode.data.properties ?? {}) as Record<string, unknown>;
+        const phaseNum = props.phase as number | undefined;
+        const phaseName = props.phase_name as string | undefined;
+        return {
+          phaseKey,
+          phaseLabel: phaseName ? `Phase ${phaseNum} · ${phaseName}` : phaseNum ? `Phase ${phaseNum}` : "Other",
+          color: PHASE_COLORS[pi % PHASE_COLORS.length],
+          nodes: phaseNodes.sort((a, b) => (a.data.priority ?? 99) - (b.data.priority ?? 99)),
+        };
+      });
+
+      return {
+        dateKey,
+        dateLabel: dateKey === "Pending" ? "Pending / Not started" : formatDate(dateKey + "T00:00:00Z"),
+        phases,
+      };
+    });
   }, [filtered]);
 
   const completedCount = tickets.filter((n) => n.data.status === "completed").length;
@@ -179,18 +217,31 @@ export function TimelineView() {
                 {group.dateLabel}
               </span>
               <span style={{ fontFamily: "monospace", fontSize: 9, color: "#334155" }}>
-                — {group.nodes.length} ticket{group.nodes.length !== 1 ? "s" : ""}
+                — {group.phases.reduce((sum, p) => sum + p.nodes.length, 0)} ticket{group.phases.reduce((sum, p) => sum + p.nodes.length, 0) !== 1 ? "s" : ""}
               </span>
             </div>
 
-            {/* Ticket grid */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-              gap: 8,
-              paddingLeft: 0,
-            }}>
-              {group.nodes.map((node) => {
+            {/* Phase sub-groups */}
+            {group.phases.map((phaseGroup) => (
+              <div key={phaseGroup.phaseKey} style={{ marginBottom: 16 }}>
+                {/* Phase label */}
+                <div style={{
+                  fontFamily: "monospace", fontSize: 9, color: phaseGroup.color,
+                  textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  <div style={{ width: 8, height: 2, background: phaseGroup.color, borderRadius: 1 }} />
+                  {phaseGroup.phaseLabel}
+                  <span style={{ color: "#334155" }}>({phaseGroup.nodes.length})</span>
+                </div>
+
+                {/* Ticket grid */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                  gap: 8,
+                }}>
+                  {phaseGroup.nodes.map((node) => {
                 const isPinned = node.id === pinnedNodeId;
                 const color = STATUS_COLOR[node.data.status] ?? "#475569";
                 const icon = STATUS_ICON[node.data.status] ?? "🔒";
@@ -234,12 +285,7 @@ export function TimelineView() {
                     }}>
                       {node.data.label.replace(/^ITEM-\d+:\s*/, "")}
                     </div>
-                    {/* Phase */}
-                    {phaseName && (
-                      <div style={{ fontFamily: "monospace", fontSize: 8, color: "#334155", marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {phaseName}
-                      </div>
-                    )}
+
                     {/* Status row */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span style={{ fontSize: 10, color: color, fontFamily: "monospace", fontWeight: 600 }}>
@@ -252,9 +298,11 @@ export function TimelineView() {
                       )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         ))}
 
