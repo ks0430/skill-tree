@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useChatStore } from "@/lib/store/chat-store";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
@@ -21,9 +21,11 @@ interface ChatPanelProps {
 export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
   const {
     messages, isStreaming, streamingContent, suggestions,
-    addMessage, setMessages, setStreaming, appendStreamContent, resetStreamContent,
+    addMessage, setMessages, clearMessages, setStreaming, appendStreamContent, resetStreamContent,
     setSuggestions, clearSuggestions,
   } = useChatStore();
+
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const { pendingChanges, addPendingChange, resolveAllPending, addNode, removeNode, updateNode, updateNodeContent, nodes, addEdge, removeEdge, pushHistory } = useTreeStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -193,8 +195,27 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
     });
   }
 
+  async function handleClear() {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setConfirmClear(false);
+    await supabase.from("chat_messages").delete().eq("tree_id", treeId);
+    clearMessages();
+    toast.success("Conversation cleared");
+  }
+
   async function sendMessage(content: string) {
     clearSuggestions();
+
+    // Intercept /clear command
+    if (content.trim().toLowerCase() === "/clear") {
+      await supabase.from("chat_messages").delete().eq("tree_id", treeId);
+      clearMessages();
+      toast.success("Conversation cleared");
+      return;
+    }
 
     // Intercept /pm pause and /pm resume commands
     const trimmed = content.trim().toLowerCase();
@@ -499,17 +520,47 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
     <div className="w-full glass border-l border-glass-border flex flex-col">
       <div className="p-3 border-b border-glass-border flex items-center justify-between shrink-0">
         <h2 className="font-mono font-semibold text-sm">AI Assistant</h2>
-        {onCollapse && (
-          <button
-            onClick={onCollapse}
-            className="text-slate-500 hover:text-white transition-colors p-1 rounded"
-            title="Collapse"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {confirmClear ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">Clear all messages?</span>
+              <button
+                onClick={handleClear}
+                className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] hover:bg-red-500/30 transition-colors"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 text-[10px] hover:bg-slate-700 transition-colors"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleClear}
+              className="text-slate-500 hover:text-red-400 transition-colors p-1 rounded"
+              title="Clear conversation"
+              disabled={messages.length === 0}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="text-slate-500 hover:text-white transition-colors p-1 rounded"
+              title="Collapse"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">

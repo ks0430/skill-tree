@@ -9,6 +9,7 @@ interface ChatState {
 
   addMessage: (message: ChatMessage) => void;
   setMessages: (messages: ChatMessage[]) => void;
+  clearMessages: () => void;
   setStreaming: (streaming: boolean) => void;
   appendStreamContent: (text: string) => void;
   resetStreamContent: () => void;
@@ -26,6 +27,8 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({ messages: [...state.messages, message] })),
 
   setMessages: (messages) => set({ messages }),
+
+  clearMessages: () => set({ messages: [], suggestions: [] }),
 
   setStreaming: (isStreaming) => set({ isStreaming }),
 

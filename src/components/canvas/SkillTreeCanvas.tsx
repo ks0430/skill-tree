@@ -52,8 +52,12 @@ function OrthoZoomSync() {
 function CameraController() {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
+  const viewMode = useTreeStore((s) => s.viewMode);
   const focusTargetId = useTreeStore((s) => s.focusTargetId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
+
+  // In graph mode, camera is handled by GraphCameraController — do nothing
+  if (viewMode === "graph") return null;
   const topDownMode = useTreeStore((s) => s.topDownMode);
   const nodes = useTreeStore((s) => s.nodes);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
@@ -217,12 +221,40 @@ const STATUS_COLORS: Record<string, string> = {
   locked:      "#1e293b",
 };
 
+<<<<<<< HEAD
 /** Compute flat 2D graph positions: stellars in a circle, planets near their stellar */
+=======
+/** Compute flat 2D graph positions — Option B: timeline growth rings
+ *  Earlier completed phases/tickets sit closer to centre (like tree rings).
+ *  Locked/pending work lives at the outer edge.
+ *  Within each ring, nodes spread angularly with organic jitter.
+ */
+
+function seededRand(seed: string, offset = 0): number {
+  let h = offset * 2654435761;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 2654435761);
+  }
+  return ((h >>> 0) % 10000) / 10000;
+}
+
+function getCompletedAt(node: Node3D): number {
+  const props = (node.data.properties ?? {}) as Record<string, unknown>;
+  const ts = props.completed_at as string | undefined;
+  if (ts) return new Date(ts).getTime();
+  // Fallback: use phase number as proxy for age (lower phase = older)
+  const phase = props.phase as number | undefined;
+  if (phase) return phase * 1000; // older phases get smaller timestamps
+  return Date.now() + 1e12; // unfinished = far future
+}
+
+>>>>>>> item-150-impl
 function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, number]> {
   const pos = new Map<string, [number, number, number]>();
   const stellars = nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar");
   const planets = nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar");
 
+<<<<<<< HEAD
   const stellarRadius = Math.max(8, stellars.length * 2.5);
 
   stellars.forEach((stellar, i) => {
@@ -236,11 +268,64 @@ function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, nu
   const planetsByParent = new Map<string, Node3D[]>();
   planets.forEach((p) => {
     const parentId = p.data.parent_id ?? "__root__";
+=======
+  // Sort stellars by completion time — earlier = closer to centre
+  const sortedStellars = [...stellars].sort((a, b) => getCompletedAt(a) - getCompletedAt(b));
+  const totalStellars = sortedStellars.length;
+
+  // Map each stellar to a ring radius based on completion order
+  // First completed = r=6, last/pending = r=28
+  const stellarRings = new Map<string, number>();
+  sortedStellars.forEach((s, i) => {
+    const t = totalStellars > 1 ? i / (totalStellars - 1) : 0.5;
+    // Eased: earlier phases bunch up near centre, later phases spread out
+    const r = 6 + Math.pow(t, 0.7) * 22;
+    stellarRings.set(s.id, r);
+  });
+
+  // Place stellars around their ring — angle spread evenly but with jitter
+  // Group by approximate ring (within 3 units = same ring)
+  const angleByRing = new Map<number, number[]>();
+  sortedStellars.forEach((s) => {
+    const r = stellarRings.get(s.id)!;
+    const ringKey = Math.round(r);
+    if (!angleByRing.has(ringKey)) angleByRing.set(ringKey, []);
+    angleByRing.get(ringKey)!.push(0);
+  });
+
+  // Assign angles — distribute evenly, grouped by ring
+  const ringCounts = new Map<number, { count: number; idx: number }>();
+  sortedStellars.forEach((s) => {
+    const r = Math.round(stellarRings.get(s.id)!);
+    if (!ringCounts.has(r)) ringCounts.set(r, { count: 0, idx: 0 });
+    ringCounts.get(r)!.count++;
+  });
+
+  sortedStellars.forEach((stellar) => {
+    const r = stellarRings.get(stellar.id)!;
+    const ringKey = Math.round(r);
+    const rc = ringCounts.get(ringKey)!;
+    const baseAngle = (rc.idx / rc.count) * Math.PI * 2 - Math.PI / 2;
+    rc.idx++;
+
+    const jitterAngle = (seededRand(stellar.id, 0) - 0.5) * (Math.PI / rc.count) * 0.5;
+    const jitterR = (seededRand(stellar.id, 1) - 0.5) * 1.5;
+    const angle = baseAngle + jitterAngle;
+    pos.set(stellar.id, [Math.cos(angle) * (r + jitterR), 0, Math.sin(angle) * (r + jitterR)]);
+  });
+
+  // Group planets by parent, also sorted by completion time
+  const planetsByParent = new Map<string, Node3D[]>();
+  planets.forEach((p) => {
+    const parentId = p.data.parent_id;
+    if (!parentId || !pos.has(parentId)) return;
+>>>>>>> item-150-impl
     if (!planetsByParent.has(parentId)) planetsByParent.set(parentId, []);
     planetsByParent.get(parentId)!.push(p);
   });
 
   planetsByParent.forEach((children, parentId) => {
+<<<<<<< HEAD
     const parentPos = pos.get(parentId) ?? [0, 0, 0];
     const r = 3.5;
     children.forEach((child, i) => {
@@ -255,6 +340,42 @@ function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, nu
   nodes.forEach((n) => {
     if (!pos.has(n.id)) {
       pos.set(n.id, [Math.random() * 4 - 2, 0, Math.random() * 4 - 2]);
+=======
+    const parentPos = pos.get(parentId)!;
+    const parentR = Math.sqrt(parentPos[0] ** 2 + parentPos[2] ** 2);
+    const baseAngle = Math.atan2(parentPos[2], parentPos[0]);
+
+    // Sort children by completion time — earlier = closer to phase
+    const sorted = [...children].sort((a, b) => getCompletedAt(a) - getCompletedAt(b));
+    const arcWidth = Math.min(Math.PI * 0.5, 0.2 + (sorted.length / 8) * Math.PI * 0.35);
+
+    sorted.forEach((child, i) => {
+      const row = Math.floor(i / 5);
+      const col = i % 5;
+      const rowCount = Math.min(5, sorted.length - row * 5);
+      const t = rowCount === 1 ? 0.5 : col / (rowCount - 1);
+
+      const rowArcWidth = arcWidth * (1 + row * 0.15);
+      const angle = baseAngle - rowArcWidth / 2 + t * rowArcWidth;
+
+      // Distance: completed tickets closer to parent, pending farther
+      const isComplete = child.data.status === "completed";
+      const baseR = parentR + 4.5 + row * 3.5 + (isComplete ? 0 : 1.5);
+      const rJitter = (seededRand(child.id, 2) - 0.5) * 1.5;
+      const aJitter = (seededRand(child.id, 3) - 0.5) * 0.2;
+      const r = baseR + rJitter;
+
+      pos.set(child.id, [Math.cos(angle + aJitter) * r, 0, Math.sin(angle + aJitter) * r]);
+    });
+  });
+
+  // Unpositioned nodes: scatter at outer edge
+  nodes.forEach((n) => {
+    if (!pos.has(n.id)) {
+      const a = seededRand(n.id, 0) * Math.PI * 2;
+      const r = 30 + seededRand(n.id, 1) * 5;
+      pos.set(n.id, [Math.cos(a) * r, 0, Math.sin(a) * r]);
+>>>>>>> item-150-impl
     }
   });
 
@@ -316,6 +437,7 @@ function GraphNode({
 }
 
 /** Graph mode edges */
+<<<<<<< HEAD
 function GraphEdges({ nodes, positions, edges }: { nodes: Node3D[]; positions: Map<string, [number, number, number]>; edges: import("@/types/skill-tree").SkillEdge[] }) {
   const nodeMap = useMemo(() => {
     const m = new Map<string, Node3D>();
@@ -341,6 +463,62 @@ function GraphEdges({ nodes, positions, edges }: { nodes: Node3D[]; positions: M
           />
         );
       })}
+=======
+const EDGE_COLORS: Record<string, string> = {
+  completed: "#22c55e",
+  in_progress: "#f59e0b",
+  queued: "#6366f1",
+  locked: "#1e293b",
+};
+
+function GraphEdges({ nodes, positions, edges }: { nodes: Node3D[]; positions: Map<string, [number, number, number]>; edges: import("@/types/skill-tree").SkillEdge[] }) {
+  const ROOT_POS: [number, number, number] = [0, 0, 0];
+
+  const lines = useMemo(() => {
+    const result: { key: string; from: [number,number,number]; to: [number,number,number]; color: string; width: number }[] = [];
+    const nodeMap = new Map<string, Node3D>(nodes.map((n) => [n.id, n]));
+
+    // 1. ROOT → each stellar
+    nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar").forEach((s) => {
+      const to = positions.get(s.id);
+      if (!to) return;
+      const color = s.data.status === "completed" ? "#22d3ee33" : "#1e293b";
+      result.push({ key: `root-${s.id}`, from: ROOT_POS, to, color, width: 0.5 });
+    });
+
+    // 2. stellar → planets (parent lines)
+    nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar").forEach((p) => {
+      if (!p.data.parent_id) return;
+      const from = positions.get(p.data.parent_id);
+      const to = positions.get(p.id);
+      if (!from || !to) return;
+      const color = p.data.status === "completed"
+        ? EDGE_COLORS.completed + "66"
+        : p.data.status === "in_progress"
+        ? EDGE_COLORS.in_progress + "99"
+        : "#1e2a3a";
+      result.push({ key: `parent-${p.id}`, from, to, color, width: p.data.status === "completed" ? 0.8 : 0.4 });
+    });
+
+    // 3. depends_on edges — brighter, show relationships
+    edges.filter((e) => e.type === "depends_on").forEach((e) => {
+      const from = positions.get(e.source_id);
+      const to = positions.get(e.target_id);
+      if (!from || !to) return;
+      const src = nodeMap.get(e.source_id);
+      const color = src?.data.status === "completed" ? "#22c55e44" : "#3b4a5a";
+      result.push({ key: `dep-${e.id}`, from, to, color, width: 0.6 });
+    });
+
+    return result;
+  }, [nodes, positions, edges]);
+
+  return (
+    <>
+      {lines.map(({ key, from, to, color, width }) => (
+        <Line key={key} points={[from, to]} color={color} lineWidth={width} />
+      ))}
+>>>>>>> item-150-impl
     </>
   );
 }
@@ -349,7 +527,11 @@ function GraphEdges({ nodes, positions, edges }: { nodes: Node3D[]; positions: M
 function GraphCameraController() {
   const controlsRef = useRef<any>(null);
   const { camera, size } = useThree();
+<<<<<<< HEAD
   const [zoom, setZoom] = useState(30);
+=======
+  const [zoom, setZoom] = useState(55);
+>>>>>>> item-150-impl
 
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera)) return;
@@ -392,7 +574,11 @@ function GraphScene() {
   const nodes = useTreeStore((s) => s.nodes);
   const edges = useTreeStore((s) => s.edges);
   const { camera, size } = useThree();
+<<<<<<< HEAD
   const [camZoom, setCamZoom] = useState(30);
+=======
+  const [camZoom, setCamZoom] = useState(55);
+>>>>>>> item-150-impl
 
   const positions = useMemo(() => computeGraphPositions(nodes), [nodes]);
 
