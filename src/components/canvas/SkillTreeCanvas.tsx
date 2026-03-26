@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useRef, useEffect, useState, useCallback, startTransition } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
+import { OrbitControls, Stars, OrthographicCamera, Line, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { SkillNode3D, worldPositions } from "./SkillNode3D";
@@ -210,6 +210,233 @@ function CameraController() {
 
 
 
+const STATUS_COLORS: Record<string, string> = {
+  completed:   "#22c55e",
+  in_progress: "#f59e0b",
+  queued:      "#6366f1",
+  locked:      "#1e293b",
+};
+
+/** Compute flat 2D graph positions: stellars in a circle, planets near their stellar */
+function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, number]> {
+  const pos = new Map<string, [number, number, number]>();
+  const stellars = nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar");
+  const planets = nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar");
+
+  const stellarRadius = Math.max(8, stellars.length * 2.5);
+
+  stellars.forEach((stellar, i) => {
+    const angle = (i / stellars.length) * Math.PI * 2;
+    const x = Math.cos(angle) * stellarRadius;
+    const z = Math.sin(angle) * stellarRadius;
+    pos.set(stellar.id, [x, 0, z]);
+  });
+
+  // Group planets by parent
+  const planetsByParent = new Map<string, Node3D[]>();
+  planets.forEach((p) => {
+    const parentId = p.data.parent_id ?? "__root__";
+    if (!planetsByParent.has(parentId)) planetsByParent.set(parentId, []);
+    planetsByParent.get(parentId)!.push(p);
+  });
+
+  planetsByParent.forEach((children, parentId) => {
+    const parentPos = pos.get(parentId) ?? [0, 0, 0];
+    const r = 3.5;
+    children.forEach((child, i) => {
+      const angle = (i / children.length) * Math.PI * 2;
+      const x = parentPos[0] + Math.cos(angle) * r;
+      const z = parentPos[2] + Math.sin(angle) * r;
+      pos.set(child.id, [x, 0, z]);
+    });
+  });
+
+  // Any node without a position (no parent found): place at origin area
+  nodes.forEach((n) => {
+    if (!pos.has(n.id)) {
+      pos.set(n.id, [Math.random() * 4 - 2, 0, Math.random() * 4 - 2]);
+    }
+  });
+
+  return pos;
+}
+
+/** Flat disc node for graph mode */
+function GraphNode({
+  node,
+  position,
+  zoomLevel,
+}: {
+  node: Node3D;
+  position: [number, number, number];
+  zoomLevel: number;
+}) {
+  const setHoveredNode = useTreeStore((s) => s.setHoveredNode);
+  const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
+  const selectedNodeId = useTreeStore((s) => s.selectedNodeId);
+  const role = (node.data.type ?? node.data.role) as string;
+  const isStellar = role === "stellar";
+  const radius = isStellar ? 1.5 : 0.6;
+  const color = STATUS_COLORS[node.data.status] ?? STATUS_COLORS.locked;
+  const isSelected = selectedNodeId === node.id;
+
+  const circleGeo = useMemo(() => new THREE.CircleGeometry(radius, isStellar ? 32 : 24), [radius, isStellar]);
+  const ringGeo = useMemo(() => new THREE.RingGeometry(radius + 0.05, radius + 0.2, 32), [radius]);
+
+  return (
+    <group position={position}>
+      <mesh
+        geometry={circleGeo}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onPointerEnter={() => setHoveredNode(node.id)}
+        onPointerLeave={() => setHoveredNode(null)}
+        onClick={(e) => { e.stopPropagation(); setPinnedNode(node.id); }}
+      >
+        <meshBasicMaterial color={color} />
+      </mesh>
+      {isSelected && (
+        <mesh geometry={ringGeo} rotation={[-Math.PI / 2, 0, 0]}>
+          <meshBasicMaterial color="#818cf8" />
+        </mesh>
+      )}
+      {zoomLevel > 5 && (
+        <Text
+          position={[0, 0.1, radius + 0.3]}
+          fontSize={isStellar ? 0.5 : 0.3}
+          color="#e2e8f0"
+          anchorX="center"
+          anchorY="bottom"
+          maxWidth={4}
+        >
+          {node.data.label}
+        </Text>
+      )}
+    </group>
+  );
+}
+
+/** Graph mode edges */
+function GraphEdges({ nodes, positions, edges }: { nodes: Node3D[]; positions: Map<string, [number, number, number]>; edges: import("@/types/skill-tree").SkillEdge[] }) {
+  const nodeMap = useMemo(() => {
+    const m = new Map<string, Node3D>();
+    nodes.forEach((n) => m.set(n.id, n));
+    return m;
+  }, [nodes]);
+
+  // suppress unused warning
+  void nodeMap;
+
+  return (
+    <>
+      {edges.map((edge) => {
+        const srcPos = positions.get(edge.source_id);
+        const dstPos = positions.get(edge.target_id);
+        if (!srcPos || !dstPos) return null;
+        return (
+          <Line
+            key={edge.id}
+            points={[srcPos, dstPos]}
+            color="#334155"
+            lineWidth={1}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** Camera controller for graph mode — orthographic, pan+zoom only */
+function GraphCameraController() {
+  const controlsRef = useRef<any>(null);
+  const { camera, size } = useThree();
+  const [zoom, setZoom] = useState(30);
+
+  useEffect(() => {
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+    const aspect = size.width / size.height;
+    camera.left = -zoom * aspect;
+    camera.right = zoom * aspect;
+    camera.top = zoom;
+    camera.bottom = -zoom;
+    camera.updateProjectionMatrix();
+  }, [camera, size, zoom]);
+
+  useFrame(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    controls.update();
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enableRotate={false}
+      enablePan={true}
+      enableZoom={true}
+      mouseButtons={{ LEFT: 2, MIDDLE: 1, RIGHT: 2 }}
+      onChange={() => {
+        if (controlsRef.current) {
+          setZoom(() => {
+            const cam = controlsRef.current?.object;
+            if (cam instanceof THREE.OrthographicCamera) return cam.top;
+            return 30;
+          });
+        }
+      }}
+    />
+  );
+}
+
+/** Full graph mode scene */
+function GraphScene() {
+  const nodes = useTreeStore((s) => s.nodes);
+  const edges = useTreeStore((s) => s.edges);
+  const { camera, size } = useThree();
+  const [camZoom, setCamZoom] = useState(30);
+
+  const positions = useMemo(() => computeGraphPositions(nodes), [nodes]);
+
+  // Set up orthographic camera on mount
+  useEffect(() => {
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+    const aspect = size.width / size.height;
+    camera.position.set(0, 100, 0);
+    camera.lookAt(0, 0, 0);
+    camera.near = 0.1;
+    camera.far = 500;
+    camera.left = -camZoom * aspect;
+    camera.right = camZoom * aspect;
+    camera.top = camZoom;
+    camera.bottom = -camZoom;
+    camera.updateProjectionMatrix();
+  }, [camera, size]); // eslint-disable-line
+
+  // sync camZoom from camera each frame for label threshold
+  useFrame(() => {
+    if (camera instanceof THREE.OrthographicCamera) {
+      setCamZoom((prev) => {
+        const next = camera.top;
+        return Math.abs(next - prev) > 0.5 ? next : prev;
+      });
+    }
+  });
+
+  return (
+    <>
+      <ambientLight intensity={1} />
+      {Array.from(positions.entries()).map(([id, pos]) => {
+        const node = nodes.find((n) => n.id === id);
+        if (!node) return null;
+        return (
+          <GraphNode key={id} node={node} position={pos} zoomLevel={camZoom} />
+        );
+      })}
+      <GraphEdges nodes={nodes} positions={positions} edges={edges} />
+      <GraphCameraController />
+    </>
+  );
+}
+
 const BATCH_SIZE = 5;     // nodes per batch
 const BATCH_GAP_MS = 100; // ms between batches
 
@@ -316,6 +543,7 @@ export function SkillTreeCanvas() {
     else setLoadProgress({ loaded, total });
   }, []);
 
+  const viewMode = useTreeStore((s) => s.viewMode);
   const hoveredNodeId = useTreeStore((s) => s.hoveredNodeId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
@@ -355,6 +583,34 @@ export function SkillTreeCanvas() {
 
   // Which node to show in detail panel: pinned > hovered
   const detailNode = pinnedNode ?? hoveredNode;
+
+  if (viewMode === "graph") {
+    return (
+      <div className="w-full h-full relative">
+        <Canvas
+          orthographic
+          camera={{ position: [0, 100, 0], zoom: 1, near: 0.1, far: 500 }}
+          gl={{ antialias: true, alpha: true }}
+          style={{ background: "#0a0e1a" }}
+        >
+          <Suspense fallback={null}>
+            <GraphScene />
+          </Suspense>
+        </Canvas>
+        {detailNode && (
+          <NodeDetailPanel
+            node={detailNode}
+            pinned={!!pinnedNode}
+            onClose={() => setPinnedNode(null)}
+          />
+        )}
+        <SearchPanel />
+        <div className="absolute bottom-4 left-4 text-[10px] text-slate-600 pointer-events-none">
+          Click to pin details · / to search · Scroll to zoom · Drag to pan
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full relative">
