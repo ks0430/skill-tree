@@ -52,8 +52,12 @@ function OrthoZoomSync() {
 function CameraController() {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
+  const viewMode = useTreeStore((s) => s.viewMode);
   const focusTargetId = useTreeStore((s) => s.focusTargetId);
   const trackingNodeId = useTreeStore((s) => s.trackingNodeId);
+
+  // In graph mode, camera is handled by GraphCameraController — do nothing
+  if (viewMode === "graph") return null;
   const topDownMode = useTreeStore((s) => s.topDownMode);
   const nodes = useTreeStore((s) => s.nodes);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
@@ -242,9 +246,24 @@ function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, nu
 
   planetsByParent.forEach((children, parentId) => {
     const parentPos = pos.get(parentId) ?? [0, 0, 0];
-    const r = 3.5;
+    // Direction from centre → stellar = the "outward" direction
+    const dirX = parentPos[0];
+    const dirZ = parentPos[2];
+    const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+    const normX = dirX / len;
+    const normZ = dirZ / len;
+
+    // Spread children in a fan shape pointing outward from centre
+    const fanAngle = Math.min(Math.PI * 0.7, (children.length / 8) * Math.PI);
+    const baseAngle = Math.atan2(normZ, normX);
+    const startAngle = baseAngle - fanAngle / 2;
+
     children.forEach((child, i) => {
-      const angle = (i / children.length) * Math.PI * 2;
+      const t = children.length === 1 ? 0.5 : i / (children.length - 1);
+      const angle = startAngle + t * fanAngle;
+      // Place at varying distances outward (alternating rows for many nodes)
+      const row = Math.floor(i / 5);
+      const r = 6 + row * 4;
       const x = parentPos[0] + Math.cos(angle) * r;
       const z = parentPos[2] + Math.sin(angle) * r;
       pos.set(child.id, [x, 0, z]);
