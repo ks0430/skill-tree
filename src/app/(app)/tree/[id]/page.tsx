@@ -7,6 +7,7 @@ import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
 import { RadialTreeView } from "@/components/canvas/RadialTreeView";
+import { ForceGraphView } from "@/components/canvas/ForceGraphView";
 import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { KanbanView } from "@/components/canvas/KanbanView";
@@ -240,6 +241,8 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             <SkillTreeView2D />
           ) : viewMode === "radial" ? (
             <RadialTreeView />
+          ) : viewMode === "force" ? (
+            <ForceGraphView />
           ) : viewMode === "gantt" ? (
             <GanttView />
           ) : viewMode === "weight" ? (
