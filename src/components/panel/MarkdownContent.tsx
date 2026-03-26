@@ -35,8 +35,14 @@ interface MarkdownContentProps {
 export function MarkdownContent({ markdown, blocks, description }: MarkdownContentProps) {
   // Build the markdown string
   let md = markdown ?? "";
-  if (!md && description) md = description;
+  // Prefer blocks over description if blocks have real content
   if (!md && blocks && blocks.length > 0) md = blocksToMarkdown(blocks);
+  if (!md && description) md = description;
+  // If description is the same as first block's text, don't duplicate
+  if (md === description && blocks && blocks.length > 0) {
+    const blocksMd = blocksToMarkdown(blocks);
+    if (blocksMd) md = blocksMd;
+  }
   if (!md) return <p style={{ fontFamily: "monospace", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No content.</p>;
 
   return (
@@ -44,16 +50,16 @@ export function MarkdownContent({ markdown, blocks, description }: MarkdownConte
       <ReactMarkdown
         components={{
           h1: ({ children }) => (
-            <h1 style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginTop: 10, marginBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 3 }}>{children}</h1>
+            <h1 style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#22c55e", marginTop: 10, marginBottom: 4, borderBottom: "1px solid rgba(34,197,94,0.2)", paddingBottom: 3, textTransform: "uppercase", letterSpacing: "0.1em" }}>{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 10, marginBottom: 3 }}>{children}</h2>
+            <h2 style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 10, marginBottom: 4, borderLeft: "2px solid #3b82f6", paddingLeft: 6 }}>{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: "#94a3b8", marginTop: 8, marginBottom: 2 }}>{children}</h3>
+            <h3 style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: "#f59e0b", marginTop: 8, marginBottom: 2 }}>▸ {children}</h3>
           ),
           p: ({ children }) => (
-            <p style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8", lineHeight: 1.6, marginBottom: 6 }}>{children}</p>
+            <p style={{ fontFamily: "monospace", fontSize: 10, color: "#94a3b8", lineHeight: 1.65, marginBottom: 5 }}>{children}</p>
           ),
           ul: ({ children }) => (
             <ul style={{ paddingLeft: 14, marginBottom: 6 }}>{children}</ul>
