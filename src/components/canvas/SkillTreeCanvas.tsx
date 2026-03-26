@@ -227,53 +227,54 @@ function computeGraphPositions(nodes: Node3D[]): Map<string, [number, number, nu
   const stellars = nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar");
   const planets = nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar");
 
-  const stellarRadius = Math.max(8, stellars.length * 2.5);
-
+  // Phase nodes on inner ring — close to centre
+  const stellarRadius = 12;
   stellars.forEach((stellar, i) => {
-    const angle = (i / stellars.length) * Math.PI * 2;
+    const angle = (i / stellars.length) * Math.PI * 2 - Math.PI / 2;
     const x = Math.cos(angle) * stellarRadius;
     const z = Math.sin(angle) * stellarRadius;
     pos.set(stellar.id, [x, 0, z]);
   });
 
-  // Group planets by parent
+  // Group planets by parent stellar
   const planetsByParent = new Map<string, Node3D[]>();
   planets.forEach((p) => {
-    const parentId = p.data.parent_id ?? "__root__";
+    const parentId = p.data.parent_id;
+    if (!parentId) return;
     if (!planetsByParent.has(parentId)) planetsByParent.set(parentId, []);
     planetsByParent.get(parentId)!.push(p);
   });
 
   planetsByParent.forEach((children, parentId) => {
-    const parentPos = pos.get(parentId) ?? [0, 0, 0];
-    // Direction from centre → stellar = the "outward" direction
-    const dirX = parentPos[0];
-    const dirZ = parentPos[2];
-    const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
-    const normX = dirX / len;
-    const normZ = dirZ / len;
+    const parentPos = pos.get(parentId);
+    if (!parentPos) return;
 
-    // Spread children in a fan shape pointing outward from centre
-    const fanAngle = Math.min(Math.PI * 0.7, (children.length / 8) * Math.PI);
-    const baseAngle = Math.atan2(normZ, normX);
-    const startAngle = baseAngle - fanAngle / 2;
+    // Direction outward from centre through this phase node
+    const outX = parentPos[0];
+    const outZ = parentPos[2];
+    const len = Math.sqrt(outX * outX + outZ * outZ) || 1;
+
+    // Spread children in concentric arcs outward from the phase
+    const baseAngle = Math.atan2(outZ, outX);
+    const arcWidth = Math.min(Math.PI * 0.5, (children.length / 6) * Math.PI * 0.4);
 
     children.forEach((child, i) => {
-      const t = children.length === 1 ? 0.5 : i / (children.length - 1);
-      const angle = startAngle + t * fanAngle;
-      // Place at varying distances outward (alternating rows for many nodes)
-      const row = Math.floor(i / 5);
-      const r = 6 + row * 4;
-      const x = parentPos[0] + Math.cos(angle) * r;
-      const z = parentPos[2] + Math.sin(angle) * r;
-      pos.set(child.id, [x, 0, z]);
+      const row = Math.floor(i / 5);        // 5 per row
+      const col = i % 5;
+      const rowCount = Math.min(5, children.length - row * 5);
+      const t = rowCount === 1 ? 0.5 : col / (rowCount - 1);
+      const angle = baseAngle - arcWidth / 2 + t * arcWidth;
+      const r = stellarRadius + 5 + row * 4.5;
+      pos.set(child.id, [Math.cos(angle) * r, 0, Math.sin(angle) * r]);
     });
   });
 
-  // Any node without a position (no parent found): place at origin area
+  // Any node without a position: place near origin
   nodes.forEach((n) => {
     if (!pos.has(n.id)) {
-      pos.set(n.id, [Math.random() * 4 - 2, 0, Math.random() * 4 - 2]);
+      const seed = n.id.charCodeAt(0) + n.id.charCodeAt(n.id.length - 1);
+      const a = (seed * 137.5) % (Math.PI * 2);
+      pos.set(n.id, [Math.cos(a) * 3, 0, Math.sin(a) * 3]);
     }
   });
 
@@ -368,7 +369,7 @@ function GraphEdges({ nodes, positions, edges }: { nodes: Node3D[]; positions: M
 function GraphCameraController() {
   const controlsRef = useRef<any>(null);
   const { camera, size } = useThree();
-  const [zoom, setZoom] = useState(30);
+  const [zoom, setZoom] = useState(55);
 
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera)) return;
@@ -411,7 +412,7 @@ function GraphScene() {
   const nodes = useTreeStore((s) => s.nodes);
   const edges = useTreeStore((s) => s.edges);
   const { camera, size } = useThree();
-  const [camZoom, setCamZoom] = useState(30);
+  const [camZoom, setCamZoom] = useState(55);
 
   const positions = useMemo(() => computeGraphPositions(nodes), [nodes]);
 
