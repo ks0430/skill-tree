@@ -31,8 +31,20 @@ export interface HeadingBlock {
   text: string;
 }
 
+export interface CodeBlock {
+  id: string;
+  type: "code";
+  language?: string;
+  text: string;
+}
+
+export interface DividerBlock {
+  id: string;
+  type: "divider";
+}
+
 // Union for future block types (links, etc.)
-export type ContentBlock = ChecklistBlock | NoteBlock | ParagraphBlock | HeadingBlock;
+export type ContentBlock = ChecklistBlock | NoteBlock | ParagraphBlock | HeadingBlock | CodeBlock | DividerBlock;
 
 export interface NodeContent {
   blocks: ContentBlock[];

@@ -210,6 +210,28 @@ export function RichTextRenderer({ blocks, checklistHandlers }: RichTextRenderer
               </p>
             );
 
+          case "code":
+            return (
+              <div key={block.id} className="rounded bg-slate-950 border border-slate-800 overflow-x-auto">
+                {block.language && (
+                  <div className="px-3 py-1 border-b border-slate-800 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
+                    {block.language}
+                  </div>
+                )}
+                <pre className="px-3 py-2 text-xs text-slate-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
+                  <code>{block.text}</code>
+                </pre>
+              </div>
+            );
+
+          case "divider":
+            return (
+              <hr
+                key={block.id}
+                className="border-0 border-t border-slate-800 my-2"
+              />
+            );
+
           default:
             return null;
         }
