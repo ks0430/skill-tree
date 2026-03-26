@@ -229,7 +229,15 @@ export function KanbanView() {
       done: [],
     };
 
+    // Deduplicate by node id before grouping to prevent React duplicate-key warnings.
+    // Duplicates can occur when the Realtime channel re-fires INSERT events on reconnect
+    // for nodes already present in the store; last-write wins (latest position in array).
+    const seen = new Map<string, Node3D>();
     for (const node of nodes) {
+      seen.set(node.id, node);
+    }
+
+    for (const node of seen.values()) {
       const nodeType = node.data.type ?? node.data.role;
       // Skip stellar (phase) nodes — only show planets (tickets)
       if (nodeType === "stellar") continue;
