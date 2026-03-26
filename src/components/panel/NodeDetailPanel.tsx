@@ -163,8 +163,12 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
     Done:     "#22c55e", // green
   };
 
+  const phaseDisplay = props.phase_name
+    ? `${props.phase} · ${props.phase_name}`
+    : String(props.phase ?? "—");
+
   const stats: [string, string][] = [
-    ["Phase",    String(props.phase ?? "—")],
+    ["Phase",    phaseDisplay],
     ["Priority", String(props.priority ?? node.data.priority ?? "—")],
     ["Created",  props.created_at ? props.created_at.slice(0, 10) : "—"],
     ["Start",    props.start_date ? props.start_date.slice(0, 10) : "—"],
