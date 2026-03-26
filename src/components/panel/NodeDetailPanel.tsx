@@ -42,7 +42,7 @@ function useDraggable() {
 
   const onMove = useCallback((e: React.PointerEvent) => {
     if (!drag.current) return;
-    const x = Math.max(0, Math.min(e.clientX - off.current.x, window.innerWidth - 340));
+    const x = Math.max(0, Math.min(e.clientX - off.current.x, window.innerWidth - 200));
     const y = Math.max(0, Math.min(e.clientY - off.current.y, window.innerHeight - 100));
     setPos({ x, y });
   }, []);
@@ -53,6 +53,36 @@ function useDraggable() {
   }, []);
 
   return { pos, onDown, onMove, onUp };
+}
+
+function useResizable(initW = 260, initH = 420) {
+  const [size, setSize] = useState(() => {
+    try { const s = localStorage.getItem("panel-size"); return s ? JSON.parse(s) : { w: initW, h: initH }; }
+    catch { return { w: initW, h: initH }; }
+  });
+  const resizing = useRef(false);
+  const startInfo = useRef({ x: 0, y: 0, w: initW, h: initH });
+
+  const onResizeDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    resizing.current = true;
+    startInfo.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, [size]);
+
+  const onResizeMove = useCallback((e: React.PointerEvent) => {
+    if (!resizing.current) return;
+    const w = Math.max(200, Math.min(600, startInfo.current.w + e.clientX - startInfo.current.x));
+    const h = Math.max(200, Math.min(window.innerHeight - 40, startInfo.current.h + e.clientY - startInfo.current.y));
+    setSize({ w, h });
+  }, []);
+
+  const onResizeUp = useCallback(() => {
+    resizing.current = false;
+    setSize((s: { w: number; h: number }) => { try { localStorage.setItem("panel-size", JSON.stringify(s)); } catch {} return s; });
+  }, []);
+
+  return { size, onResizeDown, onResizeMove, onResizeUp };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -75,6 +105,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   const cfg = STATUS[status] ?? STATUS.locked;
   const props = (node.data.properties ?? {}) as Record<string, string | null>;
   const { pos, onDown, onMove, onUp } = useDraggable();
+  const { size, onResizeDown, onResizeMove, onResizeUp } = useResizable();
 
   // Pulse glow for active statuses
   useEffect(() => {
@@ -136,7 +167,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       transition={{ duration: 0.12 }}
       style={{
         position: "fixed", left: pos.x, top: pos.y,
-        width: 260, maxHeight: "min(420px, calc(100vh - 2rem))",
+        width: size.w, height: size.h, maxHeight: "calc(100vh - 2rem)",
         zIndex: 50, pointerEvents: pinned ? "auto" : "none",
         display: "flex", flexDirection: "column",
         borderRadius: 4,
@@ -232,6 +263,23 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 
         {/* History */}
         <PanelHistory nodeId={node.id} treeId={node.data.tree_id} />
+      </div>
+
+      {/* ── RESIZE HANDLE ─────────────────────────────────────────────── */}
+      <div
+        onPointerDown={onResizeDown}
+        onPointerMove={onResizeMove}
+        onPointerUp={onResizeUp}
+        style={{
+          position: "absolute", bottom: 0, right: 0,
+          width: 16, height: 16, cursor: "se-resize",
+          display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+          padding: 3, zIndex: 2,
+        }}
+      >
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M7 1L1 7M7 4L4 7M7 7H7" stroke="rgba(148,163,184,0.4)" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
       </div>
 
       {/* ── FOOTER — Relations toggle ──────────────────────────────────── */}
