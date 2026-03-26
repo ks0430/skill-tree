@@ -18,7 +18,6 @@ const PLANET_ORBIT_R = 110;  // initial distance from stellar for planets
 const REPULSION_K = 8000;
 const SPRING_K = 0.04;
 const DAMPING = 0.82;
-const SIM_STEPS = 180;
 
 const STATUS_COLORS: Record<string, string> = {
   completed:   "#22c55e",
@@ -50,58 +49,75 @@ interface LayoutNode {
   vy: number;
 }
 
-// ─── Force simulation ─────────────────────────────────────────────────────────
+// ─── Force simulation (single step, alpha-scaled) ─────────────────────────────
 
-function runForceSimulation(nodes: LayoutNode[], steps = SIM_STEPS): LayoutNode[] {
+function runOneSimStep(nodes: LayoutNode[], alpha: number): LayoutNode[] {
   const ns = nodes.map((n) => ({ ...n }));
 
-  for (let step = 0; step < steps; step++) {
-    for (const n of ns) { n.vx = 0; n.vy = 0; }
+  for (const n of ns) { n.vx = 0; n.vy = 0; }
 
-    // Repulsion between all non-root nodes
-    for (let i = 0; i < ns.length; i++) {
-      if (ns[i].isRoot) continue;
-      for (let j = i + 1; j < ns.length; j++) {
-        if (ns[j].isRoot) continue;
-        const dx = ns[j].x - ns[i].x;
-        const dy = ns[j].y - ns[i].y;
-        const dist2 = dx * dx + dy * dy + 0.01;
-        const force = REPULSION_K / dist2;
-        const d = Math.sqrt(dist2);
-        const fx = (dx / d) * force;
-        const fy = (dy / d) * force;
-        ns[i].vx -= fx;
-        ns[i].vy -= fy;
-        ns[j].vx += fx;
-        ns[j].vy += fy;
-      }
-    }
-
-    // Spring attraction: each node toward its parent
-    for (const n of ns) {
-      if (n.isRoot || !n.parentId) continue;
-      const parent = ns.find((p) => p.id === n.parentId);
-      if (!parent) continue;
-      const dx = parent.x - n.x;
-      const dy = parent.y - n.y;
-      n.vx += dx * SPRING_K;
-      n.vy += dy * SPRING_K;
-    }
-
-    // Apply velocity — stellars stay on orbit ring
-    for (const n of ns) {
-      if (n.isRoot) continue;
-      if (n.isStellar) {
-        const angle = Math.atan2(n.y, n.x) + n.vx * 0.0005;
-        n.x = Math.cos(angle) * PHASE_ORBIT_R;
-        n.y = Math.sin(angle) * PHASE_ORBIT_R;
-      } else {
-        n.x += n.vx * DAMPING;
-        n.y += n.vy * DAMPING;
-      }
+  // Repulsion between all non-root nodes
+  for (let i = 0; i < ns.length; i++) {
+    if (ns[i].isRoot) continue;
+    for (let j = i + 1; j < ns.length; j++) {
+      if (ns[j].isRoot) continue;
+      const dx = ns[j].x - ns[i].x;
+      const dy = ns[j].y - ns[i].y;
+      const dist2 = dx * dx + dy * dy + 0.01;
+      const force = REPULSION_K / dist2;
+      const d = Math.sqrt(dist2);
+      const fx = (dx / d) * force;
+      const fy = (dy / d) * force;
+      ns[i].vx -= fx;
+      ns[i].vy -= fy;
+      ns[j].vx += fx;
+      ns[j].vy += fy;
     }
   }
+
+  // Spring attraction: each node toward its parent
+  for (const n of ns) {
+    if (n.isRoot || !n.parentId) continue;
+    const parent = ns.find((p) => p.id === n.parentId);
+    if (!parent) continue;
+    const dx = parent.x - n.x;
+    const dy = parent.y - n.y;
+    n.vx += dx * SPRING_K;
+    n.vy += dy * SPRING_K;
+  }
+
+  // Apply velocity scaled by alpha — stellars stay on orbit ring
+  for (const n of ns) {
+    if (n.isRoot) continue;
+    if (n.isStellar) {
+      const angle = Math.atan2(n.y, n.x) + n.vx * 0.0005 * alpha;
+      n.x = Math.cos(angle) * PHASE_ORBIT_R;
+      n.y = Math.sin(angle) * PHASE_ORBIT_R;
+    } else {
+      n.x += n.vx * DAMPING * alpha;
+      n.y += n.vy * DAMPING * alpha;
+    }
+  }
+
   return ns;
+}
+
+// ─── Helper: SVG arc path (centred at 0,0) ────────────────────────────────────
+
+function describeArc(r: number, fraction: number): string {
+  if (fraction <= 0) return "";
+  if (fraction >= 1) {
+    // Two semicircles to form a closed full circle
+    return `M 0 ${-r} A ${r} ${r} 0 1 1 0 ${r} A ${r} ${r} 0 1 1 0 ${-r}`;
+  }
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + 2 * Math.PI * fraction;
+  const x1 = (r * Math.cos(startAngle)).toFixed(3);
+  const y1 = (r * Math.sin(startAngle)).toFixed(3);
+  const x2 = (r * Math.cos(endAngle)).toFixed(3);
+  const y2 = (r * Math.sin(endAngle)).toFixed(3);
+  const largeArc = fraction > 0.5 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -113,19 +129,34 @@ export function RadialTreeView() {
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const searchHighlightId = useTreeStore((s) => s.searchHighlightId);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef({ dragging: false, startX: 0, startY: 0, tx: 0, ty: 0 });
+  const containerRef   = useRef<HTMLDivElement>(null);
+  const dragState      = useRef({ dragging: false, startX: 0, startY: 0, tx: 0, ty: 0 });
+  const simRafRef      = useRef<number | null>(null);
+  const zoomRafRef     = useRef<number | null>(null);
+  const transformRef   = useRef({ x: 0, y: 0, scale: 1 });
 
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform]     = useState({ x: 0, y: 0, scale: 1 });
+  const [layoutNodes, setLayoutNodes] = useState<LayoutNode[]>([]);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+  // Keep ref in sync for use inside rAF callbacks
+  useEffect(() => { transformRef.current = transform; }, [transform]);
+
+  // Cleanup zoom rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (zoomRafRef.current !== null) cancelAnimationFrame(zoomRafRef.current);
+    };
+  }, []);
 
   const pinnedNode = useMemo(
     () => allNodes.find((n) => n.id === pinnedNodeId),
     [allNodes, pinnedNodeId]
   );
 
-  // ── Layout ──────────────────────────────────────────────────────────────────
+  // ── Raw layout (initial positions, no simulation) ────────────────────────────
 
-  const layoutNodes = useMemo<LayoutNode[]>(() => {
+  const rawLayoutNodes = useMemo<LayoutNode[]>(() => {
     const stellars = allNodes.filter((n) => n.data.type === "stellar");
     const planets  = allNodes.filter((n) => n.data.type !== "stellar");
 
@@ -183,8 +214,40 @@ export function RadialTreeView() {
       });
     });
 
-    return runForceSimulation(raw, SIM_STEPS);
+    return raw;
   }, [allNodes]);
+
+  // ── Force simulation via rAF — runs once on mount / when rawLayoutNodes changes ─
+
+  useEffect(() => {
+    // Cancel any running simulation
+    if (simRafRef.current !== null) {
+      cancelAnimationFrame(simRafRef.current);
+      simRafRef.current = null;
+    }
+
+    let current = rawLayoutNodes.map((n) => ({ ...n }));
+    setLayoutNodes(current);
+
+    let alpha = 1.0;
+
+    function step() {
+      if (alpha < 0.001) return;
+      current = runOneSimStep(current, alpha);
+      alpha *= 0.9;
+      setLayoutNodes([...current]);
+      simRafRef.current = requestAnimationFrame(step);
+    }
+
+    simRafRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (simRafRef.current !== null) {
+        cancelAnimationFrame(simRafRef.current);
+        simRafRef.current = null;
+      }
+    };
+  }, [rawLayoutNodes]);
 
   // ── Centre on mount ──────────────────────────────────────────────────────────
 
@@ -224,6 +287,47 @@ export function RadialTreeView() {
     setTransform({ x: width / 2, y: height / 2, scale: 1 });
   }, []);
 
+  // ── Smooth zoom to stellar (400ms rAF interpolation) ─────────────────────────
+
+  const animateZoomToStellar = useCallback((stellarNode: LayoutNode) => {
+    if (!containerRef.current) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+
+    const targetScale = 1.8;
+    const targetX = width / 2 - stellarNode.x * targetScale;
+    const targetY = height / 2 - stellarNode.y * targetScale;
+
+    if (zoomRafRef.current !== null) {
+      cancelAnimationFrame(zoomRafRef.current);
+      zoomRafRef.current = null;
+    }
+
+    const startTime = performance.now();
+    const duration = 400;
+    const fromX = transformRef.current.x;
+    const fromY = transformRef.current.y;
+    const fromScale = transformRef.current.scale;
+
+    function animate(now: number) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      // Ease-in-out cubic
+      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      setTransform({
+        x: fromX + (targetX - fromX) * ease,
+        y: fromY + (targetY - fromY) * ease,
+        scale: fromScale + (targetScale - fromScale) * ease,
+      });
+
+      if (t < 1) {
+        zoomRafRef.current = requestAnimationFrame(animate);
+      }
+    }
+
+    zoomRafRef.current = requestAnimationFrame(animate);
+  }, []);
+
   // ── Edge list ─────────────────────────────────────────────────────────────────
 
   const nodeById = useMemo(() => {
@@ -258,17 +362,37 @@ export function RadialTreeView() {
 
   // ── Click ─────────────────────────────────────────────────────────────────────
 
-  const handleNodeClick = useCallback((nodeId: string) => {
-    if (nodeId === "__ROOT__") return;
-    setPinnedNode(pinnedNodeId === nodeId ? null : nodeId);
-  }, [pinnedNodeId, setPinnedNode]);
+  const handleNodeClick = useCallback((ln: LayoutNode) => {
+    if (ln.id === "__ROOT__") return;
+    if (ln.isStellar) animateZoomToStellar(ln);
+    setPinnedNode(pinnedNodeId === ln.id ? null : ln.id);
+  }, [pinnedNodeId, setPinnedNode, animateZoomToStellar]);
+
+  // ── Completion stats per stellar ──────────────────────────────────────────────
+
+  const stellarCompletionMap = useMemo(() => {
+    const map = new Map<string, { completed: number; total: number }>();
+    const stellarIds = new Set(layoutNodes.filter((n) => n.isStellar).map((n) => n.id));
+
+    for (const ln of layoutNodes) {
+      if (ln.isStellar || ln.isRoot) continue;
+      if (!ln.parentId || !stellarIds.has(ln.parentId)) continue;
+      const prev = map.get(ln.parentId) ?? { completed: 0, total: 0 };
+      map.set(ln.parentId, {
+        completed: prev.completed + (ln.status === "completed" ? 1 : 0),
+        total: prev.total + 1,
+      });
+    }
+
+    return map;
+  }, [layoutNodes]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div
       ref={containerRef}
-      style={{ position: "relative", width: "100%", height: "100%", background: "#080f1e", overflow: "hidden", cursor: "grab" }}
+      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", cursor: "grab" }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -277,13 +401,20 @@ export function RadialTreeView() {
     >
       <svg width="100%" height="100%" style={{ display: "block" }}>
         <defs>
+          {/* Ambient background gradient */}
+          <radialGradient id="bg-gradient" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#0a1628" />
+            <stop offset="100%" stopColor="#000000" />
+          </radialGradient>
+
+          {/* Status glow filters — enhanced prominence */}
           <filter id="glow-completed" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feGaussianBlur stdDeviation="6" result="blur" />
             <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.13  0 0 0 0 0.77  0 0 0 0 0.37  0 0 0 1 0" result="coloredBlur" />
             <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
           <filter id="glow-in_progress" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="5" result="blur" />
+            <feGaussianBlur stdDeviation="7" result="blur" />
             <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.96  0 0 0 0 0.62  0 0 0 0 0.04  0 0 0 1 0" result="coloredBlur" />
             <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
@@ -297,7 +428,17 @@ export function RadialTreeView() {
             <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.39  0 0 0 0 0.40  0 0 0 0 0.95  0 0 0 1 0" result="coloredBlur" />
             <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+
+          {/* Edge glow filter for completed edges */}
+          <filter id="edge-glow-completed" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.13  0 0 0 0 0.77  0 0 0 0 0.37  0 0 0 1 0" result="coloredBlur" />
+            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
         </defs>
+
+        {/* Ambient radial background */}
+        <rect width="100%" height="100%" fill="url(#bg-gradient)" />
 
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
 
@@ -311,18 +452,61 @@ export function RadialTreeView() {
             opacity={0.4}
           />
 
-          {/* Edges */}
+          {/* Edges — styled by status */}
           {renderEdges.map((e) => {
             const glowColor = STATUS_GLOW[e.status] ?? "none";
+
+            if (e.status === "completed") {
+              return (
+                <line
+                  key={e.id}
+                  x1={e.x1} y1={e.y1}
+                  x2={e.x2} y2={e.y2}
+                  stroke={glowColor}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.7}
+                  filter="url(#edge-glow-completed)"
+                />
+              );
+            }
+
+            if (e.status === "in_progress") {
+              return (
+                <g key={e.id}>
+                  <animate attributeName="opacity" from="0.25" to="0.75" dur="1.8s" repeatCount="indefinite" />
+                  <line
+                    x1={e.x1} y1={e.y1}
+                    x2={e.x2} y2={e.y2}
+                    stroke={glowColor}
+                    strokeWidth={1.2}
+                    strokeOpacity={0.5}
+                  />
+                </g>
+              );
+            }
+
+            if (e.status === "locked") {
+              return (
+                <line
+                  key={e.id}
+                  x1={e.x1} y1={e.y1}
+                  x2={e.x2} y2={e.y2}
+                  stroke="#1e293b"
+                  strokeWidth={0.8}
+                  strokeOpacity={0.18}
+                  strokeDasharray="4 4"
+                />
+              );
+            }
+
             return (
               <line
                 key={e.id}
                 x1={e.x1} y1={e.y1}
                 x2={e.x2} y2={e.y2}
                 stroke={glowColor === "none" ? "#1e293b" : glowColor}
-                strokeWidth={e.status === "locked" ? 0.8 : 1.2}
-                strokeOpacity={e.status === "locked" ? 0.18 : 0.35}
-                strokeDasharray={e.status === "locked" ? "4 4" : undefined}
+                strokeWidth={1.2}
+                strokeOpacity={0.35}
               />
             );
           })}
@@ -332,6 +516,7 @@ export function RadialTreeView() {
             const status = ln.status;
             const isHighlighted = ln.id === searchHighlightId;
             const isPinned = ln.id === pinnedNodeId;
+            const isHovered = ln.id === hoveredNodeId;
             const fillColor = STATUS_COLORS[status] ?? "#1e293b";
             const glowFilter = ln.isRoot
               ? "url(#glow-root)"
@@ -340,13 +525,42 @@ export function RadialTreeView() {
               : `url(#glow-${status})`;
             const r = ln.isRoot ? ROOT_RADIUS : ln.isStellar ? STELLAR_RADIUS : PLANET_RADIUS;
 
+            // Completion arc data for stellars
+            const arc = ln.isStellar ? stellarCompletionMap.get(ln.id) : undefined;
+            const arcR = r + 6;
+
             return (
               <g
                 key={ln.id}
                 transform={`translate(${ln.x},${ln.y})`}
-                onClick={() => handleNodeClick(ln.id)}
+                onClick={() => handleNodeClick(ln)}
+                onMouseEnter={() => setHoveredNodeId(ln.id)}
+                onMouseLeave={() => setHoveredNodeId(null)}
                 style={{ cursor: ln.isRoot ? "default" : "pointer" }}
               >
+                {/* Completion arc (radial progress) around stellar */}
+                {arc && arc.total > 0 && (
+                  <>
+                    {/* Track ring */}
+                    <circle
+                      r={arcR}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth={1}
+                      strokeOpacity={0.15}
+                    />
+                    {/* Progress arc */}
+                    <path
+                      d={describeArc(arcR, arc.completed / arc.total)}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      opacity={0.85}
+                    />
+                  </>
+                )}
+
                 {/* Pinned / search highlight ring */}
                 {(isPinned || isHighlighted) && (
                   <circle
@@ -390,16 +604,26 @@ export function RadialTreeView() {
                   <circle r={r * 0.45} fill={fillColor} opacity={0.9} />
                 )}
 
-                {/* Root inner glow + core */}
+                {/* Root inner glow + core with slow pulse */}
                 {ln.isRoot && (
                   <>
-                    <circle r={r * 0.55} fill="#1e1b4b" filter="url(#glow-root)" />
+                    <circle r={r * 0.55} fill="#1e1b4b" filter="url(#glow-root)">
+                      <animate
+                        attributeName="opacity"
+                        values="0.6;1.0;0.6"
+                        dur="3s"
+                        repeatCount="indefinite"
+                        calcMode="spline"
+                        keyTimes="0;0.5;1"
+                        keySplines="0.4 0 0.6 1;0.4 0 0.6 1"
+                      />
+                    </circle>
                     <circle r={r * 0.3} fill="#6366f1" opacity={0.85} />
                     <circle r={r * 0.12} fill="#a5b4fc" />
                   </>
                 )}
 
-                {/* Label below stellar / root */}
+                {/* Label below stellar / root — always visible */}
                 {(ln.isRoot || ln.isStellar) && (
                   <text
                     y={r + 16}
@@ -414,7 +638,22 @@ export function RadialTreeView() {
                   </text>
                 )}
 
-                {/* Tooltip for planet nodes */}
+                {/* Planet hover label — appears above node on hover */}
+                {!ln.isRoot && !ln.isStellar && isHovered && (
+                  <text
+                    y={-r - 8}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fontFamily="monospace"
+                    fontWeight={500}
+                    fill="#e2e8f0"
+                    style={{ pointerEvents: "none", userSelect: "none" }}
+                  >
+                    {ln.label}
+                  </text>
+                )}
+
+                {/* Tooltip for planet nodes (accessibility fallback) */}
                 {!ln.isRoot && !ln.isStellar && (
                   <title>{ln.label} [{status}]</title>
                 )}
