@@ -11,7 +11,7 @@ import type { NodeStatus } from "@/types/skill-tree";
 import {
   parseContent, getChecklist, toggleItem, addItem, removeItem, upsertChecklist,
 } from "@/lib/content/checklist";
-import { RichTextRenderer } from "./RichTextRenderer";
+import { MarkdownContent } from "./MarkdownContent";
 import { PanelHistory } from "./PanelHistory";
 import { PanelRelations } from "./PanelRelations";
 
@@ -242,24 +242,11 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       {/* ── CONTENT BODY ──────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "8px 10px" }}>
 
-        {/* Text blocks — view mode, clean */}
-        {textBlocks.length > 0 && (
-          <RichTextRenderer
-            blocks={textBlocks}
-            onBlockUpdate={!readOnly ? handleBlockUpdate : undefined}
-          />
-        )}
-
-        {/* Checklist */}
-        {hasList && (
-          <RichTextRenderer
-            blocks={content.blocks.filter(b => b.type === "checklist")}
-            checklistHandlers={!readOnly ? {
-              onToggle: handleToggle, onAdd: handleAdd, onRemove: handleRemove,
-              onAiGenerate: handleAiGenerate, aiLoading,
-            } : undefined}
-          />
-        )}
+        {/* Markdown content — renders blocks + description as markdown */}
+        <MarkdownContent
+          blocks={content.blocks}
+          description={node.data.description ?? ""}
+        />
 
         {/* History */}
         <PanelHistory nodeId={node.id} treeId={node.data.tree_id} />
