@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import { useTreeStore } from "@/lib/store/tree-store";
+import { InlineTextField } from "./InlineTextField";
 import type { NodeContent } from "@/types/node-content";
 import {
   parseContent,
@@ -110,6 +111,24 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
     persist(next);
   }, [content, persist]);
 
+  const handleLabelUpdate = useCallback(async (newLabel: string) => {
+    updateNode(node.id, { label: newLabel });
+    await supabase
+      .from("skill_nodes")
+      .update({ label: newLabel })
+      .eq("id", node.id)
+      .eq("tree_id", node.data.tree_id);
+  }, [node.id, node.data.tree_id, supabase, updateNode]);
+
+  const handleDescriptionUpdate = useCallback(async (newDescription: string) => {
+    updateNode(node.id, { description: newDescription });
+    await supabase
+      .from("skill_nodes")
+      .update({ description: newDescription })
+      .eq("id", node.id)
+      .eq("tree_id", node.data.tree_id);
+  }, [node.id, node.data.tree_id, supabase, updateNode]);
+
   // Blocks for the non-checklist rich text section (heading, paragraph, note)
   const richBlocks = content.blocks.filter(
     (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note" || b.type === "code"
@@ -130,10 +149,18 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         label={node.data.label}
         pinned={pinned}
         onClose={onClose}
+        onLabelUpdate={!readOnly ? handleLabelUpdate : undefined}
       />
 
-      {node.data.description && (
-        <p className="text-xs text-slate-400 leading-relaxed mt-1 mb-3">{node.data.description}</p>
+      {(node.data.description || !readOnly) && (
+        <InlineTextField
+          value={node.data.description ?? ""}
+          placeholder="Add a description…"
+          readOnly={readOnly}
+          onSave={!readOnly ? handleDescriptionUpdate : undefined}
+          className="text-xs text-slate-400 leading-relaxed mt-1 mb-3"
+          multiline
+        />
       )}
 
       {richBlocks.length > 0 && (
