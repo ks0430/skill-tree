@@ -19,6 +19,7 @@ import { PanelStatus } from "./PanelStatus";
 import { PanelChecklist } from "./PanelChecklist";
 import { PanelDates } from "./PanelDates";
 import { PanelRelations } from "./PanelRelations";
+import { RichTextRenderer } from "./RichTextRenderer";
 
 interface NodeDetailPanelProps {
   node: Node3D;
@@ -125,18 +126,13 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         <p className="text-xs text-slate-400 leading-relaxed mt-1 mb-3">{node.data.description}</p>
       )}
 
-      {content.blocks.filter((b) => b.type === "heading" || b.type === "paragraph").length > 0 && (
-        <div className="mb-3 space-y-1">
-          {content.blocks
-            .filter((b) => b.type === "heading" || b.type === "paragraph")
-            .map((block) => {
-              if (block.type === "heading") {
-                const Tag = `h${block.level}` as "h1" | "h2" | "h3";
-                const sizeClass = block.level === 1 ? "text-sm font-semibold" : block.level === 2 ? "text-xs font-semibold" : "text-xs font-medium";
-                return <Tag key={block.id} className={`${sizeClass} text-slate-200`}>{block.text}</Tag>;
-              }
-              return <p key={block.id} className="text-xs text-slate-300 leading-relaxed">{block.text}</p>;
-            })}
+      {content.blocks.filter((b) => b.type === "heading" || b.type === "paragraph" || b.type === "note").length > 0 && (
+        <div className="mb-3">
+          <RichTextRenderer
+            blocks={content.blocks.filter(
+              (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note"
+            )}
+          />
         </div>
       )}
 
@@ -161,18 +157,11 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
           aiLoading={aiLoading}
         />
       )}
-      {readOnly && checklist && checklist.items.length > 0 && (
-        <div className="mt-3 space-y-1">
-          {checklist.items.map((item) => (
-            <div key={item.id} className="flex items-center gap-2 text-xs">
-              <span className={item.checked ? "text-emerald-400" : "text-slate-500"}>
-                {item.checked ? "✓" : "○"}
-              </span>
-              <span className={item.checked ? "line-through text-slate-500" : "text-slate-300"}>
-                {item.text}
-              </span>
-            </div>
-          ))}
+      {readOnly && content.blocks.filter((b) => b.type === "checklist").length > 0 && (
+        <div className="mt-3">
+          <RichTextRenderer
+            blocks={content.blocks.filter((b) => b.type === "checklist")}
+          />
         </div>
       )}
 
