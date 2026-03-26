@@ -16,7 +16,6 @@ import {
 } from "@/lib/content/checklist";
 import { PanelHeader } from "./PanelHeader";
 import { PanelStatus } from "./PanelStatus";
-import { PanelChecklist } from "./PanelChecklist";
 import { PanelDates } from "./PanelDates";
 import { PanelRelations } from "./PanelRelations";
 import { RichTextRenderer } from "./RichTextRenderer";
@@ -38,7 +37,6 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateNode = useTreeStore((s) => s.updateNode);
-  const checklist = getChecklist(content);
 
   const props = (node.data.properties ?? {}) as Record<string, string | null>;
 
@@ -106,6 +104,11 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
     }
   }, [node.id, content, persist]);
 
+  // Blocks for the non-checklist rich text section (heading, paragraph, note)
+  const richBlocks = content.blocks.filter(
+    (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note"
+  );
+
   return (
     <motion.div
       key={node.id}
@@ -127,13 +130,9 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         <p className="text-xs text-slate-400 leading-relaxed mt-1 mb-3">{node.data.description}</p>
       )}
 
-      {content.blocks.filter((b) => b.type === "heading" || b.type === "paragraph" || b.type === "note").length > 0 && (
+      {richBlocks.length > 0 && (
         <div className="mb-3">
-          <RichTextRenderer
-            blocks={content.blocks.filter(
-              (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note"
-            )}
-          />
+          <RichTextRenderer blocks={richBlocks} />
         </div>
       )}
 
@@ -147,24 +146,21 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         onChange={handleDateChange}
       />
 
-      {!readOnly && (
-        <PanelChecklist
-          nodeId={node.id}
-          items={checklist?.items ?? []}
-          onToggle={handleToggle}
-          onAdd={handleAdd}
-          onRemove={handleRemove}
-          onAiGenerate={handleAiGenerate}
-          aiLoading={aiLoading}
-        />
-      )}
-      {readOnly && content.blocks.filter((b) => b.type === "checklist").length > 0 && (
-        <div className="mt-3">
-          <RichTextRenderer
-            blocks={content.blocks.filter((b) => b.type === "checklist")}
-          />
-        </div>
-      )}
+      {/* Checklist rendered as a content block — interactive when editable, read-only otherwise */}
+      <RichTextRenderer
+        blocks={content.blocks.filter((b) => b.type === "checklist")}
+        checklistHandlers={
+          !readOnly
+            ? {
+                onToggle: handleToggle,
+                onAdd: handleAdd,
+                onRemove: handleRemove,
+                onAiGenerate: handleAiGenerate,
+                aiLoading,
+              }
+            : undefined
+        }
+      />
 
       {!readOnly && (
         <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />
