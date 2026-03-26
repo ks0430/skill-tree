@@ -92,10 +92,12 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 }) {
   const [content, setContent] = useState<NodeContent>(() => parseContent(node.data.content ?? { blocks: [] }));
 
-  // Reset content when node changes
+  // Reset content when node changes — use JSON stringified content as dep to catch store updates
+  const contentKey = JSON.stringify(node.data.content);
   useEffect(() => {
     setContent(parseContent(node.data.content ?? { blocks: [] }));
-  }, [node.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id, contentKey]);
   const [aiLoading, setAiLoading] = useState(false);
   const [showRelations, setShowRelations] = useState(false);
   const [pulse, setPulse] = useState(0);
