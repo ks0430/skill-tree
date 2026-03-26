@@ -132,7 +132,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       transition={{ duration: 0.12 }}
       style={{
         position: "fixed", left: pos.x, top: pos.y,
-        width: 260, maxHeight: "calc(100vh - 2rem)",
+        width: 260, maxHeight: "min(420px, calc(100vh - 2rem))",
         zIndex: 50, pointerEvents: pinned ? "auto" : "none",
         display: "flex", flexDirection: "column",
         borderRadius: 4,
