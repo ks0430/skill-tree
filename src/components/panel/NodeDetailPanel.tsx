@@ -126,7 +126,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.15 }}
-      className="absolute top-4 left-4 glass rounded-xl w-72 z-10 flex flex-col"
+      className="fixed top-4 left-4 glass rounded-xl w-80 z-50 flex flex-col"
       style={{ pointerEvents: pinned ? "auto" : "none", maxHeight: "calc(100vh - 2rem)" }}
     >
       {/* Fixed header: title, status, dates */}
@@ -150,8 +150,8 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         />
       </div>
 
-      {/* Scrollable content area */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+      {/* Scrollable content area — constrained, bottom border visible */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0 border-t border-white/5">
         {/* Notion-style block editor for description — replaces plain textarea */}
         <div className="mt-1 mb-3">
           <NotionBlockEditor
