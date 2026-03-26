@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import type { Node3D } from "@/lib/store/tree-store";
@@ -70,6 +70,38 @@ export function TimelineView() {
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
+
+  // Flash animation: track recently updated node IDs
+  const [flashNodeIds, setFlashNodeIds] = useState<Set<string>>(new Set());
+  const prevNodesRef = useRef<Map<string, string>>(new Map());
+
+  // Detect node status changes and trigger flash animation
+  useEffect(() => {
+    const prev = prevNodesRef.current;
+    const updated: string[] = [];
+    for (const node of nodes) {
+      const prevStatus = prev.get(node.id);
+      if (prevStatus !== undefined && prevStatus !== node.data.status) {
+        updated.push(node.id);
+      }
+      prev.set(node.id, node.data.status ?? "");
+    }
+    if (updated.length > 0) {
+      setFlashNodeIds((cur) => {
+        const next = new Set(cur);
+        for (const id of updated) next.add(id);
+        return next;
+      });
+      const timer = setTimeout(() => {
+        setFlashNodeIds((cur) => {
+          const next = new Set(cur);
+          for (const id of updated) next.delete(id);
+          return next;
+        });
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId) ?? null,
@@ -247,6 +279,7 @@ export function TimelineView() {
                 }}>
                   {phaseGroup.nodes.map((node) => {
                 const isPinned = node.id === pinnedNodeId;
+                const isFlashing = flashNodeIds.has(node.id);
                 const color = STATUS_COLOR[node.data.status] ?? "#475569";
                 const icon = STATUS_ICON[node.data.status] ?? "🔒";
                 const phaseName = getPhaseName(node);
@@ -262,20 +295,20 @@ export function TimelineView() {
                       setPinnedNode(isPinned ? null : node.id);
                     }}
                     style={{
-                      background: isPinned ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.02)",
-                      borderTop: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
-                      borderRight: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
-                      borderBottom: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
-                      borderLeft: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
+                      background: isFlashing ? `${color}1a` : isPinned ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.02)",
+                      borderTop: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+                      borderRight: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+                      borderBottom: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
+                      borderLeft: `1px solid ${isPinned || isFlashing ? color : "rgba(255,255,255,0.07)"}`,
                       borderRadius: 4, padding: "10px 10px 8px",
-                      cursor: "pointer", transition: "all 0.12s",
-                      boxShadow: isPinned ? `0 0 12px ${color}33` : "none",
+                      cursor: "pointer", transition: isFlashing ? "all 0.3s" : "all 0.12s",
+                      boxShadow: isFlashing ? `0 0 10px ${color}55` : isPinned ? `0 0 12px ${color}33` : "none",
                     }}
                     onMouseEnter={(e) => {
-                      if (!isPinned) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+                      if (!isPinned && !isFlashing) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
                     }}
                     onMouseLeave={(e) => {
-                      if (!isPinned) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)";
+                      if (!isPinned && !isFlashing) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)";
                     }}
                   >
                     {/* ID */}
