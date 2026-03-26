@@ -4,6 +4,9 @@
  * Maps SkillNode data (from Node3D) to horizontal time-bar positions.
  * Uses `properties.start_date`, `properties.due_date`, and `properties.estimate`
  * for positioning.  Falls back to relative ordering when dates are absent.
+ *
+ * Swimlane mode: rows are grouped by `properties.assignee`.  Each group gets a
+ * labelled header band; tickets in each group are rendered in their own row.
  */
 
 import type { Node3D } from "@/lib/store/tree-store";
@@ -23,6 +26,12 @@ export const LABEL_COL_WIDTH = 200;
 /** Padding between rows (gap). */
 export const ROW_GAP = 8;
 
+/** Height of a swimlane header band. */
+export const SWIMLANE_HEADER_HEIGHT = 30;
+
+/** Gap below a swimlane header before the first row. */
+export const SWIMLANE_HEADER_GAP = 4;
+
 export interface GanttRow {
   id: string;
   node: Node3D;
@@ -34,17 +43,31 @@ export interface GanttRow {
   startLabel: string;
   /** ISO date string for bar end (display only). */
   endLabel: string;
-  /** Row index (0-based), used for y positioning. */
-  rowIndex: number;
+  /**
+   * Absolute pixel y-offset (from top of the scrollable rows area).
+   * Use directly instead of deriving from rowIndex.
+   */
+  yTop: number;
+  /** Row index within its swimlane (0-based), kept for stripe-coloring. */
+  laneIndex: number;
+}
+
+export interface GanttSwimlaneHeader {
+  agentName: string;
+  /** Absolute pixel y-offset for the header band. */
+  yTop: number;
+  /** Number of ticket rows in this swimlane. */
+  rowCount: number;
 }
 
 export interface GanttLayout {
   rows: GanttRow[];
+  swimlaneHeaders: GanttSwimlaneHeader[];
   /** Earliest date represented in the layout (epoch for x = 0). */
   epochDate: Date;
   /** Total pixel width of the time area. */
   totalWidth: number;
-  /** Total pixel height (all rows). */
+  /** Total pixel height (all rows + swimlane headers). */
   totalHeight: number;
 }
 
@@ -89,28 +112,30 @@ function fmtDate(d: Date): string {
 
 // ─── Main layout function ──────────────────────────────────────────────────────
 
+interface Parsed {
+  node: Node3D;
+  start: Date | null;
+  end: Date | null;
+  durationDays: number | null;
+  agentName: string;
+}
+
 /**
- * Compute a Gantt layout from a list of Node3D items.
+ * Compute a swimlane Gantt layout from a list of Node3D items.
  *
  * Strategy:
- * 1. Extract start/end from properties (start_date, due_date, estimate).
- * 2. Nodes without any date info are placed after all dated nodes using
- *    relative ordering (stacked at the end).
- * 3. The epoch (x = 0) is the minimum start date across all nodes (floored
- *    to month start for a tidy axis), or today if none exist.
+ * 1. Extract assignee from `properties.assignee`; nodes without one go into "Unassigned".
+ * 2. Extract start/end from properties (start_date, due_date, estimate).
+ * 3. Group into swimlanes sorted: named agents alphabetically, then "Unassigned".
+ * 4. Within each swimlane, sort by start date (undated nodes last).
+ * 5. The epoch (x = 0) is the minimum start date across all nodes (floored to
+ *    month start for a tidy axis), or today if none exist.
  */
 export function computeGanttLayout(nodes: Node3D[]): GanttLayout {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  interface Parsed {
-    node: Node3D;
-    start: Date | null;
-    end: Date | null;
-    durationDays: number | null;
-  }
-
-  // Parse dates for each node
+  // Parse dates + assignee for each node
   const parsed: Parsed[] = nodes.map((n) => {
     const p = (n.data.properties ?? {}) as Record<string, string | null>;
     const start = parseDate(p.start_date);
@@ -132,7 +157,12 @@ export function computeGanttLayout(nodes: Node3D[]): GanttLayout {
         ? Math.max(1, Math.ceil(daysBetween(resolvedStart, resolvedEnd)))
         : estDays ?? null;
 
-    return { node: n, start: resolvedStart, end: resolvedEnd, durationDays: duration };
+    const agentName =
+      typeof p.assignee === "string" && p.assignee.trim() !== ""
+        ? p.assignee.trim()
+        : "Unassigned";
+
+    return { node: n, start: resolvedStart, end: resolvedEnd, durationDays: duration, agentName };
   });
 
   // Determine epoch
@@ -142,65 +172,100 @@ export function computeGanttLayout(nodes: Node3D[]): GanttLayout {
     const minStart = datedNodes.reduce<Date>((min, p) => {
       return p.start! < min ? p.start! : min;
     }, datedNodes[0].start!);
-    // Floor to first of that month
     epochDate = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
   } else {
-    // No dates at all — epoch = start of current month
     epochDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
-  // Sort: nodes with earlier start first; undated nodes last
-  parsed.sort((a, b) => {
-    if (a.start && b.start) return a.start.getTime() - b.start.getTime();
-    if (a.start) return -1;
-    if (b.start) return 1;
-    return 0;
+  // Group by agentName
+  const groupMap = new Map<string, Parsed[]>();
+  for (const p of parsed) {
+    const existing = groupMap.get(p.agentName) ?? [];
+    existing.push(p);
+    groupMap.set(p.agentName, existing);
+  }
+
+  // Sort group names: named agents alphabetically first, "Unassigned" last
+  const agentNames = [...groupMap.keys()].sort((a, b) => {
+    if (a === "Unassigned") return 1;
+    if (b === "Unassigned") return -1;
+    return a.localeCompare(b);
   });
 
-  // Build rows
-  // For undated nodes we stack them sequentially after the last dated node
-  let undatedCursor = 0;
+  // Compute undated cursor baseline (for cross-group sequential placement)
   const lastDatedEnd = datedNodes.reduce<Date>((max, p) => {
     const e = p.end ?? (p.start ? addDays(p.start, p.durationDays ?? 7) : today);
     return e > max ? e : max;
   }, epochDate);
-  const undatedStart = addDays(lastDatedEnd, 14); // 2-week gap after dated content
+  const undatedStart = addDays(lastDatedEnd, 14);
+  let undatedCursor = 0;
 
-  const rows: GanttRow[] = parsed.map((p, i) => {
-    let barStart: Date;
-    let barDays: number;
+  // Build rows + swimlane headers
+  const rows: GanttRow[] = [];
+  const swimlaneHeaders: GanttSwimlaneHeader[] = [];
 
-    if (p.start) {
-      barStart = p.start;
-      barDays = p.durationDays ?? 7;
-    } else {
-      // undated — place sequentially
-      barStart = addDays(undatedStart, undatedCursor * 10);
-      barDays = p.durationDays ?? 7;
-      undatedCursor++;
-    }
+  let currentY = 0; // running y offset
 
-    const barEnd = p.end ?? addDays(barStart, barDays);
+  for (const agentName of agentNames) {
+    const group = groupMap.get(agentName)!;
 
-    const barLeft = Math.round(daysBetween(epochDate, barStart) * PX_PER_DAY);
-    const barWidth = Math.max(MIN_BAR_WIDTH, Math.round(barDays * PX_PER_DAY));
+    // Sort within group: dated first (by start), undated last
+    group.sort((a, b) => {
+      if (a.start && b.start) return a.start.getTime() - b.start.getTime();
+      if (a.start) return -1;
+      if (b.start) return 1;
+      return 0;
+    });
 
-    return {
-      id: p.node.id,
-      node: p.node,
-      barLeft,
-      barWidth,
-      startLabel: fmtDate(barStart),
-      endLabel: fmtDate(barEnd),
-      rowIndex: i,
-    };
-  });
+    // Record swimlane header position
+    swimlaneHeaders.push({
+      agentName,
+      yTop: currentY,
+      rowCount: group.length,
+    });
+    currentY += SWIMLANE_HEADER_HEIGHT + SWIMLANE_HEADER_GAP;
 
+    // Build rows for this swimlane
+    group.forEach((p, laneIndex) => {
+      let barStart: Date;
+      let barDays: number;
+
+      if (p.start) {
+        barStart = p.start;
+        barDays = p.durationDays ?? 7;
+      } else {
+        barStart = addDays(undatedStart, undatedCursor * 10);
+        barDays = p.durationDays ?? 7;
+        undatedCursor++;
+      }
+
+      const barEnd = p.end ?? addDays(barStart, barDays);
+      const barLeft = Math.round(daysBetween(epochDate, barStart) * PX_PER_DAY);
+      const barWidth = Math.max(MIN_BAR_WIDTH, Math.round(barDays * PX_PER_DAY));
+
+      rows.push({
+        id: p.node.id,
+        node: p.node,
+        barLeft,
+        barWidth,
+        startLabel: fmtDate(barStart),
+        endLabel: fmtDate(barEnd),
+        yTop: currentY + ROW_GAP,
+        laneIndex,
+      });
+
+      currentY += ROW_HEIGHT + ROW_GAP;
+    });
+
+    // Extra gap after each swimlane (except the last)
+    currentY += ROW_GAP * 2;
+  }
+
+  const totalHeight = currentY;
   const maxRight = rows.reduce((m, r) => Math.max(m, r.barLeft + r.barWidth), 0);
   const totalWidth = Math.max(maxRight + LABEL_COL_WIDTH + 200, 1200);
-  const totalHeight = rows.length * (ROW_HEIGHT + ROW_GAP) + ROW_GAP;
 
-  return { rows, epochDate, totalWidth, totalHeight };
+  return { rows, swimlaneHeaders, epochDate, totalWidth, totalHeight };
 }
 
 // ─── Axis tick generation ──────────────────────────────────────────────────────

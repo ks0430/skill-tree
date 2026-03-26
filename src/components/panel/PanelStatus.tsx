@@ -1,13 +1,14 @@
 import type { NodeStatus } from "@/types/skill-tree";
 
-const statusInfo: Record<NodeStatus, { label: string; bar: string }> = {
+const statusInfo: Partial<Record<NodeStatus, { label: string; bar: string }>> = {
   locked:      { label: "Not started", bar: "w-0" },
+  queued:      { label: "Queued", bar: "w-1/4" },
   in_progress: { label: "In progress", bar: "w-1/2" },
   completed:   { label: "Fully learned", bar: "w-full" },
 };
 
 export function PanelStatus({ status }: { status: NodeStatus }) {
-  const { label, bar } = statusInfo[status];
+  const { label, bar } = statusInfo[status] ?? { label: status, bar: "w-0" };
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
