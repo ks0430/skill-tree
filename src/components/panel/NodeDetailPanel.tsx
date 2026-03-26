@@ -153,12 +153,14 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 
   // Stat rows — no dates here, they're in props if set
   const stats: [string, string][] = [
-    ["Phase", String(props.phase ?? "—")],
+    ["Phase",    String(props.phase ?? "—")],
     ["Priority", String(props.priority ?? node.data.priority ?? "—")],
-    ["Start", props.start_date ? props.start_date.slice(0, 10) : "—"],
-    ["Due", props.due_date ? props.due_date.slice(0, 10) : "—"],
+    ["Created",  props.created_at ? props.created_at.slice(0, 10) : "—"],
+    ["Start",    props.start_date ? props.start_date.slice(0, 10) : "—"],
+    ["Due",      props.due_date ? props.due_date.slice(0, 10) : "—"],
     ["Estimate", props.estimate ?? "—"],
-    ["Commit", props.commit_hash ? props.commit_hash.slice(0, 8) : "—"],
+    ["Commit",   props.commit_hash ? props.commit_hash.slice(0, 8) : "—"],
+    ["Done",     props.completed_at ? props.completed_at.slice(0, 10) : "—"],
   ].filter(([, v]) => v !== "—") as [string, string][];
 
   // View-only blocks (no checklist — checklist rendered separately)
@@ -239,8 +241,8 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         }}>
           {stats.map(([label, value]) => (
             <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0, width: 52 }}>{label}</span>
-              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8" }}>{value}</span>
+              <span style={{ fontFamily: "monospace", fontSize: 8, color: "#334155", textTransform: "uppercase", letterSpacing: "0.12em", flexShrink: 0, width: 52 }}>{label}</span>
+              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#cbd5e1", fontWeight: 600 }}>{value}</span>
             </div>
           ))}
         </div>

@@ -800,6 +800,7 @@ export function KanbanView() {
       {/* Pinned node detail panel */}
       {pinnedNode && (
         <NodeDetailPanel
+          key={pinnedNode.id}
           node={pinnedNode}
           pinned
           onClose={() => setPinnedNode(null)}
