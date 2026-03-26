@@ -208,6 +208,7 @@ export function KanbanView() {
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
   const [limit, setLimit] = useState<number>(50); // show last N tickets
+  const [donePageSize, setDonePageSize] = useState<number>(20); // paginate done column in All mode
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
   const phaseDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -235,7 +236,8 @@ export function KanbanView() {
   }, [nodes]);
 
   // Group nodes into columns, sorted by priority desc
-  const columns = useMemo(() => {
+  // doneTotal tracks the full done count before pagination (used for Load more button)
+  const [columns, doneTotal] = useMemo(() => {
     const grouped: Record<"backlog" | "queued" | "active" | "done", Node3D[]> = {
       backlog: [],
       queued: [],
@@ -293,8 +295,14 @@ export function KanbanView() {
       }
     }
 
-    return grouped;
-  }, [nodes, phaseFilter, searchText, limit]);
+    // In All mode: paginate done column to avoid rendering hundreds of cards at once
+    const totalDone = grouped.done.length;
+    if (limit === 0) {
+      grouped.done = grouped.done.slice(0, donePageSize);
+    }
+
+    return [grouped, totalDone] as const;
+  }, [nodes, phaseFilter, searchText, limit, donePageSize]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId),
@@ -588,7 +596,7 @@ export function KanbanView() {
                     fontWeight: 700,
                   }}
                 >
-                  {colNodes.length}
+                  {col.id === "done" && limit === 0 ? doneTotal : colNodes.length}
                 </div>
               </div>
 
@@ -851,6 +859,25 @@ export function KanbanView() {
                       }}
                     />
                   )}
+
+                {/* Load more button — done column in All mode only */}
+                {col.id === "done" && limit === 0 && doneTotal > donePageSize && (
+                  <button
+                    onClick={() => setDonePageSize((s) => s + 20)}
+                    style={{
+                      marginTop: 4, width: "100%", padding: "7px 0",
+                      fontFamily: "monospace", fontSize: 10,
+                      background: "rgba(34,211,238,0.05)",
+                      border: "1px solid rgba(34,211,238,0.2)",
+                      borderRadius: 4, color: "#22d3ee", cursor: "pointer",
+                      letterSpacing: "0.06em", transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,211,238,0.1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,211,238,0.05)")}
+                  >
+                    Load more +20 ({doneTotal - donePageSize} remaining)
+                  </button>
+                )}
               </div>
             </div>
           );

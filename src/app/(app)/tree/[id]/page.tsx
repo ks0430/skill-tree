@@ -19,7 +19,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, updateNode } = useTreeStore();
+  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, updateNode, addNode } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -98,21 +98,21 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
   }, [id]);
 
   async function loadTree() {
-    // Load all data in parallel — single layout call to avoid position jitter
-    const [treeRes, nodesRes, edgesRes, messagesRes] = await Promise.all([
+    // Phase 1: fetch non-completed nodes + metadata in parallel for fast initial render
+    const [treeRes, activeNodesRes, edgesRes, messagesRes] = await Promise.all([
       supabase.from("skill_trees").select("*").eq("id", id).single(),
-      supabase.from("skill_nodes").select("*").eq("tree_id", id),
+      supabase.from("skill_nodes").select("*").eq("tree_id", id).neq("status", "completed"),
       supabase.from("skill_edges").select("*").eq("tree_id", id),
       supabase.from("chat_messages").select("*").eq("tree_id", id).order("created_at", { ascending: true }),
     ]);
 
     if (treeRes.data) setTreeName(treeRes.data.name);
 
-    const fetchedNodes = (nodesRes.data ?? []).map((n) => ({
+    const activeNodes = (activeNodesRes.data ?? []).map((n) => ({
       ...n,
       content: n.content ?? { blocks: [] },
     })) as SkillNode[];
-    setNodes(layoutGalaxy(fetchedNodes));
+    setNodes(layoutGalaxy(activeNodes));
     setEdges((edgesRes.data ?? []) as SkillEdge[]);
     pushHistory();
 
@@ -127,7 +127,21 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       }))
     );
 
+    // Board is usable — show it now
     setLoading(false);
+
+    // Phase 2: fetch completed nodes deferred so the board appears faster
+    // Note: search may miss completed nodes until this resolves (~300ms)
+    setTimeout(async () => {
+      const { data } = await supabase
+        .from("skill_nodes")
+        .select("*")
+        .eq("tree_id", id)
+        .eq("status", "completed");
+      for (const n of data ?? []) {
+        addNode({ ...n, content: n.content ?? { blocks: [] } });
+      }
+    }, 300);
   }
 
   function shareTree() {
