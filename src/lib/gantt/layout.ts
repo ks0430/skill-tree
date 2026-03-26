@@ -2,8 +2,10 @@
  * Gantt layout engine
  *
  * Maps SkillNode data (from Node3D) to horizontal time-bar positions.
- * Uses `properties.start_date`, `properties.due_date`, and `properties.estimate`
- * for positioning.  Falls back to relative ordering when dates are absent.
+ *
+ * Date priority (highest to lowest):
+ *   start: node.created_at → properties.start_date → relative ordering
+ *   end:   node.completed_at → properties.due_date → start + estimate → start + 7d
  *
  * Swimlane mode: rows are grouped by `properties.assignee`.  Each group gets a
  * labelled header band; tickets in each group are rendered in their own row.
@@ -138,8 +140,10 @@ export function computeGanttLayout(nodes: Node3D[]): GanttLayout {
   // Parse dates + assignee for each node
   const parsed: Parsed[] = nodes.map((n) => {
     const p = (n.data.properties ?? {}) as Record<string, string | null>;
-    const start = parseDate(p.start_date);
-    const end = parseDate(p.due_date);
+    // Prefer created_at (ticket open time) over manual start_date
+    const start = parseDate(n.data.created_at ?? null) ?? parseDate(p.start_date);
+    // Prefer completed_at (ticket close time) over manual due_date
+    const end = parseDate(n.data.completed_at ?? null) ?? parseDate(p.due_date);
     const estDays = parseEstimateDays(p.estimate);
 
     let resolvedEnd = end;

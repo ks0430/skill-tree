@@ -32,6 +32,10 @@ export interface SkillNode {
   /** Flexible structured metadata (added in migration 004). Stored as jsonb in DB. */
   properties: Record<string, unknown>;
   content: import("./node-content").NodeContent;
+  /** ISO timestamp: when this node was created (ticket start for Gantt). */
+  created_at?: string;
+  /** ISO timestamp: when this node's status last became 'completed' (ticket end for Gantt). */
+  completed_at?: string | null;
 }
 
 /** Edge relationship type (added in migration 004). */

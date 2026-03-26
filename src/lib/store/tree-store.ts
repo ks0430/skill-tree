@@ -292,14 +292,36 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   },
 
   toggleNodeStatus: (nodeId) => {
+    // Compute next status and completed_at before updating state
+    const currentNode = get().nodes.find((n) => n.id === nodeId);
+    if (!currentNode) return;
+    const idx = STATUS_CYCLE.indexOf(currentNode.data.status);
+    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+    const completedAt =
+      next === "completed" ? new Date().toISOString() : null;
+
     set((state) => ({
       nodes: state.nodes.map((n) => {
         if (n.id !== nodeId) return n;
-        const idx = STATUS_CYCLE.indexOf(n.data.status);
-        const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-        return { ...n, data: { ...n.data, status: next } };
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            status: next,
+            completed_at: completedAt,
+          },
+        };
       }),
     }));
+
+    // Persist completed_at to DB
+    const supabase = createClient();
+    supabase
+      .from("skill_nodes")
+      .update({ completed_at: completedAt })
+      .eq("id", nodeId)
+      .eq("tree_id", currentNode.data.tree_id)
+      .then(() => {});
   },
 
   addEdge: async (input) => {
