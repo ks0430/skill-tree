@@ -132,7 +132,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       transition={{ duration: 0.12 }}
       style={{
         position: "fixed", left: pos.x, top: pos.y,
-        width: 340, maxHeight: "calc(100vh - 2rem)",
+        width: 260, maxHeight: "calc(100vh - 2rem)",
         zIndex: 50, pointerEvents: pinned ? "auto" : "none",
         display: "flex", flexDirection: "column",
         borderRadius: 4,
@@ -148,7 +148,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
         style={{
           cursor: "grab", userSelect: "none", touchAction: "none",
-          padding: "10px 12px 8px",
+          padding: "7px 10px 6px",
           borderBottom: `1px solid ${cfg.border}40`,
           backgroundColor: "rgba(255,255,255,0.03)",
           borderRadius: "4px 4px 0 0",
@@ -169,7 +169,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         </div>
 
         {/* Title */}
-        <div style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#e2e8f0", lineHeight: 1.35 }}>
+        <div style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: "#e2e8f0", lineHeight: 1.35 }}>
           {node.data.label}
         </div>
 
@@ -187,7 +187,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       {/* ── STAT GRID ─────────────────────────────────────────────────── */}
       {stats.length > 0 && (
         <div style={{
-          flexShrink: 0, padding: "8px 12px",
+          flexShrink: 0, padding: "6px 10px",
           borderBottom: "1px solid rgba(255,255,255,0.05)",
           display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 8px",
         }}>
@@ -201,7 +201,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       )}
 
       {/* ── CONTENT BODY ──────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "10px 12px" }}>
+      <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "8px 10px" }}>
 
         {/* Text blocks — view mode, clean */}
         {textBlocks.length > 0 && (
