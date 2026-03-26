@@ -141,68 +141,74 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.15 }}
-      className="absolute top-4 left-4 glass rounded-xl p-4 w-72 z-10"
-      style={{ pointerEvents: pinned ? "auto" : "none" }}
+      className="absolute top-4 left-4 glass rounded-xl w-72 z-10 flex flex-col"
+      style={{ pointerEvents: pinned ? "auto" : "none", maxHeight: "calc(100vh - 2rem)" }}
     >
-      <PanelHeader
-        role={(node.data.type ?? node.data.role) as import("@/types/skill-tree").NodeRole}
-        label={node.data.label}
-        pinned={pinned}
-        onClose={onClose}
-        onLabelUpdate={!readOnly ? handleLabelUpdate : undefined}
-      />
-
-      {(node.data.description || !readOnly) && (
-        <InlineTextField
-          value={node.data.description ?? ""}
-          placeholder="Add a description…"
-          readOnly={readOnly}
-          onSave={!readOnly ? handleDescriptionUpdate : undefined}
-          className="text-xs text-slate-400 leading-relaxed mt-1 mb-3"
-          multiline
+      {/* Fixed header: title, status, dates */}
+      <div className="flex-shrink-0 p-4 pb-2">
+        <PanelHeader
+          role={(node.data.type ?? node.data.role) as import("@/types/skill-tree").NodeRole}
+          label={node.data.label}
+          pinned={pinned}
+          onClose={onClose}
+          onLabelUpdate={!readOnly ? handleLabelUpdate : undefined}
         />
-      )}
 
-      {richBlocks.length > 0 && (
-        <div className="mb-3">
-          <RichTextRenderer
-            blocks={richBlocks}
-            onBlockUpdate={!readOnly ? handleBlockUpdate : undefined}
+        <PanelStatus status={node.data.status} />
+
+        <PanelDates
+          dueDate={props.due_date}
+          startDate={props.start_date}
+          estimate={props.estimate}
+          readOnly={readOnly}
+          onChange={handleDateChange}
+        />
+      </div>
+
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+        {(node.data.description || !readOnly) && (
+          <InlineTextField
+            value={node.data.description ?? ""}
+            placeholder="Add a description…"
+            readOnly={readOnly}
+            onSave={!readOnly ? handleDescriptionUpdate : undefined}
+            className="text-xs text-slate-400 leading-relaxed mt-1 mb-3"
+            multiline
           />
-        </div>
-      )}
+        )}
 
-      <PanelStatus status={node.data.status} />
+        {richBlocks.length > 0 && (
+          <div className="mb-3">
+            <RichTextRenderer
+              blocks={richBlocks}
+              onBlockUpdate={!readOnly ? handleBlockUpdate : undefined}
+            />
+          </div>
+        )}
 
-      <PanelDates
-        dueDate={props.due_date}
-        startDate={props.start_date}
-        estimate={props.estimate}
-        readOnly={readOnly}
-        onChange={handleDateChange}
-      />
+        {/* Checklist rendered as a content block — interactive when editable, read-only otherwise */}
+        <RichTextRenderer
+          blocks={content.blocks.filter((b) => b.type === "checklist")}
+          checklistHandlers={
+            !readOnly
+              ? {
+                  onToggle: handleToggle,
+                  onAdd: handleAdd,
+                  onRemove: handleRemove,
+                  onAiGenerate: handleAiGenerate,
+                  aiLoading,
+                }
+              : undefined
+          }
+        />
 
-      {/* Checklist rendered as a content block — interactive when editable, read-only otherwise */}
-      <RichTextRenderer
-        blocks={content.blocks.filter((b) => b.type === "checklist")}
-        checklistHandlers={
-          !readOnly
-            ? {
-                onToggle: handleToggle,
-                onAdd: handleAdd,
-                onRemove: handleRemove,
-                onAiGenerate: handleAiGenerate,
-                aiLoading,
-              }
-            : undefined
-        }
-      />
+        {!readOnly && (
+          <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />
+        )}
 
-      {!readOnly && (
-        <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />
-      )}
-
-      <PanelHistory nodeId={node.id} treeId={node.data.tree_id} />
+        <PanelHistory nodeId={node.id} treeId={node.data.tree_id} />
+      </div>
     </motion.div>
   );
 }
