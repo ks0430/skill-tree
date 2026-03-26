@@ -1,5 +1,39 @@
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 
+const propertyTools: Tool[] = [
+  {
+    name: "update_properties",
+    description:
+      "Update structured metadata properties of a skill node: due_date, assignee, priority (queue position), and/or status. Use this when the user wants to assign a deadline, assign ownership, change urgency/priority, or mark a node's status — without modifying its description or content blocks.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        node_id: { type: "string", description: "ID of the skill node to update" },
+        due_date: {
+          type: "string",
+          description: "ISO 8601 date string (e.g. '2025-12-31') for when this skill/task should be completed. Set to null to clear.",
+        },
+        assignee: {
+          type: "string",
+          description: "Name or identifier of the person responsible for this node. Set to null to clear.",
+        },
+        priority: {
+          type: "number",
+          description: "Priority level 1–5 (higher = more important = larger planet in galaxy view). Whole numbers only.",
+          minimum: 1,
+          maximum: 5,
+        },
+        status: {
+          type: "string",
+          enum: ["locked", "in_progress", "completed"],
+          description: "Current status of the skill node.",
+        },
+      },
+      required: ["node_id"],
+    },
+  },
+];
+
 const contentTools: Tool[] = [
   {
     name: "update_content",
@@ -112,6 +146,7 @@ const checklistTools: Tool[] = [
 ];
 
 export const skillTreeTools: Tool[] = [
+  ...propertyTools,
   ...contentTools,
   ...checklistTools,
   {

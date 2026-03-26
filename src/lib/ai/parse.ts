@@ -56,6 +56,14 @@ export function describeChange(change: PendingChange): string {
       const relLabel = params.label ? ` ("${params.label}")` : "";
       return `Add ${params.type} relationship${relLabel}: "${params.source_id}" → "${params.target_id}"`;
     }
+    case "update_properties": {
+      const parts: string[] = [];
+      if (params.due_date !== undefined) parts.push(`due_date: ${params.due_date ?? "cleared"}`);
+      if (params.assignee !== undefined) parts.push(`assignee: ${params.assignee ?? "cleared"}`);
+      if (params.priority !== undefined) parts.push(`priority: ${params.priority}`);
+      if (params.status !== undefined) parts.push(`status: ${params.status}`);
+      return `Update properties on "${params.node_id}": ${parts.join(", ") || "no-op"}`;
+    }
     default:
       return `${action}`;
   }

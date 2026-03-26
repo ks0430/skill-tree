@@ -116,6 +116,27 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
             weight: (change.params.weight as number) ?? 1.0,
           });
         }
+      } else if (change.action === "update_properties") {
+        const nodeId = change.params.node_id as string;
+        const updates: Partial<SkillNode> = {};
+        // Status and priority are first-class columns on the node
+        if (change.params.status !== undefined) updates.status = change.params.status as SkillNode["status"];
+        if (change.params.priority !== undefined) updates.priority = change.params.priority as number;
+        // due_date and assignee live in the node's properties jsonb column
+        const existingNode = nodes.find((n) => n.id === nodeId);
+        const existingProps = existingNode?.data.properties ?? {};
+        const newProps = { ...existingProps };
+        if (change.params.due_date !== undefined) {
+          if (change.params.due_date === null) delete newProps.due_date;
+          else newProps.due_date = change.params.due_date;
+        }
+        if (change.params.assignee !== undefined) {
+          if (change.params.assignee === null) delete newProps.assignee;
+          else newProps.assignee = change.params.assignee;
+        }
+        const fullUpdates = { ...updates, properties: newProps };
+        updateNode(nodeId, fullUpdates);
+        await supabase.from("skill_nodes").update(fullUpdates).eq("id", nodeId).eq("tree_id", treeId);
       } else if (
         change.action === "update_content" ||
         change.action === "set_checklist" ||
