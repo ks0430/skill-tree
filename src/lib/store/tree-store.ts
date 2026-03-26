@@ -244,8 +244,14 @@ export const useTreeStore = create<TreeState>((set, get) => ({
 
   addNode: (node) => {
     const existing = get().nodes;
-    const allData = [...existing.map((n) => n.data), node];
-    set({ nodes: layoutGalaxy(allData) });
+    // Deduplicate: if a node with the same id already exists, replace it rather than appending.
+    // This prevents React duplicate-key warnings when Realtime re-fires an INSERT for a node
+    // that is already in the store (e.g. on channel reconnect).
+    const existingIds = new Set(existing.map((n) => n.id));
+    const baseData = existingIds.has(node.id)
+      ? existing.map((n) => (n.id === node.id ? node : n.data))
+      : [...existing.map((n) => n.data), node];
+    set({ nodes: layoutGalaxy(baseData) });
   },
 
   removeNode: (nodeId) => {
