@@ -76,6 +76,11 @@ RULES — Galaxy structure:
 7. When adding to an existing stellar system, just add planets/satellites with the correct parent_id.
 8. Keep the galaxy balanced — don't put too many planets on one stellar (max ~8).
 
+RULES — Tool selection (IMPORTANT):
+- Use update_node ONLY for structural/display changes: label, description, role, parent_id. NEVER pass status or priority to update_node.
+- Use update_properties to change status (locked/in_progress/completed), priority, due_date, or assignee.
+- When renaming a node → update_node. When marking a node done → update_properties. When reparenting → update_node. When setting urgency → update_properties.
+
 RULES — Content (checklists + notes):
 9. Use update_content to update a node's checklist and/or note independently of its metadata.
    - update_content with checklist.action="set" to create or fully replace a checklist.

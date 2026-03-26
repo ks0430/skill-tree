@@ -31,8 +31,14 @@ export function describeChange(change: PendingChange): string {
       return `Add ${roleTag}"${params.label}"`;
     case "remove_node":
       return `Remove "${params.id}"`;
-    case "update_node":
-      return `Update "${params.id}"`;
+    case "update_node": {
+      const parts: string[] = [];
+      if (params.label !== undefined) parts.push(`label: "${params.label}"`);
+      if (params.description !== undefined) parts.push("description");
+      if (params.role !== undefined) parts.push(`role: ${params.role}`);
+      if (params.parent_id !== undefined) parts.push(`parent: ${params.parent_id ?? "none"}`);
+      return `Update "${params.id}"${parts.length ? `: ${parts.join(", ")}` : ""}`;
+    }
     case "set_checklist":
       return `Set checklist on "${params.node_id}" (${(params.items as unknown[]).length} items)`;
     case "add_checklist_items":

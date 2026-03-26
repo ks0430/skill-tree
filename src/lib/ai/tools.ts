@@ -191,17 +191,16 @@ export const skillTreeTools: Tool[] = [
   },
   {
     name: "update_node",
-    description: "Update properties of an existing node.",
+    description:
+      "Update the structural or display properties of an existing node: label, description, role, or parent_id. Use this ONLY for structural/display changes. Do NOT use this to change status or priority — use update_properties for those.",
     input_schema: {
       type: "object" as const,
       properties: {
         id: { type: "string", description: "ID of the node to update" },
-        label: { type: "string" },
-        description: { type: "string" },
-        role: { type: "string", enum: ["stellar", "planet", "satellite"] },
-        parent_id: { type: "string" },
-        status: { type: "string", enum: ["locked", "in_progress", "completed"] },
-        priority: { type: "number" },
+        label: { type: "string", description: "New display name for the node" },
+        description: { type: "string", description: "New 1-2 sentence description" },
+        role: { type: "string", enum: ["stellar", "planet", "satellite"], description: "New role — only change if restructuring the hierarchy" },
+        parent_id: { type: "string", description: "New parent node ID — only change if reparenting the node" },
       },
       required: ["id"],
     },
