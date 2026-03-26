@@ -125,6 +125,21 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         <p className="text-xs text-slate-400 leading-relaxed mt-1 mb-3">{node.data.description}</p>
       )}
 
+      {content.blocks.filter((b) => b.type === "heading" || b.type === "paragraph").length > 0 && (
+        <div className="mb-3 space-y-1">
+          {content.blocks
+            .filter((b) => b.type === "heading" || b.type === "paragraph")
+            .map((block) => {
+              if (block.type === "heading") {
+                const Tag = `h${block.level}` as "h1" | "h2" | "h3";
+                const sizeClass = block.level === 1 ? "text-sm font-semibold" : block.level === 2 ? "text-xs font-semibold" : "text-xs font-medium";
+                return <Tag key={block.id} className={`${sizeClass} text-slate-200`}>{block.text}</Tag>;
+              }
+              return <p key={block.id} className="text-xs text-slate-300 leading-relaxed">{block.text}</p>;
+            })}
+        </div>
+      )}
+
       <PanelStatus status={node.data.status} />
 
       <PanelDates
