@@ -266,7 +266,7 @@ export function TimelineView() {
                       borderTop: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
                       borderRight: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
                       borderBottom: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
-                      borderLeft: `3px solid ${color}`,
+                      borderLeft: `1px solid ${isPinned ? color : "rgba(255,255,255,0.07)"}`,
                       borderRadius: 4, padding: "10px 10px 8px",
                       cursor: "pointer", transition: "all 0.12s",
                       boxShadow: isPinned ? `0 0 12px ${color}33` : "none",
