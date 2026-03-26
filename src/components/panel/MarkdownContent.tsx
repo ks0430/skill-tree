@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ContentBlock } from "@/types/node-content";
 
 /** Convert content blocks to a single markdown string for rendering */
@@ -48,6 +49,7 @@ export function MarkdownContent({ markdown, blocks, description }: MarkdownConte
   return (
     <div className="markdown-content">
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
             <h1 style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#22c55e", marginTop: 10, marginBottom: 4, borderBottom: "1px solid rgba(34,197,94,0.2)", paddingBottom: 3, textTransform: "uppercase", letterSpacing: "0.1em" }}>{children}</h1>
