@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { sfxDragStart, sfxDrop } from "@/lib/sfx";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -313,6 +314,7 @@ export function KanbanView() {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", node.id);
       setDragState({ nodeId: node.id, fromColumn: column, fromIndex: index });
+      sfxDragStart();
     },
     []
   );
@@ -370,6 +372,7 @@ export function KanbanView() {
       }
 
       persistUpdate(nodeId, targetStatus, newPriority);
+      sfxDrop();
       setDragState(null);
       setDropTarget(null);
     },

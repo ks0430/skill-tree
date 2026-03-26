@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { sfxPanelOpen, sfxPanelClose } from "@/lib/sfx";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
@@ -66,6 +67,9 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   const supabase = createClient();
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updateNode = useTreeStore((s) => s.updateNode);
+
+  // Play open sound on mount
+  useEffect(() => { sfxPanelOpen(); }, []);
 
   const status = (node.data.status ?? "locked") as NodeStatus;
   const cfg = STATUS[status] ?? STATUS.locked;
@@ -164,7 +168,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
             {pinned && <span style={{ fontSize: 9, fontFamily: "monospace", color: "#64748b" }}>● PINNED</span>}
             {onClose && (
               <button
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
+                onClick={(e) => { e.stopPropagation(); sfxPanelClose(); onClose(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 style={{ color: "#94a3b8", fontSize: 18, lineHeight: 1, background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, flexShrink: 0 }}
               >×</button>
