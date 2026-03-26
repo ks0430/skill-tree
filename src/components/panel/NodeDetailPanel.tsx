@@ -13,6 +13,7 @@ import {
   addItem,
   removeItem,
   upsertChecklist,
+  updateBlockText,
 } from "@/lib/content/checklist";
 import { PanelHeader } from "./PanelHeader";
 import { PanelStatus } from "./PanelStatus";
@@ -104,9 +105,14 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
     }
   }, [node.id, content, persist]);
 
+  const handleBlockUpdate = useCallback(async (blockId: string, newText: string) => {
+    const next = updateBlockText(content, blockId, newText);
+    persist(next);
+  }, [content, persist]);
+
   // Blocks for the non-checklist rich text section (heading, paragraph, note)
   const richBlocks = content.blocks.filter(
-    (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note"
+    (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note" || b.type === "code"
   );
 
   return (
@@ -132,7 +138,10 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 
       {richBlocks.length > 0 && (
         <div className="mb-3">
-          <RichTextRenderer blocks={richBlocks} />
+          <RichTextRenderer
+            blocks={richBlocks}
+            onBlockUpdate={!readOnly ? handleBlockUpdate : undefined}
+          />
         </div>
       )}
 

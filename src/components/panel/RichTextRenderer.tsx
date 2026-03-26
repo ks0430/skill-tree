@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import type { ContentBlock, ChecklistItem } from "@/types/node-content";
 
 interface ChecklistHandlers {
@@ -15,6 +15,8 @@ interface RichTextRendererProps {
   blocks: ContentBlock[];
   /** If provided, checklist blocks render as interactive (editable) */
   checklistHandlers?: ChecklistHandlers;
+  /** If provided, text blocks (paragraph/heading/note/code) become click-to-edit */
+  onBlockUpdate?: (blockId: string, newText: string) => void;
 }
 
 function ChecklistRow({
@@ -160,7 +162,98 @@ function ReadOnlyChecklist({
   );
 }
 
-export function RichTextRenderer({ blocks, checklistHandlers }: RichTextRendererProps) {
+// ── Inline-editable text block ────────────────────────────────────────────────
+
+function InlineTextBlock({
+  blockId,
+  initialText,
+  onSave,
+  renderDisplay,
+  multiline = false,
+}: {
+  blockId: string;
+  initialText: string;
+  onSave: (blockId: string, text: string) => void;
+  renderDisplay: (text: string) => React.ReactNode;
+  multiline?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(initialText);
+  const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+
+  const startEdit = useCallback(() => {
+    setDraft(initialText);
+    setEditing(true);
+    // Focus after state update
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [initialText]);
+
+  const commitEdit = useCallback(() => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed !== initialText) {
+      onSave(blockId, trimmed || initialText);
+    }
+  }, [blockId, draft, initialText, onSave]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setDraft(initialText);
+      setEditing(false);
+      return;
+    }
+    if (!multiline && e.key === "Enter") {
+      e.preventDefault();
+      commitEdit();
+    }
+    e.stopPropagation();
+  }, [commitEdit, initialText, multiline]);
+
+  if (editing) {
+    const sharedClass =
+      "w-full bg-slate-900/80 border border-violet-700/60 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-violet-500 transition-colors resize-none";
+    return multiline ? (
+      <textarea
+        ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+        value={draft}
+        rows={Math.max(2, draft.split("\n").length)}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitEdit}
+        onKeyDown={handleKeyDown}
+        className={sharedClass}
+        autoFocus
+      />
+    ) : (
+      <input
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitEdit}
+        onKeyDown={handleKeyDown}
+        className={sharedClass}
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={startEdit}
+      title="Click to edit"
+      className="cursor-text group relative"
+    >
+      {renderDisplay(initialText)}
+      <span className="absolute -right-1 -top-1 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-violet-500 pointer-events-none select-none">
+        ✎
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function RichTextRenderer({ blocks, checklistHandlers, onBlockUpdate }: RichTextRendererProps) {
   if (!blocks || blocks.length === 0) return null;
 
   return (
@@ -176,6 +269,20 @@ export function RichTextRenderer({ blocks, checklistHandlers }: RichTextRenderer
                 ? "text-xs font-semibold"
                 : "text-xs font-medium";
             const Tag = `h${level}` as "h1" | "h2" | "h3";
+            if (onBlockUpdate) {
+              return (
+                <InlineTextBlock
+                  key={block.id}
+                  blockId={block.id}
+                  initialText={block.text}
+                  onSave={onBlockUpdate}
+                  multiline={false}
+                  renderDisplay={(text) => (
+                    <Tag className={`${sizeClass} text-slate-200 mt-2 first:mt-0`}>{text}</Tag>
+                  )}
+                />
+              );
+            }
             return (
               <Tag
                 key={block.id}
@@ -187,6 +294,20 @@ export function RichTextRenderer({ blocks, checklistHandlers }: RichTextRenderer
           }
 
           case "paragraph":
+            if (onBlockUpdate) {
+              return (
+                <InlineTextBlock
+                  key={block.id}
+                  blockId={block.id}
+                  initialText={block.text}
+                  onSave={onBlockUpdate}
+                  multiline={true}
+                  renderDisplay={(text) => (
+                    <p className="text-xs text-slate-300 leading-relaxed">{text}</p>
+                  )}
+                />
+              );
+            }
             return (
               <p key={block.id} className="text-xs text-slate-300 leading-relaxed">
                 {block.text}
@@ -201,6 +322,22 @@ export function RichTextRenderer({ blocks, checklistHandlers }: RichTextRenderer
             );
 
           case "note":
+            if (onBlockUpdate) {
+              return (
+                <InlineTextBlock
+                  key={block.id}
+                  blockId={block.id}
+                  initialText={block.text}
+                  onSave={onBlockUpdate}
+                  multiline={true}
+                  renderDisplay={(text) => (
+                    <p className="text-xs text-slate-400 italic leading-relaxed border-l-2 border-slate-700 pl-2">
+                      {text}
+                    </p>
+                  )}
+                />
+              );
+            }
             return (
               <p
                 key={block.id}
@@ -211,6 +348,29 @@ export function RichTextRenderer({ blocks, checklistHandlers }: RichTextRenderer
             );
 
           case "code":
+            if (onBlockUpdate) {
+              return (
+                <InlineTextBlock
+                  key={block.id}
+                  blockId={block.id}
+                  initialText={block.text}
+                  onSave={onBlockUpdate}
+                  multiline={true}
+                  renderDisplay={(text) => (
+                    <div className="rounded bg-slate-950 border border-slate-800 overflow-x-auto">
+                      {block.language && (
+                        <div className="px-3 py-1 border-b border-slate-800 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
+                          {block.language}
+                        </div>
+                      )}
+                      <pre className="px-3 py-2 text-xs text-slate-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
+                        <code>{text}</code>
+                      </pre>
+                    </div>
+                  )}
+                />
+              );
+            }
             return (
               <div key={block.id} className="rounded bg-slate-950 border border-slate-800 overflow-x-auto">
                 {block.language && (

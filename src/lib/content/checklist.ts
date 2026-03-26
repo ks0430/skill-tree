@@ -84,3 +84,16 @@ export function upsertNote(content: NodeContent, text: string): NodeContent {
 export function removeNote(content: NodeContent): NodeContent {
   return { blocks: content.blocks.filter((b) => b.type !== "note") };
 }
+
+// ── Generic block text update ─────────────────────────────────────────────────
+
+/** Update the `text` field of any block that has one (paragraph, heading, note, code). */
+export function updateBlockText(content: NodeContent, blockId: string, text: string): NodeContent {
+  return {
+    blocks: content.blocks.map((b) => {
+      if (b.id !== blockId) return b;
+      if (b.type === "divider" || b.type === "checklist") return b;
+      return { ...b, text };
+    }),
+  };
+}
