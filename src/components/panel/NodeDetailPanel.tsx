@@ -20,6 +20,7 @@ import { PanelChecklist } from "./PanelChecklist";
 import { PanelDates } from "./PanelDates";
 import { PanelRelations } from "./PanelRelations";
 import { RichTextRenderer } from "./RichTextRenderer";
+import { PanelHistory } from "./PanelHistory";
 
 interface NodeDetailPanelProps {
   node: Node3D;
@@ -168,6 +169,8 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       {!readOnly && (
         <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />
       )}
+
+      <PanelHistory nodeId={node.id} treeId={node.data.tree_id} />
     </motion.div>
   );
 }
