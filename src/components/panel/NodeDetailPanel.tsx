@@ -5,503 +5,249 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import { useTreeStore } from "@/lib/store/tree-store";
-import type { NodeContent } from "@/types/node-content";
+import type { NodeContent, ContentBlock } from "@/types/node-content";
 import type { NodeStatus } from "@/types/skill-tree";
 import {
-  parseContent,
-  getChecklist,
-  toggleItem,
-  addItem,
-  removeItem,
-  upsertChecklist,
+  parseContent, getChecklist, toggleItem, addItem, removeItem, upsertChecklist,
 } from "@/lib/content/checklist";
-import { PanelHeader } from "./PanelHeader";
-import { PanelDates } from "./PanelDates";
-import { PanelRelations } from "./PanelRelations";
 import { RichTextRenderer } from "./RichTextRenderer";
-import { NotionBlockEditor } from "./NotionBlockEditor";
 import { PanelHistory } from "./PanelHistory";
+import { PanelRelations } from "./PanelRelations";
 
-// ── Status config ────────────────────────────────────────────────────────────
+// ── Status config ─────────────────────────────────────────────────────────────
 
-interface StatusConfig {
-  label: string;
-  icon: string;
-  border: string;
-  glow: string;
-  barClass: string;
-  labelClass: string;
-}
-
-const STATUS_CONFIG: Record<NodeStatus, StatusConfig> = {
-  locked: {
-    label: "Locked",
-    icon: "🔒",
-    border: "1px solid rgba(100,116,139,0.6)",          // slate
-    glow: "0 0 0 1px rgba(100,116,139,0.3), 0 0 12px rgba(100,116,139,0.15)",
-    barClass: "w-0",
-    labelClass: "text-slate-400",
-  },
-  queued: {
-    label: "Queued",
-    icon: "⏳",
-    border: "1px solid rgba(59,130,246,0.7)",            // blue
-    glow: "0 0 0 1px rgba(59,130,246,0.25), 0 0 16px rgba(59,130,246,0.3), 0 0 32px rgba(59,130,246,0.1)",
-    barClass: "w-1/4",
-    labelClass: "text-blue-400",
-  },
-  in_progress: {
-    label: "In Progress",
-    icon: "⚡",
-    border: "1px solid rgba(245,158,11,0.7)",            // amber
-    glow: "0 0 0 1px rgba(245,158,11,0.25), 0 0 16px rgba(245,158,11,0.3), 0 0 32px rgba(245,158,11,0.1)",
-    barClass: "w-1/2",
-    labelClass: "text-amber-400",
-  },
-  completed: {
-    label: "Completed",
-    icon: "✅",
-    border: "1px solid rgba(34,197,94,0.7)",             // green
-    glow: "0 0 0 1px rgba(34,197,94,0.25), 0 0 16px rgba(34,197,94,0.3), 0 0 32px rgba(34,197,94,0.1)",
-    barClass: "w-full",
-    labelClass: "text-green-400",
-  },
+const STATUS: Record<NodeStatus, { label: string; icon: string; border: string; glow: string; color: string; bar: string }> = {
+  locked:      { label: "LOCKED",      icon: "🔒", color: "#64748b", bar: "0%",   border: "rgba(100,116,139,0.5)", glow: "0 0 12px rgba(100,116,139,0.15)" },
+  queued:      { label: "QUEUED",      icon: "⏳", color: "#3b82f6", bar: "25%",  border: "rgba(59,130,246,0.7)",  glow: "0 0 20px rgba(59,130,246,0.35)"  },
+  in_progress: { label: "ACTIVE",      icon: "⚡", color: "#f59e0b", bar: "50%",  border: "rgba(245,158,11,0.7)", glow: "0 0 20px rgba(245,158,11,0.35)"  },
+  completed:   { label: "COMPLETED",   icon: "✅", color: "#22c55e", bar: "100%", border: "rgba(34,197,94,0.7)",  glow: "0 0 20px rgba(34,197,94,0.35)"   },
 };
 
-// ── Pulse animation keyframes injected once ──────────────────────────────────
+// ── Draggable ─────────────────────────────────────────────────────────────────
 
-const PULSE_STATUSES: NodeStatus[] = ["queued", "in_progress"];
-
-function usePanelGlow(status: NodeStatus) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.locked;
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    if (!PULSE_STATUSES.includes(status)) return;
-    const id = setInterval(() => setFrame((f) => f + 1), 1200);
-    return () => clearInterval(id);
-  }, [status]);
-
-  if (!PULSE_STATUSES.includes(status)) {
-    return { border: cfg.border, boxShadow: cfg.glow };
-  }
-  // simple opacity pulse between 0.5x and 1x glow
-  const intensity = 0.6 + 0.4 * Math.sin((frame / 2) * Math.PI);
-  const baseGlow = cfg.glow.replace(/[\d.]+\)/g, (m) => {
-    const n = parseFloat(m);
-    return `${(n * intensity).toFixed(2)})`;
+function useDraggable() {
+  const [pos, setPos] = useState(() => {
+    try { const s = localStorage.getItem("panel-pos"); return s ? JSON.parse(s) : { x: 16, y: 16 }; }
+    catch { return { x: 16, y: 16 }; }
   });
-  return { border: cfg.border, boxShadow: baseGlow };
-}
+  const drag = useRef(false);
+  const off = useRef({ x: 0, y: 0 });
 
-// ── Draggable hook ───────────────────────────────────────────────────────────
+  const onDown = useCallback((e: React.PointerEvent) => {
+    drag.current = true;
+    off.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, [pos]);
 
-const STORAGE_KEY = "node-panel-pos";
+  const onMove = useCallback((e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const x = Math.max(0, Math.min(e.clientX - off.current.x, window.innerWidth - 340));
+    const y = Math.max(0, Math.min(e.clientY - off.current.y, window.innerHeight - 100));
+    setPos({ x, y });
+  }, []);
 
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v));
-}
+  const onUp = useCallback(() => {
+    drag.current = false;
+    setPos((p: { x: number; y: number }) => { try { localStorage.setItem("panel-pos", JSON.stringify(p)); } catch {} return p; });
+  }, []);
 
-function loadPos(): { x: number; y: number } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function savePos(pos: { x: number; y: number }) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
-  } catch {
-    // ignore
-  }
-}
-
-function useDraggable(panelW: number, panelH: number) {
-  const [pos, setPos] = useState<{ x: number; y: number }>(() => {
-    const saved = loadPos();
-    if (saved) return saved;
-    return { x: 16, y: 16 };
-  });
-  const dragging = useRef(false);
-  const offset = useRef({ x: 0, y: 0 });
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      dragging.current = true;
-      offset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    },
-    [pos]
-  );
-
-  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    const nx = clamp(e.clientX - offset.current.x, 0, window.innerWidth - panelW);
-    const ny = clamp(e.clientY - offset.current.y, 0, window.innerHeight - panelH);
-    setPos({ x: nx, y: ny });
-  }, [panelW, panelH]);
-
-  const onPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      dragging.current = false;
-      setPos((p) => {
-        savePos(p);
-        return p;
-      });
-    },
-    []
-  );
-
-  return { pos, onPointerDown, onPointerMove, onPointerUp };
-}
-
-// ── Props ─────────────────────────────────────────────────────────────────────
-
-interface NodeDetailPanelProps {
-  node: Node3D;
-  pinned?: boolean;
-  onClose?: () => void;
-  readOnly?: boolean;
+  return { pos, onDown, onMove, onUp };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function NodeDetailPanel({
-  node,
-  pinned = false,
-  onClose,
-  readOnly = false,
-}: NodeDetailPanelProps) {
-  const [content, setContent] = useState<NodeContent>(() =>
-    parseContent(node.data.content ?? { blocks: [] })
-  );
+export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = false }: {
+  node: Node3D; pinned?: boolean; onClose?: () => void; readOnly?: boolean;
+}) {
+  const [content, setContent] = useState<NodeContent>(() => parseContent(node.data.content ?? { blocks: [] }));
   const [aiLoading, setAiLoading] = useState(false);
+  const [showRelations, setShowRelations] = useState(false);
+  const [pulse, setPulse] = useState(0);
   const supabase = createClient();
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updateNode = useTreeStore((s) => s.updateNode);
+
+  const status = (node.data.status ?? "locked") as NodeStatus;
+  const cfg = STATUS[status] ?? STATUS.locked;
   const props = (node.data.properties ?? {}) as Record<string, string | null>;
-  const status: NodeStatus = node.data.status as NodeStatus;
-  const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.locked;
+  const { pos, onDown, onMove, onUp } = useDraggable();
 
-  // ── glow + drag ──────────────────────────────────────────────────────────
-  const glowStyle = usePanelGlow(status);
-  const PANEL_W = 380;
-  const PANEL_H = 560;
-  const { pos, onPointerDown, onPointerMove, onPointerUp } = useDraggable(PANEL_W, PANEL_H);
+  // Pulse glow for active statuses
+  useEffect(() => {
+    if (status !== "in_progress" && status !== "queued") return;
+    const id = setInterval(() => setPulse(p => p + 1), 1000);
+    return () => clearInterval(id);
+  }, [status]);
+  const glowOpacity = (status === "in_progress" || status === "queued")
+    ? 0.5 + 0.5 * Math.sin((pulse / 2) * Math.PI) : 1;
 
-  // ── DB helpers ───────────────────────────────────────────────────────────
-  const handleDateChange = useCallback(
-    async (field: "due_date" | "start_date" | "estimate", value: string | null) => {
-      const next = { ...props, [field]: value };
-      updateNode(node.id, { properties: next });
-      await supabase
-        .from("skill_nodes")
-        .update({ properties: next })
-        .eq("id", node.id)
-        .eq("tree_id", node.data.tree_id);
-    },
-    [props, node.id, node.data.tree_id, supabase, updateNode]
-  );
+  const writeToDb = useCallback(async (next: NodeContent) => {
+    await supabase.from("skill_nodes").update({ content: next }).eq("id", node.id).eq("tree_id", node.data.tree_id);
+  }, [node.id, node.data.tree_id, supabase]);
 
-  const writeToDb = useCallback(
-    async (next: NodeContent) => {
-      await supabase
-        .from("skill_nodes")
-        .update({ content: next })
-        .eq("id", node.id)
-        .eq("tree_id", node.data.tree_id);
-    },
-    [node.id, node.data.tree_id, supabase]
-  );
-
-  const persist = useCallback(
-    async (next: NodeContent) => {
-      setContent(next);
-      await writeToDb(next);
-    },
-    [writeToDb]
-  );
-
-  const handleToggle = useCallback(
-    (itemId: string) => {
-      const next = toggleItem(content, itemId);
-      setContent(next);
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = setTimeout(() => writeToDb(next), 500);
-    },
-    [content, writeToDb]
-  );
-
-  const handleAdd = useCallback(
-    (text: string) => {
-      persist(addItem(content, text));
-    },
-    [content, persist]
-  );
-
-  const handleRemove = useCallback(
-    (itemId: string) => {
-      persist(removeItem(content, itemId));
-    },
-    [content, persist]
-  );
-
+  const persist = useCallback(async (next: NodeContent) => { setContent(next); await writeToDb(next); }, [writeToDb]);
+  const handleToggle = useCallback((id: string) => {
+    const next = toggleItem(content, id); setContent(next);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => writeToDb(next), 500);
+  }, [content, writeToDb]);
+  const handleAdd = useCallback((text: string) => persist(addItem(content, text)), [content, persist]);
+  const handleRemove = useCallback((id: string) => persist(removeItem(content, id)), [content, persist]);
   const handleAiGenerate = useCallback(async () => {
     setAiLoading(true);
     try {
-      const res = await fetch(`/api/node/${node.id}/checklist`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ treeId: node.data.tree_id }),
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`AI request failed (${res.status}): ${body}`);
-      }
+      const res = await fetch(`/api/node/${node.id}/checklist`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ treeId: node.data.tree_id }) });
+      if (!res.ok) throw new Error("AI request failed");
       const { items } = await res.json();
       const existing = getChecklist(content)?.items ?? [];
-      const next = upsertChecklist(content, [...existing, ...items]);
-      persist(next);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setAiLoading(false);
-    }
+      persist(upsertChecklist(content, [...existing, ...items]));
+    } catch (e) { console.error(e); } finally { setAiLoading(false); }
   }, [node.id, content, persist]);
 
-  const handleBlocksUpdate = useCallback(
-    async (blocks: import("@/types/node-content").ContentBlock[]) => {
-      const next: NodeContent = { ...content, blocks };
-      persist(next);
-    },
-    [content, persist]
-  );
+  const handleBlockUpdate = useCallback(async (blockId: string, newText: string) => {
+    const next: NodeContent = { ...content, blocks: content.blocks.map(b => "text" in b && b.id === blockId ? { ...b, text: newText } : b) as ContentBlock[] };
+    persist(next);
+  }, [content, persist]);
 
-  const handleLabelUpdate = useCallback(
-    async (newLabel: string) => {
-      updateNode(node.id, { label: newLabel });
-      await supabase
-        .from("skill_nodes")
-        .update({ label: newLabel })
-        .eq("id", node.id)
-        .eq("tree_id", node.data.tree_id);
-    },
-    [node.id, node.data.tree_id, supabase, updateNode]
-  );
+  // Stat rows — no dates here, they're in props if set
+  const stats: [string, string][] = [
+    ["Phase", String(props.phase ?? "—")],
+    ["Priority", String(props.priority ?? node.data.priority ?? "—")],
+    ["Start", props.start_date ? props.start_date.slice(0, 10) : "—"],
+    ["Due", props.due_date ? props.due_date.slice(0, 10) : "—"],
+    ["Estimate", props.estimate ?? "—"],
+    ["Commit", props.commit_hash ? props.commit_hash.slice(0, 8) : "—"],
+  ].filter(([, v]) => v !== "—") as [string, string][];
 
-  // ── Stat grid data ───────────────────────────────────────────────────────
-  const phase = props.phase ?? "—";
-  const priority = props.priority ?? "—";
-  const startDate = props.start_date ?? "—";
-  const dueDate = props.due_date ?? "—";
-  const estimate = props.estimate ?? "—";
-
-  const statRows: [string, string][] = [
-    ["Priority", priority],
-    ["Phase", phase],
-    ["Start", startDate !== "—" ? startDate.slice(0, 10) : "—"],
-    ["Due", dueDate !== "—" ? dueDate.slice(0, 10) : "—"],
-    ["Estimate", estimate],
-    ["Status", statusCfg.label],
-  ];
-
-  // ── Render ───────────────────────────────────────────────────────────────
-
-  // Scanline overlay as inline CSS (no external assets needed)
-  const scanlineStyle: React.CSSProperties = {
-    backgroundImage:
-      "repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px)",
-  };
+  // View-only blocks (no checklist — checklist rendered separately)
+  const textBlocks = content.blocks.filter(b => b.type !== "checklist");
+  const hasList = content.blocks.some(b => b.type === "checklist");
 
   return (
     <motion.div
       key={node.id}
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.15 }}
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.12 }}
       style={{
-        position: "fixed",
-        left: pos.x,
-        top: pos.y,
-        width: PANEL_W,
-        minWidth: 320,
-        maxWidth: 420,
-        maxHeight: "calc(100vh - 2rem)",
-        zIndex: 50,
-        pointerEvents: pinned ? "auto" : "none",
-        display: "flex",
-        flexDirection: "column",
-        borderRadius: 6,
-        // semi-transparent dark background
-        backgroundColor: "rgba(10, 12, 18, 0.92)",
-        backdropFilter: "blur(8px)",
-        border: glowStyle.border,
-        boxShadow: glowStyle.boxShadow,
-        // scanline texture overlay via pseudo — we'll use a wrapper div instead
+        position: "fixed", left: pos.x, top: pos.y,
+        width: 340, maxHeight: "calc(100vh - 2rem)",
+        zIndex: 50, pointerEvents: pinned ? "auto" : "none",
+        display: "flex", flexDirection: "column",
+        borderRadius: 4,
+        backgroundColor: "rgba(8, 11, 18, 0.95)",
+        border: `1px solid ${cfg.border}`,
+        boxShadow: `${cfg.glow.replace(/[\d.]+\)$/, `${glowOpacity.toFixed(2)})`)}`,
+        // Scanline texture
+        backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 4px)",
       }}
     >
-      {/* Scanline texture overlay (pointer-events:none so it doesn't block clicks) */}
+      {/* ── HEADER (drag handle) ─────────────────────────────────────── */}
       <div
-        aria-hidden
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
         style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: 6,
-          pointerEvents: "none",
-          zIndex: 0,
-          ...scanlineStyle,
+          cursor: "grab", userSelect: "none", touchAction: "none",
+          padding: "10px 12px 8px",
+          borderBottom: `1px solid ${cfg.border}40`,
+          backgroundColor: "rgba(255,255,255,0.03)",
+          borderRadius: "4px 4px 0 0",
+          flexShrink: 0,
         }}
-      />
-
-      {/* ── Header bar (drag handle) ───────────────────────────────────── */}
-      <div
-        className="flex-shrink-0 select-none cursor-grab active:cursor-grabbing"
-        style={{
-          position: "relative",
-          zIndex: 1,
-          backgroundColor: "rgba(255,255,255,0.04)",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: "6px 6px 0 0",
-          padding: "10px 14px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          touchAction: "none",
-        }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
       >
+        {/* Role tag + close */}
+        <div className="flex items-center justify-between mb-1">
+          <span style={{ fontFamily: "monospace", fontSize: 9, color: cfg.color, textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.9 }}>
+            {(node.data.type ?? node.data.role ?? "node").toUpperCase()}
+          </span>
+          <div className="flex items-center gap-2">
+            {pinned && <span style={{ fontSize: 9, fontFamily: "monospace", color: "#64748b" }}>● PINNED</span>}
+            {onClose && (
+              <button onClick={onClose} style={{ color: "#475569", fontSize: 14, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}>×</button>
+            )}
+          </div>
+        </div>
+
         {/* Title */}
-        <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-          <PanelHeader
-            role={(node.data.type ?? node.data.role) as import("@/types/skill-tree").NodeRole}
-            label={node.data.label}
-            pinned={pinned}
-            onClose={onClose}
-            onLabelUpdate={!readOnly ? handleLabelUpdate : undefined}
-          />
+        <div style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#e2e8f0", lineHeight: 1.35 }}>
+          {node.data.label}
         </div>
 
-        {/* Status badge — right side */}
-        <div
-          className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-mono font-semibold ${statusCfg.labelClass}`}
-        >
-          <span>{statusCfg.icon}</span>
-          <span>{statusCfg.label.toUpperCase()}</span>
+        {/* Status bar */}
+        <div className="flex items-center gap-2 mt-2">
+          <div style={{ flex: 1, height: 2, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
+            <div style={{ height: "100%", width: cfg.bar, backgroundColor: cfg.color, borderRadius: 2, transition: "width 0.5s" }} />
+          </div>
+          <span style={{ fontFamily: "monospace", fontSize: 10, color: cfg.color, fontWeight: 700, letterSpacing: "0.1em" }}>
+            {cfg.icon} {cfg.label}
+          </span>
         </div>
       </div>
 
-      {/* ── Stat grid ─────────────────────────────────────────────────────── */}
-      <div
-        className="flex-shrink-0"
-        style={{
-          position: "relative",
-          zIndex: 1,
-          padding: "10px 14px 8px",
+      {/* ── STAT GRID ─────────────────────────────────────────────────── */}
+      {stats.length > 0 && (
+        <div style={{
+          flexShrink: 0, padding: "8px 12px",
           borderBottom: "1px solid rgba(255,255,255,0.05)",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "4px 0",
-        }}
-      >
-        {statRows.map(([label, value]) => (
-          <div key={label} className="flex items-baseline gap-2">
-            <span
-              className="font-mono text-[10px] text-slate-500 uppercase tracking-wider w-14 flex-shrink-0"
-            >
-              {label}
-            </span>
-            <span
-              className="font-mono text-[11px] text-slate-200 truncate"
-              title={value}
-            >
-              {value}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Status progress bar ───────────────────────────────────────────── */}
-      <div
-        className="flex-shrink-0 px-3 py-2"
-        style={{ position: "relative", zIndex: 1 }}
-      >
-        <div className="h-[2px] bg-slate-800 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${statusCfg.barClass}`}
-            style={{
-              background:
-                status === "completed"
-                  ? "rgba(34,197,94,0.8)"
-                  : status === "in_progress"
-                  ? "rgba(245,158,11,0.8)"
-                  : status === "queued"
-                  ? "rgba(59,130,246,0.8)"
-                  : "rgba(100,116,139,0.4)",
-            }}
-          />
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 8px",
+        }}>
+          {stats.map(([label, value]) => (
+            <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0, width: 52 }}>{label}</span>
+              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8" }}>{value}</span>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* ── Scrollable body ───────────────────────────────────────────────── */}
-      <div
-        className="flex-1 overflow-y-auto min-h-0"
-        style={{
-          position: "relative",
-          zIndex: 1,
-          padding: "8px 14px 14px",
-        }}
-      >
-        {/* Date pickers (edit mode) */}
-        {!readOnly && (
-          <div className="mb-3">
-            <PanelDates
-              dueDate={props.due_date}
-              startDate={props.start_date}
-              estimate={props.estimate}
-              readOnly={readOnly}
-              onChange={handleDateChange}
-            />
-          </div>
+      {/* ── CONTENT BODY ──────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "10px 12px" }}>
+
+        {/* Text blocks — view mode, clean */}
+        {textBlocks.length > 0 && (
+          <RichTextRenderer
+            blocks={textBlocks}
+            onBlockUpdate={!readOnly ? handleBlockUpdate : undefined}
+          />
         )}
 
-        {/* Notion-style block editor */}
-        <div className="mb-3">
-          <NotionBlockEditor
-            blocks={content.blocks}
-            readOnly={readOnly}
-            onUpdate={handleBlocksUpdate}
-          />
-        </div>
-
         {/* Checklist */}
-        <RichTextRenderer
-          blocks={content.blocks.filter((b) => b.type === "checklist")}
-          checklistHandlers={
-            !readOnly
-              ? {
-                  onToggle: handleToggle,
-                  onAdd: handleAdd,
-                  onRemove: handleRemove,
-                  onAiGenerate: handleAiGenerate,
-                  aiLoading,
-                }
-              : undefined
-          }
-        />
+        {hasList && (
+          <RichTextRenderer
+            blocks={content.blocks.filter(b => b.type === "checklist")}
+            checklistHandlers={!readOnly ? {
+              onToggle: handleToggle, onAdd: handleAdd, onRemove: handleRemove,
+              onAiGenerate: handleAiGenerate, aiLoading,
+            } : undefined}
+          />
+        )}
 
-        {!readOnly && <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />}
-
+        {/* History */}
         <PanelHistory nodeId={node.id} treeId={node.data.tree_id} />
       </div>
+
+      {/* ── FOOTER — Relations toggle ──────────────────────────────────── */}
+      {!readOnly && (
+        <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          <button
+            onClick={() => setShowRelations(r => !r)}
+            style={{
+              width: "100%", padding: "7px 12px", display: "flex", alignItems: "center",
+              justifyContent: "space-between", background: "none", border: "none",
+              cursor: "pointer", fontFamily: "monospace", fontSize: 10,
+              color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em",
+            }}
+          >
+            <span>⛓ Relations</span>
+            <span style={{ opacity: 0.5 }}>{showRelations ? "▲" : "▼"}</span>
+          </button>
+          {showRelations && (
+            <div style={{ padding: "0 12px 10px" }}>
+              <PanelRelations nodeId={node.id} treeId={node.data.tree_id} />
+            </div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
