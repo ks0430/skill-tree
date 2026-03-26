@@ -195,11 +195,11 @@ export function TimelineView() {
       </div>
 
       {/* Timeline */}
-      <div style={{ padding: "24px 24px 24px 40px", position: "relative" }}>
+      <div style={{ padding: "24px 32px 24px 72px", position: "relative" }}>
         {/* Vertical line */}
         <div style={{
-          position: "absolute", left: 52, top: 0, bottom: 0,
-          width: 1, background: "rgba(255,255,255,0.06)",
+          position: "absolute", left: 44, top: 0, bottom: 0,
+          width: 1, background: "rgba(255,255,255,0.04)",
         }} />
 
         {groups.map((group, gi) => (
