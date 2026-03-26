@@ -91,6 +91,11 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   node: Node3D; pinned?: boolean; onClose?: () => void; readOnly?: boolean;
 }) {
   const [content, setContent] = useState<NodeContent>(() => parseContent(node.data.content ?? { blocks: [] }));
+
+  // Reset content when node changes
+  useEffect(() => {
+    setContent(parseContent(node.data.content ?? { blocks: [] }));
+  }, [node.id]);
   const [aiLoading, setAiLoading] = useState(false);
   const [showRelations, setShowRelations] = useState(false);
   const [pulse, setPulse] = useState(0);
