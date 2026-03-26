@@ -9,7 +9,7 @@ import {
   generateMonthTicks,
   LABEL_COL_WIDTH,
   ROW_HEIGHT,
-  ROW_GAP,
+  SWIMLANE_HEADER_HEIGHT,
   PX_PER_DAY,
 } from "@/lib/gantt/layout";
 
@@ -58,7 +58,6 @@ export function GanttView() {
     if (todayOffset <= 0) return;
     const containerWidth = containerRef.current?.clientWidth ?? 800;
     const viewableWidth = containerWidth - LABEL_COL_WIDTH;
-    // Center today in the visible timeline
     const target = Math.max(0, todayOffset - Math.floor(viewableWidth / 2));
     setScrollLeft(target);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,7 +111,7 @@ export function GanttView() {
         }}
       >
         <span style={{ fontFamily: "monospace", fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          Node
+          Agent / Node
         </span>
       </div>
 
@@ -212,6 +211,56 @@ export function GanttView() {
             zIndex: 5,
           }}
         >
+          {/* Swimlane header labels */}
+          {layout.swimlaneHeaders.map((lane) => (
+            <div
+              key={"lane-label-" + lane.agentName}
+              style={{
+                position: "absolute",
+                top: lane.yTop,
+                left: 0,
+                width: LABEL_COL_WIDTH,
+                height: SWIMLANE_HEADER_HEIGHT,
+                display: "flex",
+                alignItems: "center",
+                paddingLeft: 10,
+                paddingRight: 8,
+                background: "rgba(99,102,241,0.08)",
+                borderTop: "1px solid rgba(99,102,241,0.2)",
+                borderBottom: "1px solid rgba(99,102,241,0.12)",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#818cf8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {lane.agentName}
+              </span>
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontFamily: "monospace",
+                  fontSize: 9,
+                  color: "#475569",
+                  flexShrink: 0,
+                  paddingLeft: 4,
+                }}
+              >
+                {lane.rowCount}
+              </span>
+            </div>
+          ))}
+
+          {/* Node rows */}
           {layout.rows.map((row) => {
             const type = row.node.data.type ?? row.node.data.role;
             const isPinned = row.id === pinnedNodeId;
@@ -222,14 +271,14 @@ export function GanttView() {
                 onClick={() => setPinnedNode(isPinned ? null : row.id)}
                 style={{
                   position: "absolute",
-                  top: row.rowIndex * (ROW_HEIGHT + ROW_GAP) + ROW_GAP,
+                  top: row.yTop,
                   left: 0,
                   width: LABEL_COL_WIDTH,
                   height: ROW_HEIGHT,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  paddingLeft: 12,
+                  paddingLeft: 16,
                   paddingRight: 8,
                   cursor: "pointer",
                   background: isPinned ? "rgba(99,102,241,0.1)" : "transparent",
@@ -311,17 +360,35 @@ export function GanttView() {
               />
             )}
 
+            {/* Swimlane header bands on timeline */}
+            {layout.swimlaneHeaders.map((lane) => (
+              <div
+                key={"lane-band-" + lane.agentName}
+                style={{
+                  position: "absolute",
+                  top: lane.yTop,
+                  left: 0,
+                  right: 0,
+                  height: SWIMLANE_HEADER_HEIGHT,
+                  background: "rgba(99,102,241,0.04)",
+                  borderTop: "1px solid rgba(99,102,241,0.15)",
+                  borderBottom: "1px solid rgba(99,102,241,0.08)",
+                  pointerEvents: "none",
+                }}
+              />
+            ))}
+
             {/* Row stripes */}
             {layout.rows.map((row) => (
               <div
                 key={"stripe-" + row.id}
                 style={{
                   position: "absolute",
-                  top: row.rowIndex * (ROW_HEIGHT + ROW_GAP) + ROW_GAP,
+                  top: row.yTop,
                   left: 0,
                   right: 0,
                   height: ROW_HEIGHT,
-                  background: row.rowIndex % 2 === 0 ? "rgba(255,255,255,0.012)" : "transparent",
+                  background: row.laneIndex % 2 === 0 ? "rgba(255,255,255,0.012)" : "transparent",
                   pointerEvents: "none",
                 }}
               />
@@ -344,7 +411,7 @@ export function GanttView() {
                   title={`${row.node.data.label}\n${row.startLabel} → ${row.endLabel}`}
                   style={{
                     position: "absolute",
-                    top: row.rowIndex * (ROW_HEIGHT + ROW_GAP) + ROW_GAP + 8,
+                    top: row.yTop + 8,
                     left: row.barLeft,
                     width: row.barWidth,
                     height: ROW_HEIGHT - 16,
