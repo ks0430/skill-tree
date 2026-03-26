@@ -6,6 +6,7 @@ import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
+import { RadialTreeView } from "@/components/canvas/RadialTreeView";
 import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { KanbanView } from "@/components/canvas/KanbanView";
@@ -237,6 +238,8 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
             </CanvasErrorBoundary>
           ) : viewMode === "tree" ? (
             <SkillTreeView2D />
+          ) : viewMode === "radial" ? (
+            <RadialTreeView />
           ) : viewMode === "gantt" ? (
             <GanttView />
           ) : viewMode === "weight" ? (
