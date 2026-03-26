@@ -13,10 +13,15 @@ import {
   PX_PER_DAY,
 } from "@/lib/gantt/layout";
 
+/**
+ * Bar colours for each ticket status.
+ * Bars span created_at → completed_at (actual ticket duration from pm_tickets).
+ */
 const STATUS_COLORS: Record<string, string> = {
-  completed: "#22d3ee",
-  in_progress: "#f59e0b",
-  locked: "#475569",
+  completed:   "#22d3ee",   // cyan   — ticket finished
+  in_progress: "#f59e0b",   // amber  — actively being worked
+  queued:      "#a78bfa",   // violet — waiting to start
+  locked:      "#475569",   // slate  — not yet reachable
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -60,7 +65,6 @@ export function GanttView() {
     const viewableWidth = containerWidth - LABEL_COL_WIDTH;
     const target = Math.max(0, todayOffset - Math.floor(viewableWidth / 2));
     setScrollLeft(target);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayOffset]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -394,7 +398,7 @@ export function GanttView() {
               />
             ))}
 
-            {/* Gantt bars */}
+            {/* Gantt bars — duration from created_at (open) → completed_at (close) */}
             {layout.rows.map((row) => {
               const status = row.node.data.status;
               const type = row.node.data.type ?? row.node.data.role;
@@ -403,12 +407,26 @@ export function GanttView() {
               const isPinned = row.id === pinnedNodeId;
               const isHighlighted = row.id === searchHighlightId;
 
+              // Duration fill: completed tickets show full solid bar (actual duration known).
+              // In-progress: partial fill based on days elapsed vs bar width.
+              // Queued/locked: empty fill — ticket hasn't started.
+              const barDurationDays = row.barWidth / PX_PER_DAY;
+              const elapsedDays =
+                (Date.now() - new Date(row.startLabel).getTime()) /
+                (1000 * 60 * 60 * 24);
+              const fillPercent =
+                status === "completed"
+                  ? 100
+                  : status === "in_progress"
+                  ? Math.min(100, Math.max(10, Math.round((elapsedDays / barDurationDays) * 100)))
+                  : 0;
+
               return (
                 <div
                   key={row.id}
                   data-node="true"
                   onClick={() => setPinnedNode(isPinned ? null : row.id)}
-                  title={`${row.node.data.label}\n${row.startLabel} → ${row.endLabel}`}
+                  title={`${row.node.data.label}\n${row.startLabel} → ${row.endLabel}\nStatus: ${status}`}
                   style={{
                     position: "absolute",
                     top: row.yTop + 8,
@@ -417,13 +435,15 @@ export function GanttView() {
                     height: ROW_HEIGHT - 16,
                     borderRadius: 5,
                     background: isPinned
-                      ? "rgba(99,102,241,0.35)"
-                      : `${barColor}22`,
-                    border: `1.5px solid ${isPinned ? "#818cf8" : borderColor}`,
+                      ? "rgba(99,102,241,0.2)"
+                      : "rgba(255,255,255,0.03)",
+                    border: `1.5px solid ${isPinned ? "#818cf8" : `${barColor}88`}`,
                     boxShadow: isHighlighted
-                      ? "0 0 0 2px #f59e0b"
+                      ? `0 0 0 2px #f59e0b`
                       : isPinned
                       ? "0 0 0 2px rgba(129,140,248,0.5)"
+                      : status === "in_progress"
+                      ? `0 0 8px 1px ${barColor}44`
                       : "none",
                     cursor: "pointer",
                     display: "flex",
@@ -435,18 +455,23 @@ export function GanttView() {
                     transition: "box-shadow 0.15s, border-color 0.15s",
                   }}
                 >
-                  {/* Fill bar based on status */}
+                  {/* Duration fill — solid colour showing actual ticket duration */}
                   <div
                     style={{
                       position: "absolute",
                       left: 0,
                       top: 0,
                       height: "100%",
-                      width: status === "completed" ? "100%" : status === "in_progress" ? "50%" : "0%",
-                      background: `${barColor}33`,
-                      borderRadius: 4,
+                      width: `${fillPercent}%`,
+                      background:
+                        status === "completed"
+                          ? `linear-gradient(90deg, ${barColor}55 0%, ${barColor}88 100%)`
+                          : status === "in_progress"
+                          ? `linear-gradient(90deg, ${barColor}44 0%, ${barColor}66 100%)`
+                          : `${barColor}22`,
+                      borderRadius: fillPercent === 100 ? 4 : "4px 0 0 4px",
                       pointerEvents: "none",
-                      transition: "width 0.3s",
+                      transition: "width 0.5s ease",
                     }}
                   />
                   {/* Label inside bar */}

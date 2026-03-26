@@ -81,7 +81,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
     async function pollNodeStatuses() {
       const { data, error } = await supabase
         .from("skill_nodes")
-        .select("id, status, icon, properties, priority, label, description")
+        .select("id, status, icon, properties, priority, label, description, created_at, completed_at")
         .eq("tree_id", id);
       if (!active || error || !data) return;
       for (const row of data) {
