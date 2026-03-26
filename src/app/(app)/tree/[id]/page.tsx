@@ -11,6 +11,8 @@ import { KanbanView } from "@/components/canvas/KanbanView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ViewSwitcher } from "@/components/canvas/ViewSwitcher";
+import { TreeSwitcher } from "@/components/canvas/TreeSwitcher";
+import { TreeCommandPalette } from "@/components/canvas/TreeCommandPalette";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
 import { toast } from "sonner";
 
@@ -196,6 +198,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="h-screen flex flex-col">
+      <TreeCommandPalette treeId={id} />
       <header className="glass border-b border-glass-border px-4 py-2 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <a
@@ -204,7 +207,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
           >
             &larr; Back
           </a>
-          <h1 className="font-mono font-semibold text-lg truncate max-w-[140px] sm:max-w-none">{treeName}</h1>
+          <TreeSwitcher treeId={id} treeName={treeName} />
         </div>
         <div className="flex items-center gap-2">
           {/* View mode switcher */}
