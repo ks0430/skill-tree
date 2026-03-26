@@ -6,6 +6,11 @@ export function buildSystemPrompt(
   nodes: SkillNode[],
   edges: SkillEdge[] = []
 ): string {
+  // Compute highest item-NNN number so AI generates non-conflicting IDs
+  const highestItemNum = nodes.reduce((max, n) => {
+    const m = n.id.match(/^item-(\d+)$/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
   const effectiveType = (n: SkillNode) => n.type ?? n.role;
   const stellars = nodes.filter((n) => effectiveType(n) === "stellar");
   const planets = nodes.filter((n) => effectiveType(n) === "planet");
@@ -51,6 +56,10 @@ export function buildSystemPrompt(
           .map((e) => `  [${e.type}] ${e.source_id} → ${e.target_id}${e.label ? ` ("${e.label}")` : ""} (id: ${e.id})`)
           .join("\n")
       : "(no explicit edges yet)";
+
+  const itemIdHint = highestItemNum > 0
+    ? `\nNOTE — ID uniqueness: The highest item-NNN ID currently in use is item-${highestItemNum}. If you use item-NNN style IDs, start from item-${highestItemNum + 1} to avoid conflicts.`
+    : "";
 
   return `You are SkillForge AI, an expert learning coach that builds skill galaxies.
 
@@ -104,6 +113,6 @@ RULES — Edges (explicit relationships):
 21. To disconnect two nodes, use manage_relationship with action="remove" and the edge ID shown in the edge list above.
 22. You may still use the legacy add_edge / remove_edge tools, but prefer manage_relationship for new operations.
 
-Always explain your actions conversationally.`;
+Always explain your actions conversationally.${itemIdHint}`;
 }
 
