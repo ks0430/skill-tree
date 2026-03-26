@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
-import { GanttView } from "@/components/canvas/GanttView";
+import { TimelineView } from "@/components/canvas/TimelineView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { KanbanView } from "@/components/canvas/KanbanView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
@@ -235,7 +235,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
               <SkillTreeCanvas />
             </CanvasErrorBoundary>
           ) : viewMode === "gantt" ? (
-            <GanttView />
+            <TimelineView />
           ) : viewMode === "weight" ? (
             <WeightGraphView />
           ) : (
