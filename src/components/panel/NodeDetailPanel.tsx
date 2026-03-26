@@ -152,6 +152,17 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   }, [content, persist]);
 
   // Stat rows — no dates here, they're in props if set
+  const STAT_COLORS: Record<string, string> = {
+    Phase:    "#818cf8", // indigo
+    Priority: "#f59e0b", // amber
+    Created:  "#64748b", // slate
+    Start:    "#22d3ee", // cyan
+    Due:      "#f87171", // red
+    Estimate: "#a78bfa", // violet
+    Commit:   "#34d399", // emerald
+    Done:     "#22c55e", // green
+  };
+
   const stats: [string, string][] = [
     ["Phase",    String(props.phase ?? "—")],
     ["Priority", String(props.priority ?? node.data.priority ?? "—")],
@@ -239,17 +250,20 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
           borderBottom: "1px solid rgba(255,255,255,0.05)",
           display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 8px",
         }}>
-          {stats.map(([label, value]) => (
-            <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{
-                fontFamily: "monospace", fontSize: 8, color: "#64748b",
-                textTransform: "uppercase", letterSpacing: "0.12em", flexShrink: 0,
-                background: "rgba(255,255,255,0.05)", borderRadius: 2,
-                padding: "1px 4px", border: "1px solid rgba(255,255,255,0.06)",
-              }}>{label}</span>
-              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#cbd5e1", fontWeight: 600 }}>{value}</span>
-            </div>
-          ))}
+          {stats.map(([label, value]) => {
+            const color = STAT_COLORS[label] ?? "#64748b";
+            return (
+              <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{
+                  fontFamily: "monospace", fontSize: 8, color,
+                  textTransform: "uppercase", letterSpacing: "0.12em", flexShrink: 0,
+                  background: `${color}18`, borderRadius: 2,
+                  padding: "1px 4px", border: `1px solid ${color}40`,
+                }}>{label}</span>
+                <span style={{ fontFamily: "monospace", fontSize: 11, color: "#cbd5e1", fontWeight: 600 }}>{value}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
