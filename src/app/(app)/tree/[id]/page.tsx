@@ -5,9 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
-import { SkillTreeView2D } from "@/components/canvas/SkillTreeView2D";
-import { RadialTreeView } from "@/components/canvas/RadialTreeView";
-import { ForceGraphView } from "@/components/canvas/ForceGraphView";
 import { GanttView } from "@/components/canvas/GanttView";
 import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { KanbanView } from "@/components/canvas/KanbanView";
@@ -233,16 +230,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       <div className="flex flex-1 overflow-hidden relative">
         {/* Canvas — always full area on mobile, shared on desktop */}
         <div className="flex-1 relative min-w-0">
-          {viewMode === "solar" ? (
+          {viewMode === "solar" || viewMode === "graph" ? (
             <CanvasErrorBoundary>
               <SkillTreeCanvas />
             </CanvasErrorBoundary>
-          ) : viewMode === "tree" ? (
-            <SkillTreeView2D />
-          ) : viewMode === "radial" ? (
-            <RadialTreeView />
-          ) : viewMode === "force" ? (
-            <ForceGraphView />
           ) : viewMode === "gantt" ? (
             <GanttView />
           ) : viewMode === "weight" ? (
