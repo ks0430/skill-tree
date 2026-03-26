@@ -163,7 +163,11 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
           <div className="flex items-center gap-2">
             {pinned && <span style={{ fontSize: 9, fontFamily: "monospace", color: "#64748b" }}>● PINNED</span>}
             {onClose && (
-              <button onClick={onClose} style={{ color: "#475569", fontSize: 14, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}>×</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                style={{ color: "#94a3b8", fontSize: 18, lineHeight: 1, background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, flexShrink: 0 }}
+              >×</button>
             )}
           </div>
         </div>
