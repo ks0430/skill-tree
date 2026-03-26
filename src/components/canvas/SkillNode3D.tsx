@@ -136,6 +136,7 @@ const STATUS_BRIGHTNESS: Record<
   { opacity: number; emissive: number; atmosphere: number; cloudOpacity: number; ringOpacity: number; labelAlpha: number }
 > = {
   locked:      { opacity: 0.3,  emissive: 0.0,  atmosphere: 0.02, cloudOpacity: 0.1,  ringOpacity: 0.1,  labelAlpha: 0.4 },
+  queued:      { opacity: 0.55, emissive: 0.08, atmosphere: 0.06, cloudOpacity: 0.3,  ringOpacity: 0.3,  labelAlpha: 0.65 },
   in_progress: { opacity: 0.85, emissive: 0.25, atmosphere: 0.12, cloudOpacity: 0.5,  ringOpacity: 0.5,  labelAlpha: 0.85 },
   completed:   { opacity: 1.0,  emissive: 0.5,  atmosphere: 0.2,  cloudOpacity: 0.7,  ringOpacity: 0.7,  labelAlpha: 1.0 },
 };
