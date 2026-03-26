@@ -207,6 +207,7 @@ export function KanbanView() {
 
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [limit, setLimit] = useState<number>(50); // show last N tickets
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
   const phaseDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -277,8 +278,23 @@ export function KanbanView() {
     grouped["active"].sort((a, b) => b.data.priority - a.data.priority);
     grouped["done"].sort((a, b) => b.data.priority - a.data.priority);
 
+    // Apply limit — sort by created_at desc, keep latest N across all columns
+    if (limit > 0) {
+      const allFiltered = [...grouped.backlog, ...grouped.queued, ...grouped.active, ...grouped.done];
+      allFiltered.sort((a, b) => {
+        const aTime = (a.data.properties as Record<string, unknown>)?.created_at as string ?? "";
+        const bTime = (b.data.properties as Record<string, unknown>)?.created_at as string ?? "";
+        return bTime.localeCompare(aTime); // newest first
+      });
+      const limitedIds = new Set(allFiltered.slice(0, limit).map(n => n.id));
+      for (const col of ["backlog", "queued", "active", "done"] as const) {
+        // Always show active — never hide in-progress tickets
+        grouped[col] = grouped[col].filter(n => n.data.status === "in_progress" || limitedIds.has(n.id));
+      }
+    }
+
     return grouped;
-  }, [nodes, phaseFilter, searchText]);
+  }, [nodes, phaseFilter, searchText, limit]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId),
@@ -438,6 +454,22 @@ export function KanbanView() {
           {searchText && (
             <button onClick={() => setSearchText("")} style={{ position: "absolute", right: 8, background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12 }}>×</button>
           )}
+        </div>
+        {/* Limit selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {[20, 50, 100, 0].map(n => (
+            <button
+              key={n}
+              onClick={() => setLimit(n)}
+              style={{
+                fontFamily: "monospace", fontSize: 9, padding: "3px 7px", borderRadius: 20,
+                border: `1px solid ${limit === n ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+                background: limit === n ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.03)",
+                color: limit === n ? "#a5b4fc" : "#475569", cursor: "pointer",
+                textTransform: "uppercase", letterSpacing: "0.08em",
+              }}
+            >{n === 0 ? "All" : `Last ${n}`}</button>
+          ))}
         </div>
         <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase</span>
         <div ref={phaseDropdownRef} style={{ position: "relative" }}>
