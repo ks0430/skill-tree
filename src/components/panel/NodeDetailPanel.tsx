@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import { useTreeStore } from "@/lib/store/tree-store";
-import { InlineTextField } from "./InlineTextField";
 import type { NodeContent } from "@/types/node-content";
 import {
   parseContent,
@@ -14,13 +13,13 @@ import {
   addItem,
   removeItem,
   upsertChecklist,
-  updateBlockText,
 } from "@/lib/content/checklist";
 import { PanelHeader } from "./PanelHeader";
 import { PanelStatus } from "./PanelStatus";
 import { PanelDates } from "./PanelDates";
 import { PanelRelations } from "./PanelRelations";
 import { RichTextRenderer } from "./RichTextRenderer";
+import { NotionBlockEditor } from "./NotionBlockEditor";
 import { PanelHistory } from "./PanelHistory";
 
 interface NodeDetailPanelProps {
@@ -106,8 +105,8 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
     }
   }, [node.id, content, persist]);
 
-  const handleBlockUpdate = useCallback(async (blockId: string, newText: string) => {
-    const next = updateBlockText(content, blockId, newText);
+  const handleBlocksUpdate = useCallback(async (blocks: import("@/types/node-content").ContentBlock[]) => {
+    const next: NodeContent = { ...content, blocks };
     persist(next);
   }, [content, persist]);
 
@@ -119,20 +118,6 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
       .eq("id", node.id)
       .eq("tree_id", node.data.tree_id);
   }, [node.id, node.data.tree_id, supabase, updateNode]);
-
-  const handleDescriptionUpdate = useCallback(async (newDescription: string) => {
-    updateNode(node.id, { description: newDescription });
-    await supabase
-      .from("skill_nodes")
-      .update({ description: newDescription })
-      .eq("id", node.id)
-      .eq("tree_id", node.data.tree_id);
-  }, [node.id, node.data.tree_id, supabase, updateNode]);
-
-  // Blocks for the non-checklist rich text section (heading, paragraph, note)
-  const richBlocks = content.blocks.filter(
-    (b) => b.type === "heading" || b.type === "paragraph" || b.type === "note" || b.type === "code"
-  );
 
   return (
     <motion.div
@@ -167,25 +152,14 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
-        {(node.data.description || !readOnly) && (
-          <InlineTextField
-            value={node.data.description ?? ""}
-            placeholder="Add a description…"
+        {/* Notion-style block editor for description — replaces plain textarea */}
+        <div className="mt-1 mb-3">
+          <NotionBlockEditor
+            blocks={content.blocks}
             readOnly={readOnly}
-            onSave={!readOnly ? handleDescriptionUpdate : undefined}
-            className="text-xs text-slate-400 leading-relaxed mt-1 mb-3"
-            multiline
+            onUpdate={handleBlocksUpdate}
           />
-        )}
-
-        {richBlocks.length > 0 && (
-          <div className="mb-3">
-            <RichTextRenderer
-              blocks={richBlocks}
-              onBlockUpdate={!readOnly ? handleBlockUpdate : undefined}
-            />
-          </div>
-        )}
+        </div>
 
         {/* Checklist rendered as a content block — interactive when editable, read-only otherwise */}
         <RichTextRenderer
