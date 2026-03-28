@@ -21,7 +21,7 @@ const STATUS_COLORS: Record<string, string> = {
   completed:   "#22d3ee",   // cyan   — ticket finished
   in_progress: "#f59e0b",   // amber  — actively being worked
   queued:      "#a78bfa",   // violet — waiting to start
-  locked:      "#475569",   // slate  — not yet reachable
+  backlog:     "#475569",   // slate  — not yet reachable
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -409,7 +409,7 @@ export function GanttView() {
 
               // Duration fill: completed tickets show full solid bar (actual duration known).
               // In-progress: partial fill based on days elapsed vs bar width.
-              // Queued/locked: empty fill — ticket hasn't started.
+              // Queued/backlog: empty fill — ticket hasn't started.
               const barDurationDays = row.barWidth / PX_PER_DAY;
               const elapsedDays =
                 (Date.now() - new Date(row.startLabel).getTime()) /

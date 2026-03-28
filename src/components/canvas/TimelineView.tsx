@@ -12,14 +12,14 @@ const STATUS_ICON: Record<string, string> = {
   completed:   "✅",
   in_progress: "⚡",
   queued:      "⏳",
-  locked:      "🔒",
+  backlog:     "📋",
 };
 
 const STATUS_COLOR: Record<string, string> = {
   completed:   "#22c55e",
   in_progress: "#f59e0b",
   queued:      "#6366f1",
-  locked:      "#475569",
+  backlog:     "#475569",
 };
 
 function formatDate(ts: string | undefined | null): string {
@@ -92,9 +92,9 @@ function LazyTicketCard({
 
   const isPinned = node.id === pinnedNodeId;
   const isFlashing = flashNodeIds.has(node.id);
-  const status = String(getNodeProperty(node.data, "status") ?? node.data.status ?? "locked");
+  const status = String(getNodeProperty(node.data, "status") ?? node.data.status ?? "backlog");
   const color = STATUS_COLOR[status] ?? "#475569";
-  const icon = STATUS_ICON[status] ?? "🔒";
+  const icon = STATUS_ICON[status] ?? "📋";
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
   const itemId = props.item_id as string | undefined;
   const commitHash = props.commit_hash as string | undefined;

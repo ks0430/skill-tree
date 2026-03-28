@@ -215,7 +215,7 @@ const STATUS_COLORS: Record<string, string> = {
   completed:   "#22c55e",
   in_progress: "#f59e0b",
   queued:      "#6366f1",
-  locked:      "#1e293b",
+  backlog:     "#1e293b",
 };
 
 const BATCH_SIZE = 5;     // nodes per batch

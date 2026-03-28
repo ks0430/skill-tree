@@ -75,7 +75,7 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           tree_id: treeId,
           label: change.params.label as string,
           description: (change.params.description as string) ?? null,
-          status: (change.params.status as SkillNode["status"]) ?? "locked",
+          status: (change.params.status as SkillNode["status"]) ?? "backlog",
           type: ((change.params.type ?? change.params.role) as SkillNode["type"]) ?? "planet",
           role: ((change.params.type ?? change.params.role) as SkillNode["role"]) ?? "planet",
           parent_id: (change.params.parent_id as string) ?? null,

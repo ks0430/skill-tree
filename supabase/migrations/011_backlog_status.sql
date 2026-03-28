@@ -8,4 +8,4 @@ ALTER TABLE skill_nodes
 
 ALTER TABLE skill_nodes
   ADD CONSTRAINT skill_nodes_status_check
-  CHECK (status IN ('backlog', 'locked', 'queued', 'in_progress', 'completed'));
+  CHECK (status IN ('backlog', 'queued', 'in_progress', 'completed'));

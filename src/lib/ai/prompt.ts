@@ -99,7 +99,7 @@ RULES — Galaxy structure:
 2. Every ${hierarchy.levels[1]?.label ?? "child"} MUST have a parent_id pointing to its ${hierarchy.levels[0]?.label ?? "parent"}. Every ${hierarchy.levels[2]?.label ?? "sub-child"} MUST point to its ${hierarchy.levels[1]?.label ?? "parent"}.
 3. ${hierarchy.levels[0]?.label ?? "Top-level"} nodes have parent_id = null.
 4. Priority is a queue position (lower number = higher urgency, runs sooner): 1 = urgent/run next, 3 = normal, 5+ = backlog. IMPORTANT: when the user asks to "prioritise" or "make this high priority", set priority to 1, NOT a high number like 99.
-5. Set status to the first option in the schema (e.g. "${resolvedSchema.properties.status?.options?.[0] ?? "locked"}") unless the user says otherwise.
+5. Set status to the first option in the schema (e.g. "${resolvedSchema.properties.status?.options?.[0] ?? "backlog"}") unless the user says otherwise.
 6. Use descriptive IDs based on the content, e.g. "web-dev", "html-basics", "semantic-tags".
 7. When adding to an existing ${hierarchy.levels[0]?.label ?? "top-level"} system, just add children with the correct parent_id.
 8. Keep the galaxy balanced — don't put too many children on one parent (max ~8).

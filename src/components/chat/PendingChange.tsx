@@ -36,7 +36,7 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
           tree_id: treeId,
           label: params.label as string,
           description: (params.description as string) ?? null,
-          status: (params.status as SkillNode["status"]) ?? "locked",
+          status: (params.status as SkillNode["status"]) ?? "backlog",
           type: resolvedType,
           role: resolvedType,
           parent_id: (params.parent_id as string) ?? null,

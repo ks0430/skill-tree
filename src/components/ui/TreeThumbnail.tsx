@@ -8,7 +8,7 @@ interface ThumbnailNode {
   type?: "stellar" | "planet" | "satellite";
   role: "stellar" | "planet" | "satellite";
   parent_id: string | null;
-  status: "locked" | "in_progress" | "completed";
+  status: "backlog" | "in_progress" | "completed";
 }
 
 interface TreeThumbnailProps {
