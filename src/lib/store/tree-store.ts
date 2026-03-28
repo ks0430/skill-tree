@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { SkillNode, SkillEdge, EdgeType, NodeStatus, NodeRole, TreeSchema, ViewConfig } from "@/types/skill-tree";
-// NodeType is identical to NodeRole right now — imported for future use
+import { resolveHierarchy, getNodeRender } from "@/types/skill-tree";
 import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
 import { createClient } from "@/lib/supabase/client";
@@ -110,14 +110,24 @@ function computeStellarPosition(index: number, total: number): [number, number, 
 }
 
 /** Resolve the effective role/type for layout — type column takes precedence over role. */
-function nodeType(n: SkillNode): NodeRole {
-  return (n.type ?? n.role) as NodeRole;
+function nodeType(n: SkillNode): string {
+  return (n.type ?? n.role) as string;
 }
 
-export function layoutGalaxy(nodes: SkillNode[]): Node3D[] {
-  const stellars = nodes.filter((n) => nodeType(n) === "stellar");
-  const planets = nodes.filter((n) => nodeType(n) === "planet");
-  const satellites = nodes.filter((n) => nodeType(n) === "satellite");
+/** Get the render tier for a node given the tree schema. */
+function nodeRender(n: SkillNode, schema?: TreeSchema): string {
+  if (schema) return getNodeRender(schema, nodeType(n));
+  // Legacy fallback
+  const t = nodeType(n);
+  if (t === "stellar") return "star";
+  if (t === "satellite") return "satellite";
+  return "planet";
+}
+
+export function layoutGalaxy(nodes: SkillNode[], schema?: TreeSchema): Node3D[] {
+  const stellars = nodes.filter((n) => nodeRender(n, schema) === "star");
+  const planets = nodes.filter((n) => nodeRender(n, schema) === "planet");
+  const satellites = nodes.filter((n) => nodeRender(n, schema) === "satellite");
 
   const result: Node3D[] = [];
   const positionMap = new Map<string, [number, number, number]>();
@@ -260,7 +270,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     const baseData = existingIds.has(node.id)
       ? existing.map((n) => (n.id === node.id ? node : n.data))
       : [...existing.map((n) => n.data), node];
-    set({ nodes: layoutGalaxy(baseData) });
+    set({ nodes: layoutGalaxy(baseData, get().treeSchema ?? undefined) });
   },
 
   removeNode: (nodeId) => {
@@ -279,7 +289,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     }
     const remaining = existing.filter((n) => !toRemove.has(n.id)).map((n) => n.data);
     set({
-      nodes: layoutGalaxy(remaining),
+      nodes: layoutGalaxy(remaining, get().treeSchema ?? undefined),
       selectedNodeId: toRemove.has(get().selectedNodeId ?? "") ? null : get().selectedNodeId,
     });
   },
@@ -290,7 +300,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
       n.id === nodeId ? { ...n.data, ...data } : n.data
     );
     if (data.type != null || data.role != null || data.parent_id != null || data.priority != null) {
-      set({ nodes: layoutGalaxy(allData) });
+      set({ nodes: layoutGalaxy(allData, get().treeSchema ?? undefined) });
     } else {
       set({
         nodes: existing.map((n) =>

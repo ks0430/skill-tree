@@ -5,7 +5,7 @@ import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import type { Node3D } from "@/lib/store/tree-store";
 import type { ViewConfig } from "@/types/skill-tree";
-import { getNodeProperty } from "@/types/skill-tree";
+import { getNodeProperty, isCardType } from "@/types/skill-tree";
 import { sfxPanelOpen } from "@/lib/sfx";
 
 const STATUS_ICON: Record<string, string> = {
@@ -168,6 +168,7 @@ function LazyTicketCard({
 export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const dateField = viewConfig?.date_field;
   const nodes = useTreeStore((s) => s.nodes);
+  const treeSchema = useTreeStore((s) => s.treeSchema);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
   const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
@@ -213,8 +214,8 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
 
   // Only planet/satellite nodes (tickets)
   const tickets = useMemo(() =>
-    nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar"),
-    [nodes]
+    nodes.filter((n) => isCardType(treeSchema ?? { properties: {} }, (n.data.type ?? n.data.role) as string)),
+    [nodes, treeSchema]
   );
 
   // Apply filter

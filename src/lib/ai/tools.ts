@@ -1,6 +1,6 @@
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 import type { TreeSchema } from "@/types/skill-tree";
-import { DEFAULT_SCHEMA } from "@/types/skill-tree";
+import { DEFAULT_SCHEMA, resolveHierarchy } from "@/types/skill-tree";
 
 /** Build a description of valid properties from the tree schema for tool descriptions. */
 function describeProperties(schema: TreeSchema): string {
@@ -168,11 +168,17 @@ function buildStructureTools(schema: TreeSchema): Tool[] {
     ? { type: "string" as const, enum: statusOptions, description: "Initial status" }
     : { type: "string" as const, description: "Initial status" };
 
+  const hierarchy = resolveHierarchy(schema);
+  const levelIds = hierarchy.levels.map((l) => l.id);
+  const levelDesc = hierarchy.levels
+    .map((l) => `${l.id} = ${l.label} (renders as ${l.render})`)
+    .join(", ");
+
   return [
     {
       name: "add_node",
       description:
-        "Add a skill node to the galaxy. Stellar = main topic (sun at center of a system). Planet = important skill (orbits a stellar). Satellite = sub-skill or detail (orbits a planet).",
+        `Add a node to the galaxy. Hierarchy levels: ${levelDesc}. Top level sits at center, children orbit their parent.`,
       input_schema: {
         type: "object" as const,
         properties: {
@@ -181,8 +187,8 @@ function buildStructureTools(schema: TreeSchema): Tool[] {
           description: { type: "string", description: "1-2 sentence description" },
           role: {
             type: "string",
-            enum: ["stellar", "planet", "satellite"],
-            description: "stellar = main topic (star), planet = key skill (orbits a star), satellite = sub-skill (orbits a planet)",
+            enum: levelIds,
+            description: levelDesc,
           },
           parent_id: {
             type: "string",
@@ -219,7 +225,7 @@ function buildStructureTools(schema: TreeSchema): Tool[] {
           id: { type: "string", description: "ID of the node to update" },
           label: { type: "string", description: "New display name for the node" },
           description: { type: "string", description: "New 1-2 sentence description" },
-          role: { type: "string", enum: ["stellar", "planet", "satellite"], description: "New role" },
+          role: { type: "string", enum: levelIds, description: `New role: ${levelDesc}` },
           parent_id: { type: "string", description: "New parent node ID" },
         },
         required: ["id"],

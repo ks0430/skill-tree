@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import type { NodeStatus } from "@/types/skill-tree";
 import type { SkillNode, TreeSchema, ViewConfig } from "@/types/skill-tree";
-import { getNodeProperty, DEFAULT_SCHEMA } from "@/types/skill-tree";
+import { getNodeProperty, DEFAULT_SCHEMA, isCardType, getTypeLabel } from "@/types/skill-tree";
 
 // ── Dynamic column config builder ──────────────────────────────────────────
 
@@ -215,7 +215,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
   // Derive available phases from stellar nodes
   const phases = useMemo(() => {
     return nodes
-      .filter((n) => (n.data.type ?? n.data.role) === "stellar")
+      .filter((n) => !isCardType(resolvedSchema, (n.data.type ?? n.data.role) as string))
       .map((n) => ({
         id: n.id,
         label: n.data.label,
@@ -240,7 +240,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
     for (const node of seen.values()) {
       const nodeType = node.data.type ?? node.data.role;
       // Skip stellar (phase) nodes — only show planets (tickets)
-      if (nodeType === "stellar") continue;
+      if (!isCardType(resolvedSchema, nodeType)) continue;
       // Apply phase filter
       if (phaseFilter !== null) {
         const nodePhase = (node.data.properties as Record<string, unknown>)?.phase as number;

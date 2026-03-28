@@ -1,5 +1,5 @@
 import type { SkillNode, SkillEdge, TreeSchema } from "@/types/skill-tree";
-import { DEFAULT_SCHEMA } from "@/types/skill-tree";
+import { DEFAULT_SCHEMA, resolveHierarchy } from "@/types/skill-tree";
 import { getChecklist } from "@/lib/content/checklist";
 
 export function buildSystemPrompt(
@@ -72,12 +72,16 @@ export function buildSystemPrompt(
     })
     .join("\n");
 
+  // Build hierarchy description
+  const hierarchy = resolveHierarchy(resolvedSchema);
+  const hierarchyDesc = hierarchy.levels
+    .map((l) => `- ${l.label.toUpperCase()} (role="${l.id}") — renders as ${l.render} in the 3D view`)
+    .join("\n");
+
   return `You are SkillForge AI, an expert learning coach that builds skill galaxies.
 
-The visualization is a 3D solar system galaxy:
-- STELLAR nodes are stars (suns) — one per major topic. They sit at the center of their system.
-- PLANET nodes orbit a stellar — these are key skills within that topic. Higher priority = bigger planet.
-- SATELLITE nodes orbit a planet — these are sub-skills, exercises, or details. Small moons.
+The visualization is a 3D solar system galaxy with the following hierarchy:
+${hierarchyDesc}
 
 Property schema for this tree:
 ${schemaDesc}
@@ -91,14 +95,14 @@ Explicit edges (depends_on / related / references):
 ${edgeView}
 
 RULES — Galaxy structure:
-1. When the user wants to learn a new topic, create ONE stellar + 3-8 planets + optional satellites using bulk_modify.
-2. Every planet MUST have a parent_id pointing to its stellar. Every satellite MUST point to its planet.
-3. Stellars have parent_id = null.
-4. Priority is a queue position (lower number = higher urgency, runs sooner): 1 = urgent/run next (large planet), 3 = normal, 5+ = backlog/nice-to-have (small planet). IMPORTANT: when the user asks to "prioritise" or "make this high priority", set priority to 1, NOT a high number like 99.
+1. When the user wants to create a new topic, create ONE ${hierarchy.levels[0]?.label ?? "top-level"} + 3-8 ${hierarchy.levels[1]?.label ?? "child"}s + optional ${hierarchy.levels[2]?.label ?? "sub-child"}s using bulk_modify.
+2. Every ${hierarchy.levels[1]?.label ?? "child"} MUST have a parent_id pointing to its ${hierarchy.levels[0]?.label ?? "parent"}. Every ${hierarchy.levels[2]?.label ?? "sub-child"} MUST point to its ${hierarchy.levels[1]?.label ?? "parent"}.
+3. ${hierarchy.levels[0]?.label ?? "Top-level"} nodes have parent_id = null.
+4. Priority is a queue position (lower number = higher urgency, runs sooner): 1 = urgent/run next, 3 = normal, 5+ = backlog. IMPORTANT: when the user asks to "prioritise" or "make this high priority", set priority to 1, NOT a high number like 99.
 5. Set status to the first option in the schema (e.g. "${resolvedSchema.properties.status?.options?.[0] ?? "locked"}") unless the user says otherwise.
-6. Use descriptive IDs: "web-dev" for stellar, "html-basics" for planet, "semantic-tags" for satellite.
-7. When adding to an existing stellar system, just add planets/satellites with the correct parent_id.
-8. Keep the galaxy balanced — don't put too many planets on one stellar (max ~8).
+6. Use descriptive IDs based on the content, e.g. "web-dev", "html-basics", "semantic-tags".
+7. When adding to an existing ${hierarchy.levels[0]?.label ?? "top-level"} system, just add children with the correct parent_id.
+8. Keep the galaxy balanced — don't put too many children on one parent (max ~8).
 
 RULES — Tool selection (IMPORTANT):
 - Use update_node ONLY for structural/display changes: label, description, role, parent_id. NEVER pass status or priority to update_node.
