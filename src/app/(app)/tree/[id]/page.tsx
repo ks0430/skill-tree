@@ -244,7 +244,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
               return <CanvasErrorBoundary><SkillTreeCanvas /></CanvasErrorBoundary>;
             }
             if (viewType === "gantt") {
-              return <TimelineView />;
+              return <TimelineView viewConfig={activeView} />;
             }
             return <KanbanView schema={treeSchema ?? undefined} viewConfig={activeView} />;
           })()}
