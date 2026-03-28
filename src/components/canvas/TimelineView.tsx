@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import type { Node3D } from "@/lib/store/tree-store";
+import type { ViewConfig } from "@/types/skill-tree";
+import { getNodeProperty } from "@/types/skill-tree";
 import { sfxPanelOpen } from "@/lib/sfx";
 
 const STATUS_ICON: Record<string, string> = {
@@ -27,10 +29,16 @@ function formatDate(ts: string | undefined | null): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function getNodeDate(node: Node3D): string | null {
+function getNodeDate(node: Node3D, dateField?: string): string | null {
+  // If a date_field is specified in view config, read from properties
+  if (dateField) {
+    const val = getNodeProperty(node.data, dateField);
+    if (val) return String(val);
+  }
+  // Fallback: use completed_at for completed nodes
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
   if (node.data.status === "completed") {
-    return (props.completed_at ?? props.created_at ?? null) as string | null;
+    return (node.data.completed_at ?? props.completed_at ?? props.created_at ?? null) as string | null;
   }
   return null;
 }
@@ -84,8 +92,9 @@ function LazyTicketCard({
 
   const isPinned = node.id === pinnedNodeId;
   const isFlashing = flashNodeIds.has(node.id);
-  const color = STATUS_COLOR[node.data.status] ?? "#475569";
-  const icon = STATUS_ICON[node.data.status] ?? "🔒";
+  const status = String(getNodeProperty(node.data, "status") ?? node.data.status ?? "locked");
+  const color = STATUS_COLOR[status] ?? "#475569";
+  const icon = STATUS_ICON[status] ?? "🔒";
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
   const itemId = props.item_id as string | undefined;
   const commitHash = props.commit_hash as string | undefined;
@@ -144,7 +153,7 @@ function LazyTicketCard({
       {/* Status row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 10, color: color, fontFamily: "monospace", fontWeight: 600 }}>
-          {icon} {node.data.status.replace("_", " ").toUpperCase()}
+          {icon} {status.replace(/_/g, " ").toUpperCase()}
         </span>
         {commitHash && (
           <span style={{ fontFamily: "monospace", fontSize: 8, color: "#334155" }}>
@@ -156,7 +165,8 @@ function LazyTicketCard({
   );
 }
 
-export function TimelineView() {
+export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
+  const dateField = viewConfig?.date_field;
   const nodes = useTreeStore((s) => s.nodes);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
@@ -219,7 +229,7 @@ export function TimelineView() {
     const map = new Map<string, Node3D[]>();
 
     filtered.forEach((n) => {
-      const dateKey = getDateKey(getNodeDate(n));
+      const dateKey = getDateKey(getNodeDate(n, dateField));
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(n);
     });
@@ -268,7 +278,7 @@ export function TimelineView() {
         phases,
       };
     });
-  }, [filtered]);
+  }, [filtered, dateField]);
 
   // 90-day window: show last 90 days + all Pending; older dates load on demand
   const cutoffDate = useMemo(() => {
