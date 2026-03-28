@@ -215,12 +215,20 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold font-mono bg-gradient-to-r from-accent-blue to-accent-purple bg-clip-text text-transparent">
           SkillForge
         </h1>
-        <button
-          onClick={handleSignOut}
-          className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
-        >
-          Sign Out
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push("/settings")}
+            className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Settings
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
 
       <div className="glass rounded-xl p-4 mb-6">
