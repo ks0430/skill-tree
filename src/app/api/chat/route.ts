@@ -1,4 +1,5 @@
 // ITEM-155: workflow validation
+// ITEM-156: workflow smoke test
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
