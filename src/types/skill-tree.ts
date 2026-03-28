@@ -57,7 +57,7 @@ export const DEFAULT_HIERARCHY: HierarchyConfig = {
 
 export const DEFAULT_SCHEMA: TreeSchema = {
   properties: {
-    status: { type: "select", options: ["locked", "queued", "in_progress", "completed"] },
+    status: { type: "select", options: ["backlog", "locked", "queued", "in_progress", "completed"] },
     priority: { type: "number" },
     due_date: { type: "date" },
     assignee: { type: "text" },
@@ -73,7 +73,7 @@ export const DEFAULT_VIEW_CONFIGS: ViewConfig[] = [
 
 // ── Legacy types (kept for backward compat during transition) ───────────────
 
-export type NodeStatus = "locked" | "queued" | "in_progress" | "completed";
+export type NodeStatus = "backlog" | "locked" | "queued" | "in_progress" | "completed";
 export type NodeRole = "stellar" | "planet" | "satellite";
 export type NodeType = NodeRole;
 
