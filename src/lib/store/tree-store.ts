@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { SkillNode, SkillEdge, EdgeType, NodeStatus, NodeRole } from "@/types/skill-tree";
+import type { SkillNode, SkillEdge, EdgeType, NodeStatus, NodeRole, TreeSchema, ViewConfig } from "@/types/skill-tree";
 // NodeType is identical to NodeRole right now — imported for future use
 import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
@@ -31,7 +31,8 @@ export interface NewEdgeInput {
   metadata?: Record<string, unknown> | null;
 }
 
-export type ViewMode = "solar" | "gantt" | "kanban";
+/** View mode — matches a ViewConfig.id from the tree's view_configs. */
+export type ViewMode = string;
 
 interface TreeState {
   treeId: string | null;
@@ -46,7 +47,9 @@ interface TreeState {
   searchHighlightId: string | null; // node ID to pulse-highlight after search (auto-clears)
   topDownMode: boolean; // orthographic top-down camera preset
   orthoZoom: number; // zoom level for orthographic top-down camera (frustum half-size)
-  viewMode: ViewMode; // "solar" = 3D galaxy, "tree" = 2D skill tree
+  viewMode: ViewMode;
+  treeSchema: TreeSchema | null;
+  viewConfigs: ViewConfig[];
   history: HistoryEntry[];
   historyIndex: number;
 
@@ -62,6 +65,8 @@ interface TreeState {
   setTopDownMode: (enabled: boolean) => void;
   setOrthoZoom: (zoom: number) => void;
   setViewMode: (mode: ViewMode) => void;
+  setTreeSchema: (schema: TreeSchema) => void;
+  setViewConfigs: (configs: ViewConfig[]) => void;
 
   addNode: (node: SkillNode) => void;
   updateNodeContent: (nodeId: string, content: NodeContent) => void;
@@ -206,6 +211,8 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   topDownMode: false,
   orthoZoom: 40,
   viewMode: (typeof window !== "undefined" ? (["solar", "gantt", "kanban"].includes(localStorage.getItem("viewMode") ?? "") ? localStorage.getItem("viewMode") as ViewMode : "solar") : "solar"),
+  treeSchema: null,
+  viewConfigs: [],
   history: [],
   historyIndex: -1,
 
@@ -222,6 +229,8 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     if (typeof window !== "undefined") localStorage.setItem("viewMode", mode);
     set({ viewMode: mode });
   },
+  setTreeSchema: (schema) => set({ treeSchema: schema }),
+  setViewConfigs: (configs) => set({ viewConfigs: configs }),
   setPinnedNode: (id) => {
     if (typeof window !== "undefined") {
       if (id) localStorage.setItem("pinnedNodeId", id);
@@ -292,13 +301,19 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   },
 
   toggleNodeStatus: (nodeId) => {
-    // Compute next status and completed_at before updating state
     const currentNode = get().nodes.find((n) => n.id === nodeId);
     if (!currentNode) return;
-    const idx = STATUS_CYCLE.indexOf(currentNode.data.status);
-    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-    const completedAt =
-      next === "completed" ? new Date().toISOString() : null;
+
+    // Read status options from tree schema, fallback to legacy cycle
+    const schema = get().treeSchema;
+    const statusOptions = schema?.properties?.status?.options ?? STATUS_CYCLE;
+    const currentStatus = currentNode.data.status;
+    const idx = statusOptions.indexOf(currentStatus);
+    const next = statusOptions[(idx + 1) % statusOptions.length] as NodeStatus;
+    const completedAt = next === "completed" ? new Date().toISOString() : null;
+
+    // Update both legacy status column and properties
+    const mergedProps = { ...currentNode.data.properties, status: next };
 
     set((state) => ({
       nodes: state.nodes.map((n) => {
@@ -308,17 +323,17 @@ export const useTreeStore = create<TreeState>((set, get) => ({
           data: {
             ...n.data,
             status: next,
+            properties: mergedProps,
             completed_at: completedAt,
           },
         };
       }),
     }));
 
-    // Persist completed_at to DB
     const supabase = createClient();
     supabase
       .from("skill_nodes")
-      .update({ completed_at: completedAt })
+      .update({ status: next, properties: mergedProps, completed_at: completedAt })
       .eq("id", nodeId)
       .eq("tree_id", currentNode.data.tree_id)
       .then(() => {});

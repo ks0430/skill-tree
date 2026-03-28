@@ -13,13 +13,14 @@ import { ViewSwitcher } from "@/components/canvas/ViewSwitcher";
 import { TreeSwitcher } from "@/components/canvas/TreeSwitcher";
 import { TreeCommandPalette } from "@/components/canvas/TreeCommandPalette";
 import type { SkillNode, SkillEdge } from "@/types/skill-tree";
+import { resolveSchema, resolveViewConfigs } from "@/types/skill-tree";
 import { toast } from "sonner";
 
 export default function TreePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [treeName, setTreeName] = useState("");
   const [loading, setLoading] = useState(true);
-  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, updateNode, addNode } = useTreeStore();
+  const { setTreeId, setNodes, setEdges, pushHistory, nodes, viewMode, updateNode, addNode, setTreeSchema, setViewConfigs, treeSchema, viewConfigs } = useTreeStore();
   const { setMessages } = useChatStore();
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -106,7 +107,11 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       supabase.from("chat_messages").select("*").eq("tree_id", id).order("created_at", { ascending: true }),
     ]);
 
-    if (treeRes.data) setTreeName(treeRes.data.name);
+    if (treeRes.data) {
+      setTreeName(treeRes.data.name);
+      setTreeSchema(resolveSchema(treeRes.data));
+      setViewConfigs(resolveViewConfigs(treeRes.data));
+    }
 
     const activeNodes = (activeNodesRes.data ?? []).map((n) => ({
       ...n,
@@ -232,15 +237,17 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       <div className="flex flex-1 overflow-hidden relative">
         {/* Canvas — always full area on mobile, shared on desktop */}
         <div className="flex-1 relative min-w-0">
-          {viewMode === "solar" ? (
-            <CanvasErrorBoundary>
-              <SkillTreeCanvas />
-            </CanvasErrorBoundary>
-          ) : viewMode === "gantt" ? (
-            <TimelineView />
-          ) : (
-            <KanbanView />
-          )}
+          {(() => {
+            const activeView = viewConfigs.find((v) => v.id === viewMode) ?? viewConfigs[0];
+            const viewType = activeView?.type ?? "solar_system";
+            if (viewType === "solar_system") {
+              return <CanvasErrorBoundary><SkillTreeCanvas /></CanvasErrorBoundary>;
+            }
+            if (viewType === "gantt") {
+              return <TimelineView />;
+            }
+            return <KanbanView schema={treeSchema ?? undefined} viewConfig={activeView} />;
+          })()}
         </div>
 
         {/* Desktop: collapsed tab — always in DOM, shown/hidden via display */}

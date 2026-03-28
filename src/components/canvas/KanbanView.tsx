@@ -8,64 +8,50 @@ import { SearchPanel } from "./SearchPanel";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import type { NodeStatus } from "@/types/skill-tree";
-import type { SkillNode } from "@/types/skill-tree";
+import type { SkillNode, TreeSchema, ViewConfig } from "@/types/skill-tree";
+import { getNodeProperty, DEFAULT_SCHEMA } from "@/types/skill-tree";
 
-// Map NodeStatus to Kanban column
-const STATUS_COLUMN: Record<NodeStatus, "backlog" | "queued" | "active" | "done"> = {
-  locked: "backlog",
-  queued: "queued",
-  in_progress: "active",
-  completed: "done",
-};
+// ── Dynamic column config builder ──────────────────────────────────────────
 
-const COLUMN_TO_STATUS: Record<"backlog" | "queued" | "active" | "done", NodeStatus> = {
-  backlog: "locked",
-  queued: "queued",
-  active: "in_progress",
-  done: "completed",
-};
+const PALETTE = [
+  { headerColor: "#475569", borderColor: "rgba(71,85,105,0.4)",  badgeColor: "rgba(71,85,105,0.35)" },
+  { headerColor: "#8b5cf6", borderColor: "rgba(139,92,246,0.4)", badgeColor: "rgba(139,92,246,0.2)" },
+  { headerColor: "#f59e0b", borderColor: "rgba(245,158,11,0.4)", badgeColor: "rgba(245,158,11,0.2)" },
+  { headerColor: "#22d3ee", borderColor: "rgba(34,211,238,0.4)", badgeColor: "rgba(34,211,238,0.15)" },
+  { headerColor: "#34d399", borderColor: "rgba(52,211,153,0.4)", badgeColor: "rgba(52,211,153,0.2)" },
+  { headerColor: "#f87171", borderColor: "rgba(248,113,113,0.4)", badgeColor: "rgba(248,113,113,0.2)" },
+  { headerColor: "#a78bfa", borderColor: "rgba(167,139,250,0.4)", badgeColor: "rgba(167,139,250,0.2)" },
+  { headerColor: "#fb923c", borderColor: "rgba(251,146,60,0.4)",  badgeColor: "rgba(251,146,60,0.2)" },
+];
 
-const COLUMN_CONFIG: {
-  id: "backlog" | "queued" | "active" | "done";
+interface ColumnConfig {
+  id: string;
   label: string;
-  emoji: string;
   headerColor: string;
   borderColor: string;
   badgeColor: string;
-}[] = [
-  {
-    id: "backlog",
-    label: "Backlog",
-    emoji: "📋",
-    headerColor: "#475569",
-    borderColor: "rgba(71,85,105,0.4)",
-    badgeColor: "rgba(71,85,105,0.35)",
-  },
-  {
-    id: "queued",
-    label: "Queued",
-    emoji: "🔖",
-    headerColor: "#8b5cf6",
-    borderColor: "rgba(139,92,246,0.4)",
-    badgeColor: "rgba(139,92,246,0.2)",
-  },
-  {
-    id: "active",
-    label: "Active",
-    emoji: "⚡",
-    headerColor: "#f59e0b",
-    borderColor: "rgba(245,158,11,0.4)",
-    badgeColor: "rgba(245,158,11,0.2)",
-  },
-  {
-    id: "done",
-    label: "Done",
-    emoji: "✅",
-    headerColor: "#22d3ee",
-    borderColor: "rgba(34,211,238,0.4)",
-    badgeColor: "rgba(34,211,238,0.15)",
-  },
-];
+}
+
+function buildColumnConfigs(schema: TreeSchema, groupBy: string): ColumnConfig[] {
+  const prop = schema.properties[groupBy];
+  const options = prop?.options ?? [];
+  return options.map((opt, i) => {
+    const pal = PALETTE[i % PALETTE.length];
+    return {
+      id: opt,
+      label: opt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      ...pal,
+    };
+  });
+}
+
+// Map between column id (schema option value) and legacy NodeStatus
+const LEGACY_STATUS_MAP: Record<string, NodeStatus> = {
+  locked: "locked",
+  queued: "queued",
+  in_progress: "in_progress",
+  completed: "completed",
+};
 
 const TYPE_COLORS: Record<string, string> = {
   stellar: "#818cf8",
@@ -75,11 +61,14 @@ const TYPE_COLORS: Record<string, string> = {
 
 interface DragState {
   nodeId: string;
-  fromColumn: "backlog" | "queued" | "active" | "done";
+  fromColumn: string;
   fromIndex: number;
 }
 
-export function KanbanView() {
+export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewConfig?: ViewConfig }) {
+  const groupBy = viewConfig?.group_by ?? "status";
+  const resolvedSchema = schema ?? DEFAULT_SCHEMA;
+  const columnConfigs = useMemo(() => buildColumnConfigs(resolvedSchema, groupBy), [resolvedSchema, groupBy]);
   const nodes = useTreeStore((s) => s.nodes);
   const updateNode = useTreeStore((s) => s.updateNode);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
@@ -94,7 +83,7 @@ export function KanbanView() {
   const [hoverCardId, setHoverCardId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<{
-    column: "backlog" | "queued" | "active" | "done";
+    column: string;
     index: number;
   } | null>(null);
   // Track recently updated node IDs for flash animation
@@ -235,23 +224,18 @@ export function KanbanView() {
       .sort((a, b) => a.phase - b.phase);
   }, [nodes]);
 
-  // Group nodes into columns, sorted by priority desc
-  // doneTotal tracks the full done count before pagination (used for Load more button)
-  const [columns, doneTotal] = useMemo(() => {
-    const grouped: Record<"backlog" | "queued" | "active" | "done", Node3D[]> = {
-      backlog: [],
-      queued: [],
-      active: [],
-      done: [],
-    };
+  // Group nodes into columns dynamically based on schema group_by property
+  // lastColTotal tracks the full count of the last column before pagination
+  const columnIds = useMemo(() => columnConfigs.map((c) => c.id), [columnConfigs]);
+  const lastColId = columnIds[columnIds.length - 1];
 
-    // Deduplicate by node id before grouping to prevent React duplicate-key warnings.
-    // Duplicates can occur when the Realtime channel re-fires INSERT events on reconnect
-    // for nodes already present in the store; last-write wins (latest position in array).
+  const [columns, lastColTotal] = useMemo(() => {
+    const grouped: Record<string, Node3D[]> = {};
+    for (const colId of columnIds) grouped[colId] = [];
+
+    // Deduplicate by node id
     const seen = new Map<string, Node3D>();
-    for (const node of nodes) {
-      seen.set(node.id, node);
-    }
+    for (const node of nodes) seen.set(node.id, node);
 
     for (const node of seen.values()) {
       const nodeType = node.data.type ?? node.data.role;
@@ -269,56 +253,63 @@ export function KanbanView() {
         const desc = (node.data.description ?? "").toLowerCase();
         if (!label.includes(q) && !desc.includes(q)) continue;
       }
-      const col = STATUS_COLUMN[node.data.status] ?? "backlog";
-      grouped[col].push(node);
+      const val = String(getNodeProperty(node.data, groupBy) ?? columnIds[0] ?? "");
+      const col = columnIds.includes(val) ? val : columnIds[0];
+      if (grouped[col]) grouped[col].push(node);
     }
 
-    // Backlog + Queued: sort ascending (lowest priority number = next to run)
-    grouped["backlog"].sort((a, b) => a.data.priority - b.data.priority);
-    grouped["queued"].sort((a, b) => a.data.priority - b.data.priority);
-    // Active + Done: sort descending (most recent first)
-    grouped["active"].sort((a, b) => b.data.priority - a.data.priority);
-    grouped["done"].sort((a, b) => b.data.priority - a.data.priority);
+    // Sort all columns by priority ascending (lowest = next to run)
+    for (const colId of columnIds) {
+      grouped[colId].sort((a, b) => a.data.priority - b.data.priority);
+    }
 
     // Apply limit — sort by created_at desc, keep latest N across all columns
     if (limit > 0) {
-      const allFiltered = [...grouped.backlog, ...grouped.queued, ...grouped.active, ...grouped.done];
+      const allFiltered = columnIds.flatMap((c) => grouped[c]);
       allFiltered.sort((a, b) => {
         const aTime = (a.data.properties as Record<string, unknown>)?.created_at as string ?? "";
         const bTime = (b.data.properties as Record<string, unknown>)?.created_at as string ?? "";
-        return bTime.localeCompare(aTime); // newest first
+        return bTime.localeCompare(aTime);
       });
-      const limitedIds = new Set(allFiltered.slice(0, limit).map(n => n.id));
-      for (const col of ["backlog", "queued", "active", "done"] as const) {
-        // Always show active — never hide in-progress tickets
-        grouped[col] = grouped[col].filter(n => n.data.status === "in_progress" || limitedIds.has(n.id));
+      const limitedIds = new Set(allFiltered.slice(0, limit).map((n) => n.id));
+      for (const colId of columnIds) {
+        grouped[colId] = grouped[colId].filter((n) => limitedIds.has(n.id));
       }
     }
 
-    // Always paginate done column to avoid rendering hundreds of cards at once
-    const totalDone = grouped.done.length;
-    grouped.done = grouped.done.slice(0, donePageSize);
+    // Paginate last column to avoid rendering too many cards
+    const totalLast = lastColId ? grouped[lastColId]?.length ?? 0 : 0;
+    if (lastColId && grouped[lastColId]) {
+      grouped[lastColId] = grouped[lastColId].slice(0, donePageSize);
+    }
 
-    return [grouped, totalDone] as const;
-  }, [nodes, phaseFilter, searchText, limit, donePageSize]);
+    return [grouped, totalLast] as const;
+  }, [nodes, phaseFilter, searchText, limit, donePageSize, columnIds, groupBy, lastColId]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId),
     [nodes, pinnedNodeId]
   );
 
-  // Persist status + priority update to Supabase
+  // Persist property + priority update to Supabase
   const persistUpdate = useCallback(
-    async (nodeId: string, status: NodeStatus, priority: number) => {
+    async (nodeId: string, columnValue: string, priority: number) => {
       if (!treeId) return;
-      updateNode(nodeId, { status, priority });
+      const node = nodes.find((n) => n.id === nodeId);
+      const mergedProps = { ...(node?.data.properties ?? {}), [groupBy]: columnValue };
+      const update: Partial<SkillNode> & { properties: Record<string, unknown> } = { properties: mergedProps, priority };
+      // Sync legacy status column if grouping by status
+      if (groupBy === "status" && LEGACY_STATUS_MAP[columnValue]) {
+        update.status = LEGACY_STATUS_MAP[columnValue];
+      }
+      updateNode(nodeId, update);
       await supabase
         .from("skill_nodes")
-        .update({ status, priority })
+        .update(update)
         .eq("id", nodeId)
         .eq("tree_id", treeId);
     },
-    [treeId, updateNode, supabase]
+    [treeId, updateNode, supabase, nodes, groupBy]
   );
 
   // ── Delete handler ─────────────────────────────────────────────────────────
@@ -340,7 +331,7 @@ export function KanbanView() {
   // ── Drag handlers ──────────────────────────────────────────────────────────
 
   const onDragStart = useCallback(
-    (e: React.DragEvent, node: Node3D, column: "backlog" | "queued" | "active" | "done", index: number) => {
+    (e: React.DragEvent, node: Node3D, column: string, index: number) => {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", node.id);
       setDragState({ nodeId: node.id, fromColumn: column, fromIndex: index });
@@ -350,7 +341,7 @@ export function KanbanView() {
   );
 
   const onDragOver = useCallback(
-    (e: React.DragEvent, column: "backlog" | "queued" | "active" | "done", index: number) => {
+    (e: React.DragEvent, column: string, index: number) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       setDropTarget({ column, index });
@@ -359,29 +350,28 @@ export function KanbanView() {
   );
 
   const onDragOverColumn = useCallback(
-    (e: React.DragEvent, column: "backlog" | "queued" | "active" | "done") => {
+    (e: React.DragEvent, column: string) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       // Only update if no specific card target
       setDropTarget((prev) => {
         if (prev?.column === column) return prev;
-        return { column, index: columns[column].length };
+        return { column, index: (columns[column] ?? []).length };
       });
     },
     [columns]
   );
 
   const onDrop = useCallback(
-    (e: React.DragEvent, targetColumn: "backlog" | "queued" | "active" | "done", targetIndex: number) => {
+    (e: React.DragEvent, targetColumn: string, targetIndex: number) => {
       e.preventDefault();
       if (!dragState) return;
 
-      const { nodeId, fromColumn } = dragState;
+      const { nodeId } = dragState;
       const sourceNode = nodes.find((n) => n.id === nodeId);
       if (!sourceNode) return;
 
-      const targetStatus = COLUMN_TO_STATUS[targetColumn];
-      const colNodes = columns[targetColumn].filter((n) => n.id !== nodeId);
+      const colNodes = (columns[targetColumn] ?? []).filter((n) => n.id !== nodeId);
 
       // Compute new priority: insert at targetIndex in sorted-desc list
       // Priority range: higher = higher in list
@@ -401,7 +391,7 @@ export function KanbanView() {
         newPriority = (above + below) / 2;
       }
 
-      persistUpdate(nodeId, targetStatus, newPriority);
+      persistUpdate(nodeId, targetColumn, newPriority);
       sfxDrop();
       setDragState(null);
       setDropTarget(null);
@@ -546,8 +536,8 @@ export function KanbanView() {
         className="flex gap-4 p-4 pt-2 h-full overflow-x-auto overflow-y-hidden"
         style={{ alignItems: "stretch" }}
       >
-        {COLUMN_CONFIG.map((col) => {
-          const colNodes = columns[col.id];
+        {columnConfigs.map((col) => {
+          const colNodes = columns[col.id] ?? [];
           const isDragTarget = dropTarget?.column === col.id;
 
           return (
@@ -571,7 +561,7 @@ export function KanbanView() {
                   borderRight: `1px solid ${col.borderColor}`,
                 }}
               >
-                <span style={{ fontSize: 14 }}>{col.emoji}</span>
+                <span style={{ fontSize: 14, width: 8, height: 8, borderRadius: "50%", background: col.headerColor, display: "inline-block" }} />
                 <span
                   style={{
                     fontFamily: "monospace",
@@ -594,7 +584,7 @@ export function KanbanView() {
                     fontWeight: 700,
                   }}
                 >
-                  {col.id === "done" ? doneTotal : colNodes.length}
+                  {col.id === lastColId ? lastColTotal : colNodes.length}
                 </div>
               </div>
 
@@ -691,8 +681,8 @@ export function KanbanView() {
                             : "none",
                         }}
                       >
-                        {/* NEXT badge + priority + delete for backlog */}
-                        {col.id === "backlog" && (
+                        {/* NEXT badge + priority + delete for first column */}
+                        {col.id === columnIds[0] && (
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
                             {index === 0 && (
                               <span style={{
@@ -731,7 +721,7 @@ export function KanbanView() {
                         )}
 
                         {/* Inline delete confirmation */}
-                        {col.id === "backlog" && confirmDeleteId === node.id && (
+                        {col.id === columnIds[0] && confirmDeleteId === node.id && (
                           <div
                             onClick={(e) => e.stopPropagation()}
                             style={{
@@ -859,8 +849,8 @@ export function KanbanView() {
                     />
                   )}
 
-                {/* Load more button — done column */}
-                {col.id === "done" && doneTotal > donePageSize && (
+                {/* Load more button — last column */}
+                {col.id === lastColId && lastColTotal > donePageSize && (
                   <button
                     onClick={() => setDonePageSize((s) => s + 20)}
                     style={{
@@ -874,7 +864,7 @@ export function KanbanView() {
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,211,238,0.1)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,211,238,0.05)")}
                   >
-                    Load more +20 ({doneTotal - donePageSize} remaining)
+                    Load more +20 ({lastColTotal - donePageSize} remaining)
                   </button>
                 )}
               </div>
