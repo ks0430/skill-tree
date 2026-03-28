@@ -36,6 +36,7 @@
 - Tailwind CSS v3 (not v4).
 - `frameloop="always"` for Three.js canvas.
 - Do NOT run `next build` to validate — user tests via `npm run dev`.
+- After code changes are committed and merged, **restart the dev server**: kill the existing `next dev` process on port 3000 and run `npm run dev` from `/home/ubuntu/code/skillforge`.
 
 ## Database
 
