@@ -1,4 +1,3 @@
-// Workflow test: agent pipeline validated successfully
 // ── Property schema types (tree-level) ──────────────────────────────────────
 
 export type PropertyType = "select" | "multi_select" | "text" | "number" | "date" | "checkbox";
