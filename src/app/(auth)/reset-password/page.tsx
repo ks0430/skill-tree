@@ -6,23 +6,31 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
 
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
       setError(error.message);
@@ -39,8 +47,8 @@ export default function LoginPage() {
           SkillForge
         </h1>
 
-        <form onSubmit={handleLogin} className="glass rounded-xl p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-center">Sign In</h2>
+        <form onSubmit={handleUpdate} className="glass rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-center">Set New Password</h2>
 
           {error && (
             <div className="text-red-400 text-sm bg-red-400/10 rounded-lg p-3">
@@ -49,27 +57,27 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-navy-800 border border-glass-border text-white placeholder-slate-500 focus:outline-none focus:border-accent-blue"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">
-              Password
-            </label>
+            <label className="block text-sm text-slate-400 mb-1">New Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-navy-800 border border-glass-border text-white placeholder-slate-500 focus:outline-none focus:border-accent-blue"
-              placeholder="••••••••"
+              placeholder="At least 6 characters"
+              minLength={6}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Confirm Password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-navy-800 border border-glass-border text-white placeholder-slate-500 focus:outline-none focus:border-accent-blue"
+              placeholder="Repeat new password"
+              minLength={6}
               required
             />
           </div>
@@ -80,19 +88,12 @@ export default function LoginPage() {
             className="w-full py-2 rounded-lg bg-accent-blue text-white font-medium hover:bg-accent-blue/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Spinner />}
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? "Updating..." : "Update Password"}
           </button>
 
           <p className="text-sm text-slate-500 text-center">
-            <Link href="/forgot-password" className="text-accent-blue hover:underline">
-              Forgot password?
-            </Link>
-          </p>
-
-          <p className="text-sm text-slate-500 text-center">
-            No account?{" "}
-            <Link href="/signup" className="text-accent-blue hover:underline">
-              Sign up
+            <Link href="/login" className="text-accent-blue hover:underline">
+              Back to sign in
             </Link>
           </p>
         </form>
