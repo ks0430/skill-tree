@@ -8,8 +8,8 @@
  *   - Edges attract connected node pairs (Hooke spring law).
  *   - Edge weight scales spring strength: heavier edges pull harder.
  *   - Simulation runs for a fixed number of iterations (non-animated, returns
- *     stable positions) but the WeightGraph component can also call
- *     `stepForce` incrementally for animated settlement.
+ *     stable positions). `stepForce` can also be called incrementally
+ *     for animated settlement.
  *
  * Memory Map extension:
  *   - `ForceEdge` carries an optional `edgeType` field.

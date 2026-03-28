@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // \"\"' | grep -q 'gh pr merge' && { pkill -f 'next-server' 2>/dev/null; sleep 2; cd /home/ubuntu/code/skillforge && nohup npm run dev > /tmp/nextdev.log 2>&1 & echo '{\"systemMessage\": \"Dev server restarted on port 3000\"}'; } || true",
+            "timeout": 15,
+            "statusMessage": "Restarting dev server..."
+          }
+        ]
+      }
+    ]
+  }
+}

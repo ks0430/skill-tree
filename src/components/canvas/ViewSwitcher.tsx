@@ -10,9 +10,7 @@ interface ViewOption {
 
 const VIEW_OPTIONS: ViewOption[] = [
   { mode: "solar",  label: "🪐 Solar",    title: "Solar System view (3D)" },
-  { mode: "graph",  label: "📊 Graph",    title: "Graph view — flat 2D radial layout, Three.js" },
-  { mode: "weight", label: "🕸️ Weight",   title: "Graph view — force-directed, clusters by connections" },
-  { mode: "kanban", label: "📋 Board",    title: "Kanban board — Backlog / Active / Done" },
+  { mode: "kanban", label: "📋 Board",    title: "Kanban board" },
   { mode: "gantt",  label: "📅 Timeline", title: "Gantt / Timeline view" },
 ];
 
