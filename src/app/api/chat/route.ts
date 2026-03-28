@@ -1,9 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
-import { skillTreeTools } from "@/lib/ai/tools";
+import { buildTools } from "@/lib/ai/tools";
 import { parseContent } from "@/lib/content/checklist";
-import type { SkillNode } from "@/types/skill-tree";
+import type { SkillNode, TreeSchema } from "@/types/skill-tree";
+import { resolveSchema } from "@/types/skill-tree";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
     ...n,
     content: parseContent(n.content ?? { blocks: [] }),
   }));
-  const systemPrompt = buildSystemPrompt(treeRes.data.name, nodes, edgesRes.data ?? []);
+  const treeSchema = resolveSchema(treeRes.data);
+  const systemPrompt = buildSystemPrompt(treeRes.data.name, nodes, edgesRes.data ?? [], treeSchema);
 
   // Build conversation history
   const history = (messagesRes.data ?? []).map((m) => ({
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
           max_tokens: 4096,
           system: systemPrompt,
           messages: history,
-          tools: skillTreeTools,
+          tools: buildTools(treeSchema),
           stream: true,
         });
 

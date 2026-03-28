@@ -1,38 +1,55 @@
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { TreeSchema } from "@/types/skill-tree";
+import { DEFAULT_SCHEMA } from "@/types/skill-tree";
 
-const propertyTools: Tool[] = [
-  {
-    name: "update_properties",
-    description:
-      "Update structured metadata properties of a skill node: due_date, assignee, priority (queue position), and/or status. Use this when the user wants to assign a deadline, assign ownership, change urgency/priority, or mark a node's status — without modifying its description or content blocks.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        node_id: { type: "string", description: "ID of the skill node to update" },
-        due_date: {
-          type: "string",
-          description: "ISO 8601 date string (e.g. '2025-12-31') for when this skill/task should be completed. Set to null to clear.",
+/** Build a description of valid properties from the tree schema for tool descriptions. */
+function describeProperties(schema: TreeSchema): string {
+  return Object.entries(schema.properties)
+    .map(([key, def]) => {
+      if (def.options) return `${key} (${def.type}: ${def.options.join(", ")})`;
+      return `${key} (${def.type})`;
+    })
+    .join("; ");
+}
+
+function buildPropertyTools(schema: TreeSchema): Tool[] {
+  // Build properties schema for the tool input
+  const propSchema: Record<string, unknown> = {};
+  for (const [key, def] of Object.entries(schema.properties)) {
+    if (def.type === "select") {
+      propSchema[key] = { type: "string", enum: def.options, description: `${key} (select)` };
+    } else if (def.type === "multi_select") {
+      propSchema[key] = { type: "array", items: { type: "string", enum: def.options }, description: `${key} (multi-select)` };
+    } else if (def.type === "number") {
+      propSchema[key] = { type: "number", description: `${key} (number)` };
+    } else if (def.type === "date") {
+      propSchema[key] = { type: "string", description: `${key} (ISO date string, e.g. '2025-12-31')` };
+    } else if (def.type === "checkbox") {
+      propSchema[key] = { type: "boolean", description: `${key} (checkbox)` };
+    } else {
+      propSchema[key] = { type: "string", description: `${key} (text)` };
+    }
+  }
+
+  return [
+    {
+      name: "set_properties",
+      description: `Set one or more properties on a node. Available properties: ${describeProperties(schema)}. Pass only the properties you want to change.`,
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          node_id: { type: "string", description: "ID of the skill node to update" },
+          properties: {
+            type: "object",
+            description: "Key-value pairs of properties to set. Keys must match the tree schema.",
+            properties: propSchema,
+          },
         },
-        assignee: {
-          type: "string",
-          description: "Name or identifier of the person responsible for this node. Set to null to clear.",
-        },
-        priority: {
-          type: "number",
-          description: "Priority level 1–5 (higher = more important = larger planet in galaxy view). Whole numbers only.",
-          minimum: 1,
-          maximum: 5,
-        },
-        status: {
-          type: "string",
-          enum: ["locked", "in_progress", "completed"],
-          description: "Current status of the skill node.",
-        },
+        required: ["node_id", "properties"],
       },
-      required: ["node_id"],
     },
-  },
-];
+  ];
+}
 
 const contentTools: Tool[] = [
   {
@@ -145,116 +162,123 @@ const checklistTools: Tool[] = [
   },
 ];
 
-export const skillTreeTools: Tool[] = [
-  ...propertyTools,
-  ...contentTools,
-  ...checklistTools,
-  {
-    name: "add_node",
-    description:
-      "Add a skill node to the galaxy. Stellar = main topic (sun at center of a system). Planet = important skill (orbits a stellar). Satellite = sub-skill or detail (orbits a planet).",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        id: { type: "string", description: "Unique ID slug, e.g. 'html-basics'" },
-        label: { type: "string", description: "Display name" },
-        description: { type: "string", description: "1-2 sentence description" },
-        role: {
-          type: "string",
-          enum: ["stellar", "planet", "satellite"],
-          description: "stellar = main topic (star), planet = key skill (orbits a star), satellite = sub-skill (orbits a planet)",
-        },
-        parent_id: {
-          type: "string",
-          description: "ID of the parent node. null for stellar. For planet: the stellar ID. For satellite: the planet ID.",
-        },
-        status: {
-          type: "string",
-          enum: ["locked", "in_progress", "completed"],
-          description: "Initial status",
-        },
-        priority: { type: "number", description: "1-5, higher = more important = larger planet" },
-      },
-      required: ["id", "label", "description", "role"],
-    },
-  },
-  {
-    name: "remove_node",
-    description: "Remove a node and all its children from the galaxy.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        id: { type: "string", description: "ID of the node to remove" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "update_node",
-    description:
-      "Update the structural or display properties of an existing node: label, description, role, or parent_id. Use this ONLY for structural/display changes. Do NOT use this to change status or priority — use update_properties for those.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        id: { type: "string", description: "ID of the node to update" },
-        label: { type: "string", description: "New display name for the node" },
-        description: { type: "string", description: "New 1-2 sentence description" },
-        role: { type: "string", enum: ["stellar", "planet", "satellite"], description: "New role — only change if restructuring the hierarchy" },
-        parent_id: { type: "string", description: "New parent node ID — only change if reparenting the node" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "bulk_modify",
-    description:
-      "Apply multiple operations at once. Always use this when creating a new topic system (stellar + planets + satellites).",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        operations: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              action: {
-                type: "string",
-                enum: ["add_node", "remove_node", "update_node"],
-              },
-              params: { type: "object" },
-            },
-            required: ["action", "params"],
+function buildStructureTools(schema: TreeSchema): Tool[] {
+  const statusOptions = schema.properties.status?.options;
+  const statusSchema = statusOptions
+    ? { type: "string" as const, enum: statusOptions, description: "Initial status" }
+    : { type: "string" as const, description: "Initial status" };
+
+  return [
+    {
+      name: "add_node",
+      description:
+        "Add a skill node to the galaxy. Stellar = main topic (sun at center of a system). Planet = important skill (orbits a stellar). Satellite = sub-skill or detail (orbits a planet).",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string", description: "Unique ID slug, e.g. 'html-basics'" },
+          label: { type: "string", description: "Display name" },
+          description: { type: "string", description: "1-2 sentence description" },
+          role: {
+            type: "string",
+            enum: ["stellar", "planet", "satellite"],
+            description: "stellar = main topic (star), planet = key skill (orbits a star), satellite = sub-skill (orbits a planet)",
           },
-          description: "Array of operations",
+          parent_id: {
+            type: "string",
+            description: "ID of the parent node. null for stellar. For planet: the stellar ID. For satellite: the planet ID.",
+          },
+          status: statusSchema,
+          priority: { type: "number", description: "1-5, higher = more important = larger planet" },
+          properties: {
+            type: "object",
+            description: "Optional initial property values matching the tree schema.",
+          },
         },
+        required: ["id", "label", "description", "role"],
       },
-      required: ["operations"],
     },
-  },
+    {
+      name: "remove_node",
+      description: "Remove a node and all its children from the galaxy.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string", description: "ID of the node to remove" },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "update_node",
+      description:
+        "Update the structural or display properties of an existing node: label, description, role, or parent_id. Use this ONLY for structural/display changes. Use set_properties for status, priority, and other metadata.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string", description: "ID of the node to update" },
+          label: { type: "string", description: "New display name for the node" },
+          description: { type: "string", description: "New 1-2 sentence description" },
+          role: { type: "string", enum: ["stellar", "planet", "satellite"], description: "New role" },
+          parent_id: { type: "string", description: "New parent node ID" },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "bulk_modify",
+      description:
+        "Apply multiple operations at once. Always use this when creating a new topic system (stellar + planets + satellites).",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          operations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                action: {
+                  type: "string",
+                  enum: ["add_node", "remove_node", "update_node"],
+                },
+                params: { type: "object" },
+              },
+              required: ["action", "params"],
+            },
+            description: "Array of operations",
+          },
+        },
+        required: ["operations"],
+      },
+    },
+  ];
+}
+
+const edgeTools: Tool[] = [
   {
     name: "add_edge",
     description:
-      "Create an explicit relationship edge between two skill nodes. Use 'depends_on' when one skill must be learned before another (e.g. HTML depends_on before CSS makes sense). Use 'related' for loose thematic connections between skills in different systems.",
+      "Create an explicit relationship edge between two skill nodes.",
     input_schema: {
       type: "object" as const,
       properties: {
-        id: { type: "string", description: "Unique ID slug for the edge, e.g. 'html-to-css-dep'" },
-        source_id: { type: "string", description: "ID of the source node (the node that depends on or is related to the target)" },
+        id: { type: "string", description: "Unique ID slug for the edge" },
+        source_id: { type: "string", description: "ID of the source node" },
         target_id: { type: "string", description: "ID of the target node" },
         type: {
           type: "string",
           enum: ["depends_on", "related"],
-          description: "depends_on = source must be learned before target; related = loose thematic connection",
+          description: "depends_on = prerequisite; related = loose connection",
         },
-        label: { type: "string", description: "Optional short label describing the relationship" },
-        weight: { type: "number", description: "Relationship strength 0.1–1.0, default 1.0" },
+        label: { type: "string", description: "Optional short label" },
+        weight: { type: "number", description: "Strength 0.1–1.0, default 1.0" },
       },
       required: ["id", "source_id", "target_id", "type"],
     },
   },
   {
     name: "remove_edge",
-    description: "Remove an explicit relationship edge between two nodes by its ID.",
+    description: "Remove an explicit relationship edge by its ID.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -266,43 +290,34 @@ export const skillTreeTools: Tool[] = [
   {
     name: "manage_relationship",
     description:
-      "Create or remove typed relationship edges between two skill nodes. Use this as the primary way to manage explicit connections. Supports depends_on (prerequisite ordering), related (loose thematic connection), and references (one node cites or points to another for more context).",
+      "Create or remove typed relationship edges between two skill nodes.",
     input_schema: {
       type: "object" as const,
       properties: {
-        action: {
-          type: "string",
-          enum: ["create", "remove"],
-          description: "create = add a new edge; remove = delete an existing edge by ID",
-        },
-        id: {
-          type: "string",
-          description: "Edge ID slug. For create: a unique descriptive slug e.g. 'html-css-dep'. For remove: the ID of the existing edge to delete.",
-        },
-        source_id: {
-          type: "string",
-          description: "ID of the source node. Required for create.",
-        },
-        target_id: {
-          type: "string",
-          description: "ID of the target node. Required for create.",
-        },
-        type: {
-          type: "string",
-          enum: ["depends_on", "related", "references"],
-          description:
-            "depends_on = source is a prerequisite of target (learn source before target); related = loose thematic connection; references = source node cites or links to target for additional context. Required for create.",
-        },
-        label: {
-          type: "string",
-          description: "Optional short label describing the relationship (e.g. 'prerequisite', 'see also').",
-        },
-        weight: {
-          type: "number",
-          description: "Relationship strength 0.1–1.0, default 1.0. Only used for create.",
-        },
+        action: { type: "string", enum: ["create", "remove"] },
+        id: { type: "string", description: "Edge ID slug" },
+        source_id: { type: "string", description: "Source node ID (for create)" },
+        target_id: { type: "string", description: "Target node ID (for create)" },
+        type: { type: "string", enum: ["depends_on", "related", "references"], description: "Edge type (for create)" },
+        label: { type: "string", description: "Optional label" },
+        weight: { type: "number", description: "Strength 0.1–1.0 (for create)" },
       },
       required: ["action", "id"],
     },
   },
 ];
+
+/** Build tools dynamically from tree schema. */
+export function buildTools(schema?: TreeSchema): Tool[] {
+  const s = schema ?? DEFAULT_SCHEMA;
+  return [
+    ...buildPropertyTools(s),
+    ...contentTools,
+    ...checklistTools,
+    ...buildStructureTools(s),
+    ...edgeTools,
+  ];
+}
+
+/** @deprecated Use buildTools(schema) instead. Kept for backward compatibility. */
+export const skillTreeTools: Tool[] = buildTools(DEFAULT_SCHEMA);

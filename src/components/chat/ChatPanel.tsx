@@ -137,10 +137,8 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
       } else if (change.action === "update_properties") {
         const nodeId = change.params.node_id as string;
         const updates: Partial<SkillNode> = {};
-        // Status and priority are first-class columns on the node
         if (change.params.status !== undefined) updates.status = change.params.status as SkillNode["status"];
         if (change.params.priority !== undefined) updates.priority = change.params.priority as number;
-        // due_date and assignee live in the node's properties jsonb column
         const existingNode = nodes.find((n) => n.id === nodeId);
         const existingProps = existingNode?.data.properties ?? {};
         const newProps = { ...existingProps };
@@ -152,9 +150,22 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           if (change.params.assignee === null) delete newProps.assignee;
           else newProps.assignee = change.params.assignee;
         }
+        if (change.params.status !== undefined) newProps.status = change.params.status;
+        if (change.params.priority !== undefined) newProps.priority = change.params.priority;
         const fullUpdates = { ...updates, properties: newProps };
         updateNode(nodeId, fullUpdates);
         await supabase.from("skill_nodes").update(fullUpdates).eq("id", nodeId).eq("tree_id", treeId);
+      } else if (change.action === "set_properties") {
+        const nodeId = change.params.node_id as string;
+        const newProps = (change.params.properties ?? {}) as Record<string, unknown>;
+        const existingNode = nodes.find((n) => n.id === nodeId);
+        const mergedProps = { ...(existingNode?.data.properties ?? {}), ...newProps };
+        const updates: Partial<SkillNode> & { properties: Record<string, unknown> } = { properties: mergedProps };
+        // Sync legacy columns
+        if ("status" in newProps) updates.status = newProps.status as SkillNode["status"];
+        if ("priority" in newProps) updates.priority = newProps.priority as number;
+        updateNode(nodeId, updates);
+        await supabase.from("skill_nodes").update(updates).eq("id", nodeId).eq("tree_id", treeId);
       } else if (
         change.action === "update_content" ||
         change.action === "set_checklist" ||

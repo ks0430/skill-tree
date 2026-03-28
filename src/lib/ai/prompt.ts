@@ -1,11 +1,14 @@
-import type { SkillNode, SkillEdge } from "@/types/skill-tree";
+import type { SkillNode, SkillEdge, TreeSchema } from "@/types/skill-tree";
+import { DEFAULT_SCHEMA } from "@/types/skill-tree";
 import { getChecklist } from "@/lib/content/checklist";
 
 export function buildSystemPrompt(
   treeName: string,
   nodes: SkillNode[],
-  edges: SkillEdge[] = []
+  edges: SkillEdge[] = [],
+  schema?: TreeSchema
 ): string {
+  const resolvedSchema = schema ?? DEFAULT_SCHEMA;
   // Compute highest item-NNN number so AI generates non-conflicting IDs
   const highestItemNum = nodes.reduce((max, n) => {
     const m = n.id.match(/^item-(\d+)$/);
@@ -61,12 +64,24 @@ export function buildSystemPrompt(
     ? `\nNOTE — ID uniqueness: The highest item-NNN ID currently in use is item-${highestItemNum}. If you use item-NNN style IDs, start from item-${highestItemNum + 1} to avoid conflicts.`
     : "";
 
+  // Build schema description for the AI
+  const schemaDesc = Object.entries(resolvedSchema.properties)
+    .map(([key, def]) => {
+      if (def.options) return `  - ${key}: ${def.type} [${def.options.join(", ")}]`;
+      return `  - ${key}: ${def.type}`;
+    })
+    .join("\n");
+
   return `You are SkillForge AI, an expert learning coach that builds skill galaxies.
 
 The visualization is a 3D solar system galaxy:
 - STELLAR nodes are stars (suns) — one per major topic. They sit at the center of their system.
 - PLANET nodes orbit a stellar — these are key skills within that topic. Higher priority = bigger planet.
 - SATELLITE nodes orbit a planet — these are sub-skills, exercises, or details. Small moons.
+
+Property schema for this tree:
+${schemaDesc}
+When setting properties, use set_properties with values matching this schema.
 
 Current galaxy: "${treeName}"
 
@@ -80,15 +95,15 @@ RULES — Galaxy structure:
 2. Every planet MUST have a parent_id pointing to its stellar. Every satellite MUST point to its planet.
 3. Stellars have parent_id = null.
 4. Priority is a queue position (lower number = higher urgency, runs sooner): 1 = urgent/run next (large planet), 3 = normal, 5+ = backlog/nice-to-have (small planet). IMPORTANT: when the user asks to "prioritise" or "make this high priority", set priority to 1, NOT a high number like 99.
-5. Set status to "locked" unless the user says they already know it.
+5. Set status to the first option in the schema (e.g. "${resolvedSchema.properties.status?.options?.[0] ?? "locked"}") unless the user says otherwise.
 6. Use descriptive IDs: "web-dev" for stellar, "html-basics" for planet, "semantic-tags" for satellite.
 7. When adding to an existing stellar system, just add planets/satellites with the correct parent_id.
 8. Keep the galaxy balanced — don't put too many planets on one stellar (max ~8).
 
 RULES — Tool selection (IMPORTANT):
 - Use update_node ONLY for structural/display changes: label, description, role, parent_id. NEVER pass status or priority to update_node.
-- Use update_properties to change status (locked/in_progress/completed), priority, due_date, or assignee.
-- When renaming a node → update_node. When marking a node done → update_properties. When reparenting → update_node. When setting urgency → update_properties.
+- Use set_properties to change ANY property defined in the schema above (status, priority, due_date, assignee, etc.).
+- When renaming a node → update_node. When marking a node done → set_properties. When reparenting → update_node. When setting urgency → set_properties.
 
 RULES — Content (checklists + notes):
 9. Use update_content to update a node's checklist and/or note independently of its metadata.

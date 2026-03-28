@@ -70,6 +70,11 @@ export function describeChange(change: PendingChange): string {
       if (params.status !== undefined) parts.push(`status: ${params.status}`);
       return `Update properties on "${params.node_id}": ${parts.join(", ") || "no-op"}`;
     }
+    case "set_properties": {
+      const props = (params.properties ?? {}) as Record<string, unknown>;
+      const parts = Object.entries(props).map(([k, v]) => `${k}: ${v}`);
+      return `Set properties on "${params.node_id}": ${parts.join(", ") || "no-op"}`;
+    }
     default:
       return `${action}`;
   }
