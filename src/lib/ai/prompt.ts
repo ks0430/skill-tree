@@ -1,3 +1,4 @@
+// Workflow smoke test: ITEM-156
 import type { SkillNode, SkillEdge, TreeSchema } from "@/types/skill-tree";
 import { DEFAULT_SCHEMA, resolveHierarchy } from "@/types/skill-tree";
 import { getChecklist } from "@/lib/content/checklist";
