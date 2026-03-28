@@ -5,6 +5,7 @@ import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { ReadOnlyCanvas } from "@/components/canvas/ReadOnlyCanvas";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import type { SkillNode } from "@/types/skill-tree";
+import { resolveSchema } from "@/types/skill-tree";
 
 export default function SharePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -27,12 +28,13 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
     }
     const { tree, nodes } = await res.json();
     setTreeName(tree.name);
+    const schema = resolveSchema(tree);
 
     const mapped = (nodes as SkillNode[]).map((n) => ({
       ...n,
       content: n.content ?? { blocks: [] },
     }));
-    setNodes(layoutGalaxy(mapped));
+    setNodes(layoutGalaxy(mapped, schema));
     setLoading(false);
   }
 

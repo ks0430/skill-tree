@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
 import type { NodeStatus } from "@/types/skill-tree";
+import { getNodeRender } from "@/types/skill-tree";
 
 // ---------------------------------------------------------------------------
 // UnlockParticles — burst that plays once when a node goes locked→in_progress
@@ -149,9 +150,11 @@ function idSeed(id: string): number {
   return Math.abs(h);
 }
 
-function pickPlanetForRole(id: string, role: string) {
-  if (role === "stellar") return "sun";
-  if (role === "satellite") return "moon";
+function pickPlanetForRole(id: string, role: string, renderTier?: string) {
+  // Use render tier from schema if provided, otherwise infer from legacy role
+  const tier = renderTier ?? (role === "stellar" ? "star" : role === "satellite" ? "satellite" : "planet");
+  if (tier === "star") return "sun";
+  if (tier === "satellite") return "moon";
   return pickPlanetType(id);
 }
 
@@ -183,8 +186,14 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const pulseRingRef = useRef<THREE.Mesh>(null);
   const statusGlowRef = useRef<THREE.Mesh>(null);
 
+  const treeSchema = useTreeStore((s) => s.treeSchema);
   const seed = useMemo(() => idSeed(node.id), [node.id]);
-  const planetType = useMemo(() => pickPlanetForRole(node.id, node.data.type ?? node.data.role), [node.id, node.data.type, node.data.role]);
+  const effectiveRole = (node.data.type ?? node.data.role) as string;
+  const renderTier = useMemo(() => {
+    if (!treeSchema) return undefined;
+    return getNodeRender(treeSchema, effectiveRole) as string;
+  }, [treeSchema, effectiveRole]);
+  const planetType = useMemo(() => pickPlanetForRole(node.id, effectiveRole, renderTier), [node.id, effectiveRole, renderTier]);
   const config = useMemo(() => getPlanetConfig(planetType), [planetType]);
   const brightness = STATUS_BRIGHTNESS[node.data.status];
   const parent = node.data.parent_id ? parentMap.get(node.data.parent_id) : null;
@@ -204,8 +213,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
       const dy = camera.position.y - groupRef.current.position.y;
       const dz = camera.position.z - groupRef.current.position.z;
       const distSq = dx * dx + dy * dy + dz * dz;
-      const role = node.data.type ?? node.data.role;
-      const cullDistSq = role === "stellar" ? Infinity : role === "planet" ? 3600 : 900; // 60^2, 30^2
+      const cullDistSq = renderTier === "star" ? Infinity : renderTier === "satellite" ? 900 : 3600; // 60^2, 30^2
       const shouldBeVisible = distSq <= cullDistSq;
       if (groupRef.current.visible !== shouldBeVisible) {
         groupRef.current.visible = shouldBeVisible;

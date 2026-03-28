@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
+import { getNodeRender } from "@/types/skill-tree";
 import { SkillNode3D, worldPositions } from "./SkillNode3D";
 import { OrbitalRing } from "./OrbitalRing";
 import { EdgeRenderer } from "./EdgeRenderer";
@@ -227,8 +228,15 @@ function StaggeredNodes({ nodes, nodeMap, onProgress }: {
   nodeMap: Map<string, Node3D>;
   onProgress: (loaded: number, total: number) => void;
 }) {
-  const stellars = useMemo(() => nodes.filter((n) => (n.data.type ?? n.data.role) === "stellar"), [nodes]);
-  const planets = useMemo(() => nodes.filter((n) => (n.data.type ?? n.data.role) !== "stellar"), [nodes]);
+  const treeSchema = useTreeStore((s) => s.treeSchema);
+  const stellars = useMemo(() => nodes.filter((n) => {
+    const render = treeSchema ? getNodeRender(treeSchema, (n.data.type ?? n.data.role) as string) : ((n.data.type ?? n.data.role) === "stellar" ? "star" : "planet");
+    return render === "star";
+  }), [nodes, treeSchema]);
+  const planets = useMemo(() => nodes.filter((n) => {
+    const render = treeSchema ? getNodeRender(treeSchema, (n.data.type ?? n.data.role) as string) : ((n.data.type ?? n.data.role) === "stellar" ? "star" : "planet");
+    return render !== "star";
+  }), [nodes, treeSchema]);
   const [mountedCount, setMountedCount] = useState(0);
 
   useEffect(() => {

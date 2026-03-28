@@ -107,9 +107,10 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       supabase.from("chat_messages").select("*").eq("tree_id", id).order("created_at", { ascending: true }),
     ]);
 
+    const schema = treeRes.data ? resolveSchema(treeRes.data) : undefined;
     if (treeRes.data) {
       setTreeName(treeRes.data.name);
-      setTreeSchema(resolveSchema(treeRes.data));
+      setTreeSchema(schema!);
       setViewConfigs(resolveViewConfigs(treeRes.data));
     }
 
@@ -117,7 +118,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       ...n,
       content: n.content ?? { blocks: [] },
     })) as SkillNode[];
-    setNodes(layoutGalaxy(activeNodes));
+    setNodes(layoutGalaxy(activeNodes, schema));
     setEdges((edgesRes.data ?? []) as SkillEdge[]);
     pushHistory();
 
