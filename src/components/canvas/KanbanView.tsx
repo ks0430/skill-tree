@@ -47,7 +47,7 @@ function buildColumnConfigs(schema: TreeSchema, groupBy: string): ColumnConfig[]
 
 // Map between column id (schema option value) and legacy NodeStatus
 const LEGACY_STATUS_MAP: Record<string, NodeStatus> = {
-  locked: "locked",
+  backlog: "backlog",
   queued: "queued",
   in_progress: "in_progress",
   completed: "completed",

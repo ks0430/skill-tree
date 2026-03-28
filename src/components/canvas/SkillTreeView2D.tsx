@@ -37,7 +37,7 @@ const VIRTUAL_ROOT_ID = "__ROOT__";
 interface PhaseStats {
   total: number;
   done: number;
-  status: "completed" | "in_progress" | "locked";
+  status: "completed" | "in_progress" | "backlog";
 }
 
 function computePhaseStats(
@@ -50,7 +50,7 @@ function computePhaseStats(
   const total = children.length;
   const done = children.filter((n) => n.data.status === "completed").length;
   const hasInProgress = children.some((n) => n.data.status === "in_progress");
-  let status: "completed" | "in_progress" | "locked" = "locked";
+  let status: "completed" | "in_progress" | "backlog" = "backlog";
   if (total > 0 && done === total) status = "completed";
   else if (done > 0 || hasInProgress) status = "in_progress";
   return { total, done, status };
@@ -123,7 +123,7 @@ function buildDagreLayout(
   visibleNodes.forEach((n, idx) => {
     const type = n.data.type ?? n.data.role;
     if (type === "stellar") {
-      const stats = phaseStats.get(n.id) ?? { total: 0, done: 0, status: "locked" as const };
+      const stats = phaseStats.get(n.id) ?? { total: 0, done: 0, status: "backlog" as const };
       const { w, h } = phaseNodeSize(stats.total);
       nodeSizeMap.set(n.id, { w, h });
       g.setNode(n.id, { width: w, height: h });
@@ -213,20 +213,20 @@ function pointsToPath(points: { x: number; y: number }[]): string {
 const STATUS_COLORS: Record<string, string> = {
   completed: "#34d399",  // green
   in_progress: "#f59e0b", // amber
-  locked: "#334155",      // dark slate
+  backlog: "#334155",      // dark slate
   queued: "#60a5fa",      // blue
 };
 
 const PHASE_GLOW: Record<string, string> = {
   completed: "0 0 18px 4px rgba(52,211,153,0.55)",
   in_progress: "0 0 16px 3px rgba(245,158,11,0.5)",
-  locked: "none",
+  backlog: "none",
 };
 
 const PHASE_BORDER: Record<string, string> = {
   completed: "#34d399",
   in_progress: "#f59e0b",
-  locked: "#334155",
+  backlog: "#334155",
 };
 
 export function SkillTreeView2D() {
@@ -405,7 +405,7 @@ export function SkillTreeView2D() {
               const total = children.length;
               const done = children.filter((n) => n.data.status === "completed").length;
               const hasInProgress = children.some((n) => n.data.status === "in_progress");
-              let st: "completed" | "in_progress" | "locked" = "locked";
+              let st: "completed" | "in_progress" | "backlog" = "backlog";
               if (total > 0 && done === total) st = "completed";
               else if (done > 0 || hasInProgress) st = "in_progress";
               return { total, done, status: st };
@@ -548,7 +548,7 @@ export function SkillTreeView2D() {
                   ? "rgba(99,102,241,0.28)"
                   : isPinned
                   ? "rgba(99,102,241,0.18)"
-                  : status === "locked"
+                  : status === "backlog"
                   ? "rgba(10,14,26,0.75)"
                   : "rgba(15,22,41,0.85)",
                 boxShadow: isHighlighted
@@ -566,7 +566,7 @@ export function SkillTreeView2D() {
                 padding: "6px 10px",
                 gap: 3,
                 transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
-                opacity: status === "locked" ? 0.55 : 1,
+                opacity: status === "backlog" ? 0.55 : 1,
               }}
             >
               <div

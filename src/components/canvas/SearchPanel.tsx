@@ -69,7 +69,7 @@ export function SearchPanel() {
   }
 
   const statusDot: Record<string, string> = {
-    locked: "bg-slate-600",
+    backlog: "bg-slate-600",
     in_progress: "bg-amber-500",
     completed: "bg-emerald-500",
   };

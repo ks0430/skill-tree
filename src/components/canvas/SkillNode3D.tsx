@@ -10,7 +10,7 @@ import type { NodeStatus } from "@/types/skill-tree";
 import { getNodeRender } from "@/types/skill-tree";
 
 // ---------------------------------------------------------------------------
-// UnlockParticles — burst that plays once when a node goes locked→in_progress
+// UnlockParticles — burst that plays once when a node goes backlog→in_progress
 // ---------------------------------------------------------------------------
 
 const PARTICLE_COUNT = 48;
@@ -136,13 +136,13 @@ const STATUS_BRIGHTNESS: Record<
   NodeStatus,
   { opacity: number; emissive: number; atmosphere: number; cloudOpacity: number; ringOpacity: number; labelAlpha: number }
 > = {
-  locked:      { opacity: 0.3,  emissive: 0.0,  atmosphere: 0.02, cloudOpacity: 0.1,  ringOpacity: 0.1,  labelAlpha: 0.4 },
+  backlog:     { opacity: 0.3,  emissive: 0.0,  atmosphere: 0.02, cloudOpacity: 0.1,  ringOpacity: 0.1,  labelAlpha: 0.4 },
   queued:      { opacity: 0.55, emissive: 0.08, atmosphere: 0.06, cloudOpacity: 0.3,  ringOpacity: 0.3,  labelAlpha: 0.65 },
   in_progress: { opacity: 0.85, emissive: 0.25, atmosphere: 0.12, cloudOpacity: 0.5,  ringOpacity: 0.5,  labelAlpha: 0.85 },
   completed:   { opacity: 1.0,  emissive: 0.5,  atmosphere: 0.2,  cloudOpacity: 0.7,  ringOpacity: 0.7,  labelAlpha: 1.0 },
 };
 
-const STATUS_CYCLE: NodeStatus[] = ["locked", "in_progress", "completed"];
+const STATUS_CYCLE: NodeStatus[] = ["backlog", "in_progress", "completed"];
 
 function idSeed(id: string): number {
   let h = 0;
@@ -225,7 +225,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     if (cloudsRef.current) cloudsRef.current.rotation.y = t * config.rotationSpeed * 1.3;
     if (atmosphereRef.current) atmosphereRef.current.scale.setScalar(hovered ? 1.25 : 1.15);
 
-    // Status glow: locked=none, in_progress=amber pulse, completed=green steady
+    // Status glow: backlog=none, in_progress=amber pulse, completed=green steady
     if (statusGlowRef.current) {
       const mat = statusGlowRef.current.material as THREE.MeshBasicMaterial;
       if (node.data.status === "completed") {
@@ -287,9 +287,9 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     }
   });
 
-  // Detect locked → in_progress transition and fire particle burst
+  // Detect backlog → in_progress transition and fire particle burst
   useEffect(() => {
-    if (prevStatusRef.current === "locked" && node.data.status === "in_progress") {
+    if (prevStatusRef.current === "backlog" && node.data.status === "in_progress") {
       setUnlockBurst(true);
     }
     prevStatusRef.current = node.data.status;
@@ -327,7 +327,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     document.body.style.cursor = "auto";
   }, [setHoveredNode]);
 
-  // Click → cycle status (locked → in_progress → completed) + persist to Supabase
+  // Click → cycle status (backlog → in_progress → completed) + persist to Supabase
   // In readOnly mode: only focus/pin, no status change
   const onClick = useCallback((e: any) => {
     e.stopPropagation();
@@ -428,7 +428,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
         </mesh>
       )}
 
-      {/* Status glow: locked=none, in_progress=amber pulse, completed=green steady */}
+      {/* Status glow: backlog=none, in_progress=amber pulse, completed=green steady */}
       <mesh ref={statusGlowRef} geometry={sharedGeo.atmosphere} scale={node.scale * 1.35} visible={false}>
         <meshBasicMaterial color="#00ff88" transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
       </mesh>
@@ -480,7 +480,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
         </Text>
       </Billboard>
 
-      {/* Unlock particle burst — plays once on locked → in_progress */}
+      {/* Unlock particle burst — plays once on backlog → in_progress */}
       <UnlockParticles
         nodeScale={node.scale}
         playing={unlockBurst}

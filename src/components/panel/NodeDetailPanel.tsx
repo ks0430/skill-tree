@@ -18,7 +18,7 @@ import { PanelRelations } from "./PanelRelations";
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS: Record<NodeStatus, { label: string; icon: string; border: string; glow: string; color: string; bar: string }> = {
-  locked:      { label: "LOCKED",      icon: "🔒", color: "#64748b", bar: "0%",   border: "rgba(100,116,139,0.5)", glow: "0 0 12px rgba(100,116,139,0.15)" },
+  backlog:     { label: "BACKLOG",     icon: "📋", color: "#64748b", bar: "0%",   border: "rgba(100,116,139,0.5)", glow: "0 0 12px rgba(100,116,139,0.15)" },
   queued:      { label: "QUEUED",      icon: "⏳", color: "#3b82f6", bar: "25%",  border: "rgba(59,130,246,0.7)",  glow: "0 0 20px rgba(59,130,246,0.35)"  },
   in_progress: { label: "ACTIVE",      icon: "⚡", color: "#f59e0b", bar: "50%",  border: "rgba(245,158,11,0.7)", glow: "0 0 20px rgba(245,158,11,0.35)"  },
   completed:   { label: "COMPLETED",   icon: "✅", color: "#22c55e", bar: "100%", border: "rgba(34,197,94,0.7)",  glow: "0 0 20px rgba(34,197,94,0.35)"   },
@@ -108,8 +108,8 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   // Play open sound on mount
   useEffect(() => { sfxPanelOpen(); }, []);
 
-  const status = (node.data.status ?? "locked") as NodeStatus;
-  const cfg = STATUS[status] ?? STATUS.locked;
+  const status = (node.data.status ?? "backlog") as NodeStatus;
+  const cfg = STATUS[status] ?? STATUS.backlog;
   const props = (node.data.properties ?? {}) as Record<string, string | null>;
   const { pos, onDown, onMove, onUp } = useDraggable();
   const { size, onResizeDown, onResizeMove, onResizeUp } = useResizable();

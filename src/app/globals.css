@@ -15,7 +15,7 @@
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
   --toast-bg: #ffffff;
-  --node-locked-bg: rgba(240, 244, 250, 0.75);
+  --node-backlog-bg: rgba(240, 244, 250, 0.75);
 }
 
 /* Dark mode */
@@ -29,7 +29,7 @@
   --scrollbar-thumb: rgba(255, 255, 255, 0.1);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
   --toast-bg: #0f172a;
-  --node-locked-bg: rgba(10, 14, 26, 0.75);
+  --node-backlog-bg: rgba(10, 14, 26, 0.75);
 }
 
 /* ── Base Styles ────────────────────────────────────────────── */
@@ -79,8 +79,8 @@ canvas {
   50%       { box-shadow: 0 0 12px 5px rgba(52, 211, 153, 0.65), 0 0 24px 8px rgba(52, 211, 153, 0.25); }
 }
 
-.node-status-locked {
-  background: var(--node-locked-bg) !important;
+.node-status-backlog {
+  background: var(--node-backlog-bg) !important;
   opacity: 0.55;
 }
 
