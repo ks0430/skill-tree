@@ -1,0 +1,93 @@
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import { Spinner } from "@/components/ui/Spinner";
+
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess(true);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="text-3xl font-bold font-mono mb-8 text-center bg-gradient-to-r from-accent-blue to-accent-purple bg-clip-text text-transparent">
+          SkillForge
+        </h1>
+
+        <div className="glass rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-center">Reset Password</h2>
+
+          {success ? (
+            <div className="space-y-4">
+              <p className="text-sm text-green-400 bg-green-400/10 rounded-lg p-3">
+                Check your email for a password reset link.
+              </p>
+              <p className="text-sm text-slate-500 text-center">
+                <Link href="/login" className="text-accent-blue hover:underline">
+                  Back to sign in
+                </Link>
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleReset} className="space-y-4">
+              {error && (
+                <div className="text-red-400 text-sm bg-red-400/10 rounded-lg p-3">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-navy-800 border border-glass-border text-white placeholder-slate-500 focus:outline-none focus:border-accent-blue"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2 rounded-lg bg-accent-blue text-white font-medium hover:bg-accent-blue/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading && <Spinner />}
+                {loading ? "Sending..." : "Send Reset Link"}
+              </button>
+
+              <p className="text-sm text-slate-500 text-center">
+                <Link href="/login" className="text-accent-blue hover:underline">
+                  Back to sign in
+                </Link>
+              </p>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
