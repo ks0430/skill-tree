@@ -1,37 +1,35 @@
 "use client";
 
-import { useTreeStore, type ViewMode } from "@/lib/store/tree-store";
+import { useTreeStore } from "@/lib/store/tree-store";
+import { DEFAULT_VIEW_CONFIGS } from "@/types/skill-tree";
 
-interface ViewOption {
-  mode: ViewMode;
-  label: string;
-  title: string;
-}
-
-const VIEW_OPTIONS: ViewOption[] = [
-  { mode: "solar",  label: "🪐 Solar",    title: "Solar System view (3D)" },
-  { mode: "kanban", label: "📋 Board",    title: "Kanban board" },
-  { mode: "gantt",  label: "📅 Timeline", title: "Gantt / Timeline view" },
-];
+const VIEW_TYPE_ICONS: Record<string, string> = {
+  solar_system: "🪐",
+  kanban: "📋",
+  gantt: "📅",
+};
 
 export function ViewSwitcher() {
   const viewMode = useTreeStore((s) => s.viewMode);
   const setViewMode = useTreeStore((s) => s.setViewMode);
+  const viewConfigs = useTreeStore((s) => s.viewConfigs);
+
+  const configs = viewConfigs.length > 0 ? viewConfigs : DEFAULT_VIEW_CONFIGS;
 
   return (
     <div className="flex items-center rounded border border-glass-border overflow-hidden text-xs font-mono">
-      {VIEW_OPTIONS.map((opt, i) => (
+      {configs.map((vc, i) => (
         <button
-          key={opt.mode}
-          onClick={() => setViewMode(opt.mode)}
-          title={opt.title}
+          key={vc.id}
+          onClick={() => setViewMode(vc.id)}
+          title={vc.name}
           className={`px-3 py-1.5 transition-colors ${i > 0 ? "border-l border-glass-border" : ""} ${
-            viewMode === opt.mode
+            viewMode === vc.id
               ? "bg-indigo-600 text-white"
               : "text-slate-400 hover:text-white hover:bg-white/5"
           }`}
         >
-          {opt.label}
+          {VIEW_TYPE_ICONS[vc.type] ?? "📄"} {vc.name}
         </button>
       ))}
     </div>
