@@ -31,7 +31,7 @@ export interface NewEdgeInput {
   metadata?: Record<string, unknown> | null;
 }
 
-export type ViewMode = "solar" | "graph" | "gantt" | "weight" | "kanban";
+export type ViewMode = "solar" | "gantt" | "kanban";
 
 interface TreeState {
   treeId: string | null;
@@ -205,7 +205,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
   searchHighlightId: null,
   topDownMode: false,
   orthoZoom: 40,
-  viewMode: (typeof window !== "undefined" ? (localStorage.getItem("viewMode") as ViewMode | null) ?? "solar" : "solar"),
+  viewMode: (typeof window !== "undefined" ? (["solar", "gantt", "kanban"].includes(localStorage.getItem("viewMode") ?? "") ? localStorage.getItem("viewMode") as ViewMode : "solar") : "solar"),
   history: [],
   historyIndex: -1,
 

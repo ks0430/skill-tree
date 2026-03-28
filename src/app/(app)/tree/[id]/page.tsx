@@ -6,7 +6,6 @@ import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { SkillTreeCanvas } from "@/components/canvas/SkillTreeCanvas";
 import { TimelineView } from "@/components/canvas/TimelineView";
-import { WeightGraphView } from "@/components/canvas/WeightGraphView";
 import { KanbanView } from "@/components/canvas/KanbanView";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -233,14 +232,12 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
       <div className="flex flex-1 overflow-hidden relative">
         {/* Canvas — always full area on mobile, shared on desktop */}
         <div className="flex-1 relative min-w-0">
-          {viewMode === "solar" || viewMode === "graph" ? (
+          {viewMode === "solar" ? (
             <CanvasErrorBoundary>
               <SkillTreeCanvas />
             </CanvasErrorBoundary>
           ) : viewMode === "gantt" ? (
             <TimelineView />
-          ) : viewMode === "weight" ? (
-            <WeightGraphView />
           ) : (
             <KanbanView />
           )}
