@@ -7,6 +7,9 @@ import type { Node3D } from "@/lib/store/tree-store";
 import type { ViewConfig } from "@/types/skill-tree";
 import { getNodeProperty, isCardType } from "@/types/skill-tree";
 import { sfxPanelOpen } from "@/lib/sfx";
+import { FilterBar } from "@/components/canvas/FilterBar";
+
+type Filter = NonNullable<ViewConfig["filters"]>[number];
 
 const STATUS_ICON: Record<string, string> = {
   completed:   "✅",
@@ -171,7 +174,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const treeSchema = useTreeStore((s) => s.treeSchema);
   const pinnedNodeId = useTreeStore((s) => s.pinnedNodeId);
   const setPinnedNode = useTreeStore((s) => s.setPinnedNode);
-  const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
+  const [filters, setFilters] = useState<Filter[]>(viewConfig?.filters ?? []);
   const [showOlderDates, setShowOlderDates] = useState(false);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set());
 
@@ -219,12 +222,27 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
     [nodes, treeSchema]
   );
 
-  // Apply filter
+  // Apply filters
   const filtered = useMemo(() => {
-    if (filter === "completed") return tickets.filter((n) => (n.data.properties?.status as string) === "completed");
-    if (filter === "pending") return tickets.filter((n) => (n.data.properties?.status as string) !== "completed");
-    return tickets;
-  }, [tickets, filter]);
+    if (filters.length === 0) return tickets;
+    return tickets.filter((n) => {
+      for (const f of filters) {
+        const val = getNodeProperty(n.data, f.property);
+        if (f.operator === "in") {
+          const allowed = f.value as string[];
+          if (!allowed.includes(String(val ?? ""))) return false;
+        } else if (f.operator === "contains") {
+          if (!String(val ?? "").toLowerCase().includes(String(f.value).toLowerCase())) return false;
+        } else if (f.operator === "between") {
+          const range = f.value as { from?: string; to?: string };
+          const dateStr = String(val ?? "");
+          if (range.from && dateStr < range.from) return false;
+          if (range.to && dateStr > range.to) return false;
+        }
+      }
+      return true;
+    });
+  }, [tickets, filters]);
 
   // Group by date
   const groups = useMemo((): TimelineGroup[] => {
@@ -341,18 +359,16 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
             transition: "width 0.5s",
           }} />
         </div>
-        {/* Filter pills */}
-        <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-          {(["all", "completed", "pending"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              fontFamily: "monospace", fontSize: 9, padding: "3px 10px", borderRadius: 20,
-              border: `1px solid ${filter === f ? "rgba(129,140,248,0.6)" : "rgba(255,255,255,0.08)"}`,
-              background: filter === f ? "rgba(129,140,248,0.12)" : "transparent",
-              color: filter === f ? "#a5b4fc" : "#475569", cursor: "pointer",
-              textTransform: "uppercase", letterSpacing: "0.1em",
-            }}>{f}</button>
-          ))}
-        </div>
+        {/* FilterBar */}
+        {treeSchema && (
+          <div style={{ marginLeft: "auto" }}>
+            <FilterBar
+              schema={treeSchema}
+              filters={filters}
+              onFiltersChange={setFilters}
+            />
+          </div>
+        )}
       </div>
 
       {/* Timeline */}
