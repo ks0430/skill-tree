@@ -1,15 +1,37 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { sfxDragStart, sfxDrop } from "@/lib/sfx";
 import { useTreeStore } from "@/lib/store/tree-store";
 import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
+import { FilterBar } from "./FilterBar";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
 import type { NodeStatus } from "@/types/skill-tree";
 import type { SkillNode, TreeSchema, ViewConfig } from "@/types/skill-tree";
 import { getNodeProperty, DEFAULT_SCHEMA, isCardType, getTypeLabel } from "@/types/skill-tree";
+
+type Filter = NonNullable<ViewConfig["filters"]>[number];
+
+function applyFilters(node: Node3D, filters: Filter[]): boolean {
+  for (const f of filters) {
+    const val = getNodeProperty(node.data, f.property);
+    if (f.operator === "in") {
+      const arr = Array.isArray(f.value) ? (f.value as string[]) : [];
+      if (arr.length > 0 && !arr.includes(String(val ?? ""))) return false;
+    } else if (f.operator === "contains") {
+      const q = String(f.value ?? "").toLowerCase();
+      if (q && !String(val ?? "").toLowerCase().includes(q)) return false;
+    } else if (f.operator === "between") {
+      const range = f.value as { from?: string; to?: string };
+      const v = String(val ?? "");
+      if (range.from && v < range.from) return false;
+      if (range.to && v > range.to) return false;
+    }
+  }
+  return true;
+}
 
 // ── Dynamic column config builder ──────────────────────────────────────────
 
@@ -194,35 +216,8 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
     };
   }, [treeId]);
 
-  const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [limit, setLimit] = useState<number>(50); // show last N tickets
+  const [filters, setFilters] = useState<Filter[]>(viewConfig?.filters ?? []);
   const [donePageSize, setDonePageSize] = useState<number>(20); // paginate done column in All mode
-  const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
-  const phaseDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(e.target as Node)) {
-        setPhaseDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  // Derive available phases from stellar nodes
-  const phases = useMemo(() => {
-    return nodes
-      .filter((n) => !isCardType(resolvedSchema, (n.data.type ?? n.data.role) as string))
-      .map((n) => ({
-        id: n.id,
-        label: n.data.label,
-        phase: (n.data.properties as Record<string, unknown>)?.phase_number as number ?? 0,
-      }))
-      .sort((a, b) => a.phase - b.phase);
-  }, [nodes]);
 
   // Group nodes into columns dynamically based on schema group_by property
   // lastColTotal tracks the full count of the last column before pagination
@@ -241,18 +236,8 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
       const nodeType = node.data.type ?? node.data.role;
       // Skip stellar (phase) nodes — only show planets (tickets)
       if (!isCardType(resolvedSchema, nodeType)) continue;
-      // Apply phase filter
-      if (phaseFilter !== null) {
-        const nodePhase = (node.data.properties as Record<string, unknown>)?.phase as number;
-        if (Number(nodePhase) !== Number(phaseFilter)) continue;
-      }
-      // Apply search filter
-      if (searchText.trim()) {
-        const q = searchText.toLowerCase();
-        const label = (node.data.label ?? "").toLowerCase();
-        const desc = (node.data.description ?? "").toLowerCase();
-        if (!label.includes(q) && !desc.includes(q)) continue;
-      }
+      // Apply schema-based filters
+      if (!applyFilters(node, filters)) continue;
       const val = String(getNodeProperty(node.data, groupBy) ?? columnIds[0] ?? "");
       const col = columnIds.includes(val) ? val : columnIds[0];
       if (grouped[col]) grouped[col].push(node);
@@ -273,20 +258,6 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
       });
     }
 
-    // Apply limit — sort by created_at desc, keep latest N across all columns
-    if (limit > 0) {
-      const allFiltered = columnIds.flatMap((c) => grouped[c]);
-      allFiltered.sort((a, b) => {
-        const aTime = (a.data.properties as Record<string, unknown>)?.created_at as string ?? "";
-        const bTime = (b.data.properties as Record<string, unknown>)?.created_at as string ?? "";
-        return bTime.localeCompare(aTime);
-      });
-      const limitedIds = new Set(allFiltered.slice(0, limit).map((n) => n.id));
-      for (const colId of columnIds) {
-        grouped[colId] = grouped[colId].filter((n) => limitedIds.has(n.id));
-      }
-    }
-
     // Paginate last column to avoid rendering too many cards
     const totalLast = lastColId ? grouped[lastColId]?.length ?? 0 : 0;
     if (lastColId && grouped[lastColId]) {
@@ -294,7 +265,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
     }
 
     return [grouped, totalLast] as const;
-  }, [nodes, phaseFilter, searchText, limit, donePageSize, columnIds, groupBy, lastColId]);
+  }, [nodes, filters, donePageSize, columnIds, groupBy, lastColId]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId),
@@ -419,7 +390,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
       className="w-full h-full relative overflow-hidden select-none"
       style={{ background: "#0a0e1a" }}
     >
-      {/* Phase filter — custom dropdown */}
+      {/* Filter bar */}
       <div className="flex items-center gap-2 px-4 pt-3 pb-1 shrink-0">
         {/* Realtime live indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 4 }}>
@@ -441,104 +412,8 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
             {realtimeConnected ? "live" : "connecting…"}
           </span>
         </div>
-        {/* Search input */}
-        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-          <span style={{ position: "absolute", left: 8, color: "#475569", fontSize: 11, pointerEvents: "none" }}>🔍</span>
-          <input
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search tickets..."
-            style={{
-              fontFamily: "monospace", fontSize: 11,
-              background: searchText ? "rgba(129,140,248,0.08)" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${searchText ? "rgba(129,140,248,0.4)" : "rgba(148,163,184,0.15)"}`,
-              borderRadius: 20, padding: "4px 10px 4px 26px",
-              color: "#cbd5e1", outline: "none", width: 160,
-              transition: "all 0.15s",
-            }}
-          />
-          {searchText && (
-            <button onClick={() => setSearchText("")} style={{ position: "absolute", right: 8, background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12 }}>×</button>
-          )}
-        </div>
-        {/* Limit selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {[20, 50, 100, 0].map(n => (
-            <button
-              key={n}
-              onClick={() => setLimit(n)}
-              style={{
-                fontFamily: "monospace", fontSize: 9, padding: "3px 7px", borderRadius: 20,
-                border: `1px solid ${limit === n ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
-                background: limit === n ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.03)",
-                color: limit === n ? "#a5b4fc" : "#475569", cursor: "pointer",
-                textTransform: "uppercase", letterSpacing: "0.08em",
-              }}
-            >{n === 0 ? "All" : `Last ${n}`}</button>
-          ))}
-        </div>
-        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Phase</span>
-        <div ref={phaseDropdownRef} style={{ position: "relative" }}>
-          {/* Trigger button */}
-          <button
-            onClick={() => setPhaseDropdownOpen((o) => !o)}
-            style={{
-              fontFamily: "monospace", fontSize: 11,
-              background: phaseFilter !== null ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
-              borderTop: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
-              borderRight: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
-              borderBottom: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
-              borderLeft: `1px solid ${phaseFilter !== null ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
-              borderRadius: 20, padding: "4px 10px 4px 12px",
-              color: phaseFilter !== null ? "#a5b4fc" : "#64748b",
-              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-              transition: "all 0.15s",
-            }}
-          >
-            {phaseFilter !== null ? (phases.find((p) => p.phase === phaseFilter)?.label ?? `Phase ${phaseFilter}`) : "All phases"}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-              style={{ transform: phaseDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-
-          {/* Custom dropdown menu */}
-          {phaseDropdownOpen && (
-            <div style={{
-              position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
-              background: "#0f172a",
-              borderTop: "1px solid rgba(148,163,184,0.15)",
-              borderRight: "1px solid rgba(148,163,184,0.15)",
-              borderBottom: "1px solid rgba(148,163,184,0.15)",
-              borderLeft: "1px solid rgba(148,163,184,0.15)",
-              borderRadius: 8, padding: "4px 0", minWidth: 130,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-              maxHeight: 260, overflowY: "auto",
-            }}>
-              {[{ label: "All phases", value: null }, ...phases.map((p) => ({ label: p.label, value: p.phase }))].map((opt) => (
-                <button
-                  key={opt.value ?? "all"}
-                  onClick={() => { setPhaseFilter(opt.value); setPhaseDropdownOpen(false); }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    width: "100%", padding: "7px 14px", textAlign: "left",
-                    fontFamily: "monospace", fontSize: 11,
-                    background: phaseFilter === opt.value ? "rgba(129,140,248,0.12)" : "transparent",
-                    color: phaseFilter === opt.value ? "#a5b4fc" : "#94a3b8",
-                    border: "none", cursor: "pointer",
-                    transition: "background 0.1s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = phaseFilter === opt.value ? "rgba(129,140,248,0.12)" : "transparent")}
-                >
-                  {phaseFilter === opt.value && <span style={{ color: "#a5b4fc", fontSize: 10 }}>✓</span>}
-                  {phaseFilter !== opt.value && <span style={{ width: 14 }} />}
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* FilterBar */}
+        <FilterBar schema={resolvedSchema} filters={filters} onFiltersChange={setFilters} />
       </div>
 
       {/* Column layout */}
