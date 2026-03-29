@@ -2,13 +2,25 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { TreeSchema, PropertyDef, ViewConfig } from "@/types/skill-tree";
+import type { Node3D } from "@/lib/store/tree-store";
 
 type Filter = NonNullable<ViewConfig["filters"]>[number];
+
+export const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "priority",   label: "Priority" },
+  { value: "label",      label: "Label" },
+  { value: "created_at", label: "Created" },
+  { value: "complexity", label: "Complexity" },
+  { value: "due_date",   label: "Due date" },
+];
 
 interface FilterBarProps {
   schema: TreeSchema;
   filters: Filter[];
   onFiltersChange: (filters: Filter[]) => void;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  onSortChange?: (sortBy: string, sortDir: "asc" | "desc") => void;
 }
 
 // Property types that are filterable and the control type they map to
@@ -194,9 +206,55 @@ function DateRangeFilter({
   );
 }
 
+/* ── Shared sort utility ───────────────────────────────────────────────── */
+
+export function sortNodes(nodes: Node3D[], sortBy: string, sortDir: "asc" | "desc"): Node3D[] {
+  const dir = sortDir === "desc" ? -1 : 1;
+  return [...nodes].sort((a, b) => {
+    let aVal: unknown;
+    let bVal: unknown;
+
+    if (sortBy === "priority") {
+      aVal = a.data.priority ?? 99;
+      bVal = b.data.priority ?? 99;
+    } else if (sortBy === "label") {
+      aVal = a.data.label ?? "";
+      bVal = b.data.label ?? "";
+    } else if (sortBy === "created_at") {
+      const aProps = (a.data.properties ?? {}) as Record<string, unknown>;
+      const bProps = (b.data.properties ?? {}) as Record<string, unknown>;
+      aVal = (aProps.created_at as string) ?? "";
+      bVal = (bProps.created_at as string) ?? "";
+    } else if (sortBy === "complexity") {
+      const aProps = (a.data.properties ?? {}) as Record<string, unknown>;
+      const bProps = (b.data.properties ?? {}) as Record<string, unknown>;
+      aVal = (aProps.complexity as number) ?? 0;
+      bVal = (bProps.complexity as number) ?? 0;
+    } else if (sortBy === "due_date") {
+      const aProps = (a.data.properties ?? {}) as Record<string, unknown>;
+      const bProps = (b.data.properties ?? {}) as Record<string, unknown>;
+      aVal = (aProps.due_date as string) ?? "";
+      bVal = (bProps.due_date as string) ?? "";
+    } else {
+      // Generic: check top-level data then properties
+      aVal = (a.data as Record<string, unknown>)[sortBy]
+        ?? ((a.data.properties ?? {}) as Record<string, unknown>)[sortBy]
+        ?? "";
+      bVal = (b.data as Record<string, unknown>)[sortBy]
+        ?? ((b.data.properties ?? {}) as Record<string, unknown>)[sortBy]
+        ?? "";
+    }
+
+    if (typeof aVal === "number" && typeof bVal === "number") {
+      return (aVal - bVal) * dir;
+    }
+    return String(aVal).localeCompare(String(bVal)) * dir;
+  });
+}
+
 /* ── Main FilterBar ────────────────────────────────────────────────────── */
 
-export function FilterBar({ schema, filters, onFiltersChange }: FilterBarProps) {
+export function FilterBar({ schema, filters, onFiltersChange, sortBy, sortDir, onSortChange }: FilterBarProps) {
   // Build the list of filterable properties from schema
   const filterableProps = Object.entries(schema.properties).filter(
     ([, def]) => controlTypeFor(def) !== null
@@ -237,13 +295,17 @@ export function FilterBar({ schema, filters, onFiltersChange }: FilterBarProps) 
     [filters, onFiltersChange]
   );
 
-  if (filterableProps.length === 0) return null;
+  const hasSortControls = !!onSortChange;
+
+  if (filterableProps.length === 0 && !hasSortControls) return null;
 
   const hasActiveFilters = filters.length > 0;
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Filters</span>
+      {filterableProps.length > 0 && (
+        <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Filters</span>
+      )}
 
       {filterableProps.map(([key, def]) => {
         const control = controlTypeFor(def)!;
@@ -291,6 +353,45 @@ export function FilterBar({ schema, filters, onFiltersChange }: FilterBarProps) 
 
         return null;
       })}
+
+      {/* Sort controls */}
+      {hasSortControls && (
+        <>
+          {filterableProps.length > 0 && (
+            <span className="text-[10px] text-slate-600 font-mono">|</span>
+          )}
+          <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Sort</span>
+          <select
+            value={sortBy ?? "priority"}
+            onChange={(e) => onSortChange!(e.target.value, sortDir ?? "asc")}
+            className="px-2 py-1.5 rounded-lg text-xs bg-transparent border border-glass-border text-slate-300 focus:outline-none focus:border-indigo-500/50 transition-colors [color-scheme:dark]"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => onSortChange!(sortBy ?? "priority", sortDir === "desc" ? "asc" : "desc")}
+            title={sortDir === "desc" ? "Descending — click for ascending" : "Ascending — click for descending"}
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs border transition-colors ${
+              sortDir === "desc"
+                ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-300"
+                : "border-glass-border bg-transparent text-slate-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            {sortDir === "desc" ? (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            )}
+            {sortDir === "desc" ? "Desc" : "Asc"}
+          </button>
+        </>
+      )}
 
       {hasActiveFilters && (
         <button

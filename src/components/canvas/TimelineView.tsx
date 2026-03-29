@@ -7,6 +7,7 @@ import type { Node3D } from "@/lib/store/tree-store";
 import type { ViewConfig } from "@/types/skill-tree";
 import { getNodeProperty, isCardType } from "@/types/skill-tree";
 import { sfxPanelOpen } from "@/lib/sfx";
+import { sortNodes, SORT_OPTIONS } from "./FilterBar";
 
 const STATUS_ICON: Record<string, string> = {
   completed:   "✅",
@@ -174,6 +175,10 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
   const [showOlderDates, setShowOlderDates] = useState(false);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<string>(viewConfig?.sort_by ?? "priority");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(viewConfig?.sort_dir ?? "asc");
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
   // Flash animation: track recently updated node IDs
   const [flashNodeIds, setFlashNodeIds] = useState<Set<string>>(new Set());
@@ -206,6 +211,17 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
       return () => clearTimeout(timer);
     }
   }, [nodes]);
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setSortDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId) ?? null,
@@ -269,7 +285,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
           phaseKey,
           phaseLabel: phaseName ? `Phase ${phaseNum} · ${phaseName}` : phaseNum ? `Phase ${phaseNum}` : "Other",
           color: PHASE_COLORS[pi % PHASE_COLORS.length],
-          nodes: phaseNodes.sort((a, b) => (a.data.priority ?? 99) - (b.data.priority ?? 99)),
+          nodes: sortNodes(phaseNodes, sortBy, sortDir),
         };
       });
 
@@ -279,7 +295,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
         phases,
       };
     });
-  }, [filtered, dateField]);
+  }, [filtered, dateField, sortBy, sortDir]);
 
   // 90-day window: show last 90 days + all Pending; older dates load on demand
   const cutoffDate = useMemo(() => {
@@ -340,8 +356,73 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
             transition: "width 0.5s",
           }} />
         </div>
+        {/* Sort controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+          <span style={{ fontFamily: "monospace", fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Sort</span>
+          <div ref={sortDropdownRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setSortDropdownOpen((o) => !o)}
+              style={{
+                fontFamily: "monospace", fontSize: 10,
+                background: sortBy !== "priority" ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${sortBy !== "priority" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+                borderRadius: 20, padding: "3px 10px",
+                color: sortBy !== "priority" ? "#a5b4fc" : "#64748b",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+              }}
+            >
+              {SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Priority"}
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                style={{ transform: sortDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {sortDropdownOpen && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50,
+                background: "#0f172a",
+                border: "1px solid rgba(148,163,184,0.15)",
+                borderRadius: 8, padding: "4px 0", minWidth: 130,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+              }}>
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setSortBy(opt.value); setSortDropdownOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      width: "100%", padding: "7px 14px", textAlign: "left",
+                      fontFamily: "monospace", fontSize: 11,
+                      background: sortBy === opt.value ? "rgba(129,140,248,0.12)" : "transparent",
+                      color: sortBy === opt.value ? "#a5b4fc" : "#94a3b8",
+                      border: "none", cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = sortBy === opt.value ? "rgba(129,140,248,0.12)" : "transparent")}
+                  >
+                    {sortBy === opt.value && <span style={{ color: "#a5b4fc", fontSize: 10 }}>✓</span>}
+                    {sortBy !== opt.value && <span style={{ width: 14 }} />}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+            style={{
+              fontFamily: "monospace", fontSize: 9, padding: "3px 8px", borderRadius: 20,
+              border: `1px solid ${sortDir === "desc" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              background: sortDir === "desc" ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
+              color: sortDir === "desc" ? "#a5b4fc" : "#64748b",
+              cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em",
+            }}
+          >
+            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+          </button>
+        </div>
         {/* Filter pills */}
-        <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+        <div style={{ display: "flex", gap: 6 }}>
           {(["all", "completed", "pending"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)} style={{
               fontFamily: "monospace", fontSize: 9, padding: "3px 10px", borderRadius: 20,

@@ -10,6 +10,7 @@ import type { Node3D } from "@/lib/store/tree-store";
 import type { NodeStatus } from "@/types/skill-tree";
 import type { SkillNode, TreeSchema, ViewConfig } from "@/types/skill-tree";
 import { getNodeProperty, DEFAULT_SCHEMA, isCardType, getTypeLabel } from "@/types/skill-tree";
+import { sortNodes, SORT_OPTIONS } from "./FilterBar";
 
 // ── Dynamic column config builder ──────────────────────────────────────────
 
@@ -196,16 +197,23 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
 
   const [phaseFilter, setPhaseFilter] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [sortBy, setSortBy] = useState<string>(viewConfig?.sort_by ?? "priority");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(viewConfig?.sort_dir ?? "asc");
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState<number>(50); // show last N tickets
   const [donePageSize, setDonePageSize] = useState<number>(20); // paginate done column in All mode
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
   const phaseDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(e.target as Node)) {
         setPhaseDropdownOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setSortDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -258,19 +266,21 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
       if (grouped[col]) grouped[col].push(node);
     }
 
-    // Sort all columns by priority ascending (lowest = next to run)
+    // Sort all columns by selected sort field/direction
     for (const colId of columnIds) {
-      grouped[colId].sort((a, b) => a.data.priority - b.data.priority);
+      grouped[colId] = sortNodes(grouped[colId], sortBy, sortDir);
     }
 
-    // Sort completed column by completed_at descending (most recent first)
-    const completedColId = columnIds[columnIds.length - 1];
-    if (completedColId) {
-      grouped[completedColId].sort((a, b) => {
-        const aTime = a.data.completed_at ?? "";
-        const bTime = b.data.completed_at ?? "";
-        return bTime.localeCompare(aTime);
-      });
+    // Sort completed column by completed_at descending (most recent first) only when default sort
+    if (sortBy === "priority" && sortDir === "asc") {
+      const completedColId = columnIds[columnIds.length - 1];
+      if (completedColId) {
+        grouped[completedColId].sort((a, b) => {
+          const aTime = a.data.completed_at ?? "";
+          const bTime = b.data.completed_at ?? "";
+          return bTime.localeCompare(aTime);
+        });
+      }
     }
 
     // Apply limit — sort by created_at desc, keep latest N across all columns
@@ -294,7 +304,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
     }
 
     return [grouped, totalLast] as const;
-  }, [nodes, phaseFilter, searchText, limit, donePageSize, columnIds, groupBy, lastColId]);
+  }, [nodes, phaseFilter, searchText, limit, donePageSize, columnIds, groupBy, lastColId, sortBy, sortDir]);
 
   const pinnedNode = useMemo(
     () => nodes.find((n) => n.id === pinnedNodeId),
@@ -539,6 +549,79 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
             </div>
           )}
         </div>
+        {/* Sort controls */}
+        <span style={{ fontFamily: "monospace", fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Sort</span>
+        <div ref={sortDropdownRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setSortDropdownOpen((o) => !o)}
+            style={{
+              fontFamily: "monospace", fontSize: 11,
+              background: sortBy !== "priority" ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
+              borderTop: `1px solid ${sortBy !== "priority" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderRight: `1px solid ${sortBy !== "priority" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderBottom: `1px solid ${sortBy !== "priority" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderLeft: `1px solid ${sortBy !== "priority" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+              borderRadius: 20, padding: "4px 10px 4px 12px",
+              color: sortBy !== "priority" ? "#a5b4fc" : "#64748b",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              transition: "all 0.15s",
+            }}
+          >
+            {SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Priority"}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ transform: sortDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {sortDropdownOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
+              background: "#0f172a",
+              borderTop: "1px solid rgba(148,163,184,0.15)",
+              borderRight: "1px solid rgba(148,163,184,0.15)",
+              borderBottom: "1px solid rgba(148,163,184,0.15)",
+              borderLeft: "1px solid rgba(148,163,184,0.15)",
+              borderRadius: 8, padding: "4px 0", minWidth: 130,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            }}>
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setSortBy(opt.value); setSortDropdownOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    width: "100%", padding: "7px 14px", textAlign: "left",
+                    fontFamily: "monospace", fontSize: 11,
+                    background: sortBy === opt.value ? "rgba(129,140,248,0.12)" : "transparent",
+                    color: sortBy === opt.value ? "#a5b4fc" : "#94a3b8",
+                    border: "none", cursor: "pointer",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = sortBy === opt.value ? "rgba(129,140,248,0.12)" : "transparent")}
+                >
+                  {sortBy === opt.value && <span style={{ color: "#a5b4fc", fontSize: 10 }}>✓</span>}
+                  {sortBy !== opt.value && <span style={{ width: 14 }} />}
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+          title={sortDir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}
+          style={{
+            fontFamily: "monospace", fontSize: 10, padding: "4px 10px", borderRadius: 20,
+            border: `1px solid ${sortDir === "desc" ? "rgba(129,140,248,0.5)" : "rgba(148,163,184,0.15)"}`,
+            background: sortDir === "desc" ? "rgba(129,140,248,0.12)" : "rgba(255,255,255,0.04)",
+            color: sortDir === "desc" ? "#a5b4fc" : "#64748b",
+            cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+            transition: "all 0.15s",
+          }}
+        >
+          {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+        </button>
       </div>
 
       {/* Column layout */}
