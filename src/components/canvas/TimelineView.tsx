@@ -168,6 +168,8 @@ function LazyTicketCard({
   );
 }
 
+const STORAGE_KEY_GROUP_BY = "timeline_group_by_phase";
+
 export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const dateField = viewConfig?.date_field;
   const nodes = useTreeStore((s) => s.nodes);
@@ -177,6 +179,22 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const [filters, setFilters] = useState<Filter[]>(viewConfig?.filters ?? []);
   const [showOlderDates, setShowOlderDates] = useState(false);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set());
+
+  // Group-by-phase toggle — defaults to true (preserved behavior), persisted in localStorage
+  const [groupByPhase, setGroupByPhase] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const stored = localStorage.getItem(STORAGE_KEY_GROUP_BY);
+    if (stored !== null) return stored === "true";
+    return viewConfig?.phase_grouping ?? true;
+  });
+
+  const toggleGroupByPhase = () => {
+    setGroupByPhase((prev) => {
+      const next = !prev;
+      localStorage.setItem(STORAGE_KEY_GROUP_BY, String(next));
+      return next;
+    });
+  };
 
   // Flash animation: track recently updated node IDs
   const [flashNodeIds, setFlashNodeIds] = useState<Set<string>>(new Set());
@@ -359,6 +377,25 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
             transition: "width 0.5s",
           }} />
         </div>
+        {/* Group by phase toggle */}
+        <button
+          onClick={toggleGroupByPhase}
+          title={groupByPhase ? "Disable phase grouping" : "Enable phase grouping"}
+          style={{
+            marginLeft: treeSchema ? 0 : "auto",
+            fontFamily: "monospace", fontSize: 9,
+            background: groupByPhase ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
+            border: `1px solid ${groupByPhase ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: 20, padding: "4px 12px",
+            color: groupByPhase ? "#818cf8" : "#475569",
+            cursor: "pointer", letterSpacing: "0.05em", transition: "all 0.15s",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = groupByPhase ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.06)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = groupByPhase ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)")}
+        >
+          ⊞ Group by phase
+        </button>
         {/* FilterBar */}
         {treeSchema && (
           <div style={{ marginLeft: "auto" }}>
@@ -423,52 +460,74 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
               </span>
             </div>
 
-            {/* Phase sub-groups */}
-            {group.phases.map((phaseGroup) => {
-              const collapseKey = `${group.dateKey}:${phaseGroup.phaseKey}`;
-              const isCollapsed = collapsedPhases.has(collapseKey);
-              return (
-                <div key={phaseGroup.phaseKey} style={{ marginBottom: 16 }}>
-                  {/* Phase label — clickable to collapse/expand */}
-                  <div
-                    onClick={() => togglePhaseCollapse(group.dateKey, phaseGroup.phaseKey)}
-                    style={{
-                      fontFamily: "monospace", fontSize: 9, color: phaseGroup.color,
-                      textTransform: "uppercase", letterSpacing: "0.1em",
-                      marginBottom: isCollapsed ? 0 : 8,
-                      display: "flex", alignItems: "center", gap: 6,
-                      cursor: "pointer", userSelect: "none",
-                    }}
-                  >
-                    <div style={{ width: 8, height: 2, background: phaseGroup.color, borderRadius: 1 }} />
-                    {phaseGroup.phaseLabel}
-                    <span style={{ color: "#334155" }}>({phaseGroup.nodes.length})</span>
-                    <span style={{ color: "#475569", fontSize: 8, marginLeft: 2 }}>
-                      {isCollapsed ? "▶" : "▼"}
-                    </span>
-                  </div>
-
-                  {/* Ticket grid — hidden when phase is collapsed */}
-                  {!isCollapsed && (
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                      gap: 8,
-                    }}>
-                      {phaseGroup.nodes.map((node) => (
-                        <LazyTicketCard
-                          key={node.id}
-                          node={node}
-                          pinnedNodeId={pinnedNodeId}
-                          flashNodeIds={flashNodeIds}
-                          setPinnedNode={setPinnedNode}
-                        />
-                      ))}
+            {/* Phase sub-groups or flat list */}
+            {groupByPhase ? (
+              group.phases.map((phaseGroup) => {
+                const collapseKey = `${group.dateKey}:${phaseGroup.phaseKey}`;
+                const isCollapsed = collapsedPhases.has(collapseKey);
+                return (
+                  <div key={phaseGroup.phaseKey} style={{ marginBottom: 16 }}>
+                    {/* Phase label — clickable to collapse/expand */}
+                    <div
+                      onClick={() => togglePhaseCollapse(group.dateKey, phaseGroup.phaseKey)}
+                      style={{
+                        fontFamily: "monospace", fontSize: 9, color: phaseGroup.color,
+                        textTransform: "uppercase", letterSpacing: "0.1em",
+                        marginBottom: isCollapsed ? 0 : 8,
+                        display: "flex", alignItems: "center", gap: 6,
+                        cursor: "pointer", userSelect: "none",
+                      }}
+                    >
+                      <div style={{ width: 8, height: 2, background: phaseGroup.color, borderRadius: 1 }} />
+                      {phaseGroup.phaseLabel}
+                      <span style={{ color: "#334155" }}>({phaseGroup.nodes.length})</span>
+                      <span style={{ color: "#475569", fontSize: 8, marginLeft: 2 }}>
+                        {isCollapsed ? "▶" : "▼"}
+                      </span>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+
+                    {/* Ticket grid — hidden when phase is collapsed */}
+                    {!isCollapsed && (
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                        gap: 8,
+                      }}>
+                        {phaseGroup.nodes.map((node) => (
+                          <LazyTicketCard
+                            key={node.id}
+                            node={node}
+                            pinnedNodeId={pinnedNodeId}
+                            flashNodeIds={flashNodeIds}
+                            setPinnedNode={setPinnedNode}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              /* Flat list — all tickets for this date sorted by priority */
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                gap: 8,
+              }}>
+                {group.phases
+                  .flatMap((p) => p.nodes)
+                  .sort((a, b) => ((a.data.properties?.priority as number) ?? 99) - ((b.data.properties?.priority as number) ?? 99))
+                  .map((node) => (
+                    <LazyTicketCard
+                      key={node.id}
+                      node={node}
+                      pinnedNodeId={pinnedNodeId}
+                      flashNodeIds={flashNodeIds}
+                      setPinnedNode={setPinnedNode}
+                    />
+                  ))}
+              </div>
+            )}
           </div>
         ))}
 
