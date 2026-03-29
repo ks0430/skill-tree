@@ -237,10 +237,10 @@ export function sortNodes(nodes: Node3D[], sortBy: string, sortDir: "asc" | "des
       bVal = (bProps.due_date as string) ?? "";
     } else {
       // Generic: check top-level data then properties
-      aVal = (a.data as Record<string, unknown>)[sortBy]
+      aVal = (a.data as unknown as Record<string, unknown>)[sortBy]
         ?? ((a.data.properties ?? {}) as Record<string, unknown>)[sortBy]
         ?? "";
-      bVal = (b.data as Record<string, unknown>)[sortBy]
+      bVal = (b.data as unknown as Record<string, unknown>)[sortBy]
         ?? ((b.data.properties ?? {}) as Record<string, unknown>)[sortBy]
         ?? "";
     }
