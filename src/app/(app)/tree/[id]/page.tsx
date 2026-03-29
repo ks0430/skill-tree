@@ -82,7 +82,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
     async function pollNodeStatuses() {
       const { data, error } = await supabase
         .from("skill_nodes")
-        .select("id, status, icon, properties, priority, label, description, created_at, completed_at")
+        .select("id, icon, properties, label, description, type")
         .eq("tree_id", id);
       if (!active || error || !data) return;
       for (const row of data) {
@@ -102,7 +102,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
     // Phase 1: fetch non-completed nodes + metadata in parallel for fast initial render
     const [treeRes, activeNodesRes, edgesRes, messagesRes] = await Promise.all([
       supabase.from("skill_trees").select("*").eq("id", id).single(),
-      supabase.from("skill_nodes").select("*").eq("tree_id", id).neq("status", "completed"),
+      supabase.from("skill_nodes").select("*").eq("tree_id", id).not("properties->>status", "eq", "completed"),
       supabase.from("skill_edges").select("*").eq("tree_id", id),
       supabase.from("chat_messages").select("*").eq("tree_id", id).order("created_at", { ascending: true }),
     ]);
@@ -143,7 +143,7 @@ export default function TreePage({ params }: { params: Promise<{ id: string }> }
         .from("skill_nodes")
         .select("*")
         .eq("tree_id", id)
-        .eq("status", "completed");
+        .eq("properties->>status", "completed");
       for (const n of data ?? []) {
         addNode({ ...n, content: n.content ?? { blocks: [] } });
       }

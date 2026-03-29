@@ -4,11 +4,9 @@ import { useEffect, useRef } from "react";
 
 interface ThumbnailNode {
   id: string;
-  /** type column (preferred); role kept for backward compat */
-  type?: "stellar" | "planet" | "satellite";
-  role: "stellar" | "planet" | "satellite";
+  type: string;
   parent_id: string | null;
-  status: "backlog" | "in_progress" | "completed";
+  status: string;
 }
 
 interface TreeThumbnailProps {
@@ -80,7 +78,7 @@ export function TreeThumbnail({ treeId, nodes, width = 160, height = 100, classN
       ctx.fill();
     }
 
-    const et = (n: ThumbnailNode) => n.type ?? n.role;
+    const et = (n: ThumbnailNode) => n.type;
     const stellars = nodes.filter((n) => et(n) === "stellar");
     const planets = nodes.filter((n) => et(n) === "planet");
 

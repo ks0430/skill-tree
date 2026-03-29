@@ -48,8 +48,8 @@ function computePhaseStats(
     (n) => n.data.parent_id === phaseId
   );
   const total = children.length;
-  const done = children.filter((n) => n.data.status === "completed").length;
-  const hasInProgress = children.some((n) => n.data.status === "in_progress");
+  const done = children.filter((n) => ((n.data.properties?.status as string) ?? "backlog") === "completed").length;
+  const hasInProgress = children.some((n) => ((n.data.properties?.status as string) ?? "backlog") === "in_progress");
   let status: "completed" | "in_progress" | "backlog" = "backlog";
   if (total > 0 && done === total) status = "completed";
   else if (done > 0 || hasInProgress) status = "in_progress";
@@ -93,7 +93,7 @@ function buildDagreLayout(
   // Precompute phase stats
   const phaseStats = new Map<string, PhaseStats>();
   nodes.forEach((n) => {
-    const type = n.data.type ?? n.data.role;
+    const type = n.data.type;
     if (type === "stellar") {
       phaseStats.set(n.id, computePhaseStats(n.id, allNodes));
     }
@@ -106,7 +106,7 @@ function buildDagreLayout(
   // Level 1: stellar (phase) nodes only
   // Level 2: if a phase is expanded, also show its planet children
   const visibleNodes = nodes.filter((n) => {
-    const type = n.data.type ?? n.data.role;
+    const type = n.data.type;
     if (type === "stellar") return true;
     if (type === "planet") {
       // Show if parent phase is expanded
@@ -121,7 +121,7 @@ function buildDagreLayout(
 
   // Add all visible nodes with appropriate sizes
   visibleNodes.forEach((n, idx) => {
-    const type = n.data.type ?? n.data.role;
+    const type = n.data.type;
     if (type === "stellar") {
       const stats = phaseStats.get(n.id) ?? { total: 0, done: 0, status: "backlog" as const };
       const { w, h } = phaseNodeSize(stats.total);
@@ -135,7 +135,7 @@ function buildDagreLayout(
 
   // Build edges: phase nodes → ROOT, planet nodes → phase node
   visibleNodes.forEach((n, idx) => {
-    const type = n.data.type ?? n.data.role;
+    const type = n.data.type;
     if (type === "stellar") {
       // Phase → ROOT (BT: ROOT at bottom, phases above)
       g.setEdge(VIRTUAL_ROOT_ID, n.id, { id: `${VIRTUAL_ROOT_ID}-${n.id}`, isPhaseEdge: true });
@@ -151,7 +151,7 @@ function buildDagreLayout(
   const posNodes: PositionedNode[] = visibleNodes.map((n, idx) => {
     const pos = g.node(n.id);
     const { w, h } = nodeSizeMap.get(n.id) ?? { w: NODE_W, h: NODE_H };
-    const type = n.data.type ?? n.data.role;
+    const type = n.data.type;
     // Apply organic x-offset only to phase (stellar) nodes
     const xOff = type === "stellar" ? organicOffset(n.id, idx) : 0;
     return {
@@ -173,8 +173,8 @@ function buildDagreLayout(
       const sourceNode = visibleNodes.find((n) => n.id === e.v);
       const targetNode = visibleNodes.find((n) => n.id === e.w);
       const isPhaseEdge =
-        (sourceNode?.data.type ?? sourceNode?.data.role) === "stellar" &&
-        (targetNode?.data.type ?? targetNode?.data.role) === "planet";
+        (sourceNode?.data.type) === "stellar" &&
+        (targetNode?.data.type) === "planet";
       const phaseId = isPhaseEdge ? e.v : e.w;
       const stats = phaseStats.get(phaseId);
       return {
@@ -306,7 +306,7 @@ export function SkillTreeView2D() {
 
   // Handle phase node click: toggle expansion
   const handleNodeClick = useCallback((node: Node3D, nodeId: string) => {
-    const type = node.data.type ?? node.data.role;
+    const type = node.data.type;
     if (type === "stellar") {
       setExpandedPhaseIds((prev) => {
         const next = new Set(prev);
@@ -390,8 +390,8 @@ export function SkillTreeView2D() {
         }}
       >
         {posNodes.map(({ id, node, x, y, w, h }) => {
-          const type = node.data.type ?? node.data.role;
-          const status = node.data.status;
+          const type = node.data.type;
+          const status = (node.data.properties?.status as string) ?? "backlog";
           const isHighlighted = id === searchHighlightId;
           const isPinned = id === pinnedNodeId;
           const isHovered = id === hoveredNodeId;
@@ -403,8 +403,8 @@ export function SkillTreeView2D() {
             const stats: PhaseStats = (() => {
               const children = nodes.filter((n) => n.data.parent_id === id);
               const total = children.length;
-              const done = children.filter((n) => n.data.status === "completed").length;
-              const hasInProgress = children.some((n) => n.data.status === "in_progress");
+              const done = children.filter((n) => ((n.data.properties?.status as string) ?? "backlog") === "completed").length;
+              const hasInProgress = children.some((n) => ((n.data.properties?.status as string) ?? "backlog") === "in_progress");
               let st: "completed" | "in_progress" | "backlog" = "backlog";
               if (total > 0 && done === total) st = "completed";
               else if (done > 0 || hasInProgress) st = "in_progress";

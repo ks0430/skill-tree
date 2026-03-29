@@ -52,7 +52,7 @@ function Scene() {
             parentPosition={parent.position}
             radius={ring.radius}
             tilt={ring.tilt}
-            parentRole={(parent.data.type ?? parent.data.role) as "stellar" | "planet" | "satellite"}
+            parentType={parent.data.type as "stellar" | "planet" | "satellite"}
           />
         );
       })}

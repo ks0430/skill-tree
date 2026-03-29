@@ -37,8 +37,8 @@ function getNodeDate(node: Node3D, dateField?: string): string | null {
   }
   // Fallback: use completed_at for completed nodes
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
-  if (node.data.status === "completed") {
-    return (node.data.completed_at ?? props.completed_at ?? props.created_at ?? null) as string | null;
+  if ((props.status as string) === "completed") {
+    return (props.completed_at ?? props.created_at ?? null) as string | null;
   }
   return null;
 }
@@ -92,7 +92,7 @@ function LazyTicketCard({
 
   const isPinned = node.id === pinnedNodeId;
   const isFlashing = flashNodeIds.has(node.id);
-  const status = String(getNodeProperty(node.data, "status") ?? node.data.status ?? "backlog");
+  const status = String(getNodeProperty(node.data, "status") ?? "backlog");
   const color = STATUS_COLOR[status] ?? "#475569";
   const icon = STATUS_ICON[status] ?? "📋";
   const props = (node.data.properties ?? {}) as Record<string, unknown>;
@@ -185,10 +185,11 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
     const updated: string[] = [];
     for (const node of nodes) {
       const prevStatus = prev.get(node.id);
-      if (prevStatus !== undefined && prevStatus !== node.data.status) {
+      const curStatus = (node.data.properties?.status as string) ?? "backlog";
+      if (prevStatus !== undefined && prevStatus !== curStatus) {
         updated.push(node.id);
       }
-      prev.set(node.id, node.data.status ?? "");
+      prev.set(node.id, curStatus);
     }
     if (updated.length > 0) {
       setFlashNodeIds((cur) => {
@@ -214,14 +215,14 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
 
   // Only planet/satellite nodes (tickets)
   const tickets = useMemo(() =>
-    nodes.filter((n) => isCardType(treeSchema ?? { properties: {} }, (n.data.type ?? n.data.role) as string)),
+    nodes.filter((n) => isCardType(treeSchema ?? { properties: {} }, (n.data.type) as string)),
     [nodes, treeSchema]
   );
 
   // Apply filter
   const filtered = useMemo(() => {
-    if (filter === "completed") return tickets.filter((n) => n.data.status === "completed");
-    if (filter === "pending") return tickets.filter((n) => n.data.status !== "completed");
+    if (filter === "completed") return tickets.filter((n) => (n.data.properties?.status as string) === "completed");
+    if (filter === "pending") return tickets.filter((n) => (n.data.properties?.status as string) !== "completed");
     return tickets;
   }, [tickets, filter]);
 
@@ -269,7 +270,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
           phaseKey,
           phaseLabel: phaseName ? `Phase ${phaseNum} · ${phaseName}` : phaseNum ? `Phase ${phaseNum}` : "Other",
           color: PHASE_COLORS[pi % PHASE_COLORS.length],
-          nodes: phaseNodes.sort((a, b) => (a.data.priority ?? 99) - (b.data.priority ?? 99)),
+          nodes: phaseNodes.sort((a, b) => ((a.data.properties?.priority as number) ?? 99) - ((b.data.properties?.priority as number) ?? 99)),
         };
       });
 
@@ -312,7 +313,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
     });
   };
 
-  const completedCount = tickets.filter((n) => n.data.status === "completed").length;
+  const completedCount = tickets.filter((n) => (n.data.properties?.status as string) === "completed").length;
   const total = tickets.length;
 
   return (

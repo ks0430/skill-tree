@@ -75,17 +75,14 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
           tree_id: treeId,
           label: change.params.label as string,
           description: (change.params.description as string) ?? null,
-          status: (change.params.status as SkillNode["status"]) ?? "backlog",
-          type: ((change.params.type ?? change.params.role) as SkillNode["type"]) ?? "planet",
-          role: ((change.params.type ?? change.params.role) as SkillNode["role"]) ?? "planet",
+          type: (change.params.type as string) ?? "planet",
           parent_id: (change.params.parent_id as string) ?? null,
-          priority: (change.params.priority as number) ?? 3,
-          position_x: 0,
-          position_y: 0,
-          content: { blocks: [] },
           icon: null,
-          metadata: null,
-          properties: {},
+          properties: {
+            status: (change.params.status as string) ?? "backlog",
+            priority: (change.params.priority as number) ?? 3,
+          },
+          content: { blocks: [] },
         };
         addNode(node);
         await supabase.from("skill_nodes").insert(node);
@@ -99,14 +96,8 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         const updates: Partial<SkillNode> = {};
         if (change.params.label) updates.label = change.params.label as string;
         if (change.params.description) updates.description = change.params.description as string;
-        if (change.params.status) updates.status = change.params.status as SkillNode["status"];
-        if (change.params.type ?? change.params.role) {
-          const t = ((change.params.type ?? change.params.role) as SkillNode["type"]);
-          updates.type = t;
-          updates.role = t;
-        }
+        if (change.params.type) updates.type = change.params.type as string;
         if (change.params.parent_id !== undefined) updates.parent_id = change.params.parent_id as string | null;
-        if (change.params.priority) updates.priority = change.params.priority as number;
         updateNode(nodeId, updates);
         await supabase.from("skill_nodes").update(updates).eq("id", nodeId);
       } else if (change.action === "add_edge") {
@@ -136,9 +127,6 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         }
       } else if (change.action === "update_properties") {
         const nodeId = change.params.node_id as string;
-        const updates: Partial<SkillNode> = {};
-        if (change.params.status !== undefined) updates.status = change.params.status as SkillNode["status"];
-        if (change.params.priority !== undefined) updates.priority = change.params.priority as number;
         const existingNode = nodes.find((n) => n.id === nodeId);
         const existingProps = existingNode?.data.properties ?? {};
         const newProps = { ...existingProps };
@@ -152,18 +140,15 @@ export function ChatPanel({ treeId, onCollapse }: ChatPanelProps) {
         }
         if (change.params.status !== undefined) newProps.status = change.params.status;
         if (change.params.priority !== undefined) newProps.priority = change.params.priority;
-        const fullUpdates = { ...updates, properties: newProps };
-        updateNode(nodeId, fullUpdates);
-        await supabase.from("skill_nodes").update(fullUpdates).eq("id", nodeId).eq("tree_id", treeId);
+        const updates: Partial<SkillNode> = { properties: newProps };
+        updateNode(nodeId, updates);
+        await supabase.from("skill_nodes").update(updates).eq("id", nodeId).eq("tree_id", treeId);
       } else if (change.action === "set_properties") {
         const nodeId = change.params.node_id as string;
         const newProps = (change.params.properties ?? {}) as Record<string, unknown>;
         const existingNode = nodes.find((n) => n.id === nodeId);
         const mergedProps = { ...(existingNode?.data.properties ?? {}), ...newProps };
-        const updates: Partial<SkillNode> & { properties: Record<string, unknown> } = { properties: mergedProps };
-        // Sync legacy columns
-        if ("status" in newProps) updates.status = newProps.status as SkillNode["status"];
-        if ("priority" in newProps) updates.priority = newProps.priority as number;
+        const updates: Partial<SkillNode> = { properties: mergedProps };
         updateNode(nodeId, updates);
         await supabase.from("skill_nodes").update(updates).eq("id", nodeId).eq("tree_id", treeId);
       } else if (

@@ -115,7 +115,7 @@ function CameraController() {
       ? new THREE.Vector3(livePos.x, livePos.y, livePos.z)
       : new THREE.Vector3(...node.position);
 
-    const dist = ZOOM_DISTANCE[node.data.type ?? node.data.role] ?? 6;
+    const dist = ZOOM_DISTANCE[node.data.type] ?? 6;
     flyToLookAt.current = nodePos.clone();
     flyToPos.current = nodePos.clone().add(new THREE.Vector3(dist * 0.4, dist * 0.5, dist * 0.8));
     isFlying.current = true;
@@ -230,11 +230,11 @@ function StaggeredNodes({ nodes, nodeMap, onProgress }: {
 }) {
   const treeSchema = useTreeStore((s) => s.treeSchema);
   const stellars = useMemo(() => nodes.filter((n) => {
-    const render = treeSchema ? getNodeRender(treeSchema, (n.data.type ?? n.data.role) as string) : ((n.data.type ?? n.data.role) === "stellar" ? "star" : "planet");
+    const render = treeSchema ? getNodeRender(treeSchema, n.data.type) : (n.data.type === "stellar" ? "star" : "planet");
     return render === "star";
   }), [nodes, treeSchema]);
   const planets = useMemo(() => nodes.filter((n) => {
-    const render = treeSchema ? getNodeRender(treeSchema, (n.data.type ?? n.data.role) as string) : ((n.data.type ?? n.data.role) === "stellar" ? "star" : "planet");
+    const render = treeSchema ? getNodeRender(treeSchema, n.data.type) : (n.data.type === "stellar" ? "star" : "planet");
     return render !== "star";
   }), [nodes, treeSchema]);
   const [mountedCount, setMountedCount] = useState(0);
@@ -313,7 +313,7 @@ function Scene({ onProgress }: { onProgress: (loaded: number, total: number) => 
             parentPosition={parent.position}
             radius={ring.radius}
             tilt={ring.tilt}
-            parentRole={(parent.data.type ?? parent.data.role) as "stellar" | "planet" | "satellite"}
+            parentType={parent.data.type}
           />
         );
       })}

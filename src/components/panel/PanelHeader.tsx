@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import type { NodeRole } from "@/types/skill-tree";
 
-const roleLabels: Record<NodeRole, string> = {
+const typeLabels: Record<string, string> = {
   stellar: "Star System",
   planet: "Planet",
   satellite: "Moon",
 };
 
 interface PanelHeaderProps {
-  role: NodeRole;
+  type: string;
   label: string;
   pinned: boolean;
   onClose?: () => void;
@@ -18,7 +17,7 @@ interface PanelHeaderProps {
   onLabelUpdate?: (newLabel: string) => void;
 }
 
-export function PanelHeader({ role, label, pinned, onClose, onLabelUpdate }: PanelHeaderProps) {
+export function PanelHeader({ type, label, pinned, onClose, onLabelUpdate }: PanelHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(label);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +55,7 @@ export function PanelHeader({ role, label, pinned, onClose, onLabelUpdate }: Pan
     <div className="mb-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-          {roleLabels[role]}
+          {typeLabels[type] ?? type}
         </span>
         {pinned && (
           <div className="flex items-center gap-2">

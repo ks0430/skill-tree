@@ -14,7 +14,7 @@ export function buildSystemPrompt(
     const m = n.id.match(/^item-(\d+)$/);
     return m ? Math.max(max, parseInt(m[1], 10)) : max;
   }, 0);
-  const effectiveType = (n: SkillNode) => n.type ?? n.role;
+  const effectiveType = (n: SkillNode) => n.type;
   const stellars = nodes.filter((n) => effectiveType(n) === "stellar");
   const planets = nodes.filter((n) => effectiveType(n) === "planet");
   const satellites = nodes.filter((n) => effectiveType(n) === "satellite");
@@ -42,14 +42,14 @@ export function buildSystemPrompt(
             ? mySats
                 .map(
                   (sat) =>
-                    `        - [satellite] ${sat.id}: "${sat.label}" (${sat.status})${descriptionSuffix(sat)}${checklistSummary(sat)}`
+                    `        - [satellite] ${sat.id}: "${sat.label}" (${sat.properties?.status ?? "backlog"})${descriptionSuffix(sat)}${checklistSummary(sat)}`
                 )
                 .join("\n")
             : "";
-          return `      - [planet] ${p.id}: "${p.label}" (${p.status}, priority ${p.priority})${descriptionSuffix(p)}${checklistSummary(p)}${satStr ? "\n" + satStr : ""}`;
+          return `      - [planet] ${p.id}: "${p.label}" (${p.properties?.status ?? "backlog"}, priority ${p.properties?.priority ?? 3})${descriptionSuffix(p)}${checklistSummary(p)}${satStr ? "\n" + satStr : ""}`;
         })
         .join("\n");
-      return `  [stellar] ${s.id}: "${s.label}" (${s.status})${descriptionSuffix(s)}${checklistSummary(s)}\n${planetLines || "      (no planets yet)"}`;
+      return `  [stellar] ${s.id}: "${s.label}" (${s.properties?.status ?? "backlog"})${descriptionSuffix(s)}${checklistSummary(s)}\n${planetLines || "      (no planets yet)"}`;
     })
     .join("\n\n");
 

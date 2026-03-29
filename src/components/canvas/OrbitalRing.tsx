@@ -2,20 +2,19 @@
 
 import { useMemo, memo } from "react";
 import { Line } from "@react-three/drei";
-import type { NodeRole } from "@/types/skill-tree";
 
 interface OrbitalRingProps {
   parentPosition: [number, number, number];
   radius: number;
   tilt: number;
-  parentRole: NodeRole;
+  parentType: string;
 }
 
 export const OrbitalRing = memo(function OrbitalRing({
   parentPosition,
   radius,
   tilt,
-  parentRole,
+  parentType,
 }: OrbitalRingProps) {
   const points = useMemo(() => {
     const segments = 64;
@@ -32,7 +31,7 @@ export const OrbitalRing = memo(function OrbitalRing({
     return pts;
   }, [radius, tilt]);
 
-  const opacity = parentRole === "stellar" ? 0.08 : 0.05;
+  const opacity = parentType === "stellar" ? 0.08 : 0.05;
 
   return (
     <group position={parentPosition}>

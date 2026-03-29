@@ -13,7 +13,7 @@ export interface PropertyDef {
 export type HierarchyRender = "star" | "planet" | "satellite";
 
 export interface HierarchyLevel {
-  id: string;          // stored in node's type/role column, e.g. "epic", "story", "task"
+  id: string;          // stored in node's type column, e.g. "epic", "story", "task"
   label: string;       // display name, e.g. "Epic", "Story", "Task"
   render: HierarchyRender; // how to render in 3D view
 }
@@ -71,11 +71,10 @@ export const DEFAULT_VIEW_CONFIGS: ViewConfig[] = [
   { id: "gantt",  name: "Timeline",     type: "gantt",  date_field: "due_date" },
 ];
 
-// ── Legacy types (kept for backward compat during transition) ───────────────
+// ── Status & node type aliases ──────────────────────────────────────────────
 
 export type NodeStatus = "backlog" | "queued" | "in_progress" | "completed";
-export type NodeRole = "stellar" | "planet" | "satellite";
-export type NodeType = NodeRole;
+export type NodeType = string;
 
 // ── Core data types ─────────────────────────────────────────────────────────
 
@@ -98,24 +97,13 @@ export interface SkillNode {
   tree_id: string;
   label: string;
   description: string | null;
-  /** @deprecated Read from properties.status via getNodeProperty() instead. */
-  status: NodeStatus;
-  /** Structural hierarchy for solar system view. */
+  /** Structural hierarchy tier (e.g. "stellar", "planet", "satellite" or custom). */
   type: NodeType;
-  /** @deprecated Use type instead. */
-  role: NodeRole;
   parent_id: string | null;
-  /** @deprecated Read from properties.priority via getNodeProperty() instead. */
-  priority: number;
-  position_x: number;
-  position_y: number;
   icon: string | null;
-  metadata: Record<string, unknown> | null;
-  /** Flexible properties — source of truth for all user-defined fields. */
+  /** Source of truth for all dynamic fields (status, priority, dates, etc.). */
   properties: Record<string, unknown>;
   content: import("./node-content").NodeContent;
-  created_at?: string;
-  completed_at?: string | null;
 }
 
 export type EdgeType = "parent" | "depends_on" | "blocks" | "related" | "references";
@@ -133,26 +121,17 @@ export interface SkillEdge {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Read a property from a node, with fallback to legacy columns. */
+/** Read a property from a node's properties bag. */
 export function getNodeProperty(node: SkillNode, key: string): unknown {
-  if (node.properties && key in node.properties) return node.properties[key];
-  // Legacy fallback
-  if (key === "status") return node.status;
-  if (key === "priority") return node.priority;
-  return undefined;
+  return node.properties?.[key];
 }
 
-/** Write properties and sync legacy columns. Returns a partial update object. */
+/** Merge new properties into a node. Returns a partial update object. */
 export function buildNodeUpdate(
   existing: SkillNode,
   newProps: Record<string, unknown>
 ): Partial<SkillNode> {
-  const merged = { ...existing.properties, ...newProps };
-  const update: Partial<SkillNode> = { properties: merged };
-  // Sync legacy columns
-  if ("status" in newProps) update.status = newProps.status as NodeStatus;
-  if ("priority" in newProps) update.priority = newProps.priority as number;
-  return update;
+  return { properties: { ...existing.properties, ...newProps } };
 }
 
 /** Resolve tree schema with defaults for missing fields. */

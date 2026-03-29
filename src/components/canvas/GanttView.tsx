@@ -266,7 +266,7 @@ export function GanttView() {
 
           {/* Node rows */}
           {layout.rows.map((row) => {
-            const type = row.node.data.type ?? row.node.data.role;
+            const type = row.node.data.type;
             const isPinned = row.id === pinnedNodeId;
             return (
               <div
@@ -400,8 +400,8 @@ export function GanttView() {
 
             {/* Gantt bars — duration from created_at (open) → completed_at (close) */}
             {layout.rows.map((row) => {
-              const status = row.node.data.status;
-              const type = row.node.data.type ?? row.node.data.role;
+              const status = (row.node.data.properties?.status as string) ?? "backlog";
+              const type = row.node.data.type;
               const barColor = STATUS_COLORS[status] ?? "#475569";
               const borderColor = TYPE_COLORS[type] ?? "#475569";
               const isPinned = row.id === pinnedNodeId;

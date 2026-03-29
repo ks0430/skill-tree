@@ -7,7 +7,6 @@ import { NodeDetailPanel } from "@/components/panel/NodeDetailPanel";
 import { SearchPanel } from "./SearchPanel";
 import { createClient } from "@/lib/supabase/client";
 import type { Node3D } from "@/lib/store/tree-store";
-import type { NodeStatus } from "@/types/skill-tree";
 import type { SkillNode, TreeSchema, ViewConfig } from "@/types/skill-tree";
 import { getNodeProperty, DEFAULT_SCHEMA, isCardType, getTypeLabel } from "@/types/skill-tree";
 
@@ -44,14 +43,6 @@ function buildColumnConfigs(schema: TreeSchema, groupBy: string): ColumnConfig[]
     };
   });
 }
-
-// Map between column id (schema option value) and legacy NodeStatus
-const LEGACY_STATUS_MAP: Record<string, NodeStatus> = {
-  backlog: "backlog",
-  queued: "queued",
-  in_progress: "in_progress",
-  completed: "completed",
-};
 
 const TYPE_COLORS: Record<string, string> = {
   stellar: "#818cf8",
@@ -102,7 +93,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
     async function pollNodes() {
       const { data, error } = await supabase
         .from("skill_nodes")
-        .select("id, status, icon, properties, priority, label, description")
+        .select("id, icon, properties, label, description, type")
         .eq("tree_id", treeId!);
       if (!active || error || !data) return;
 
@@ -215,7 +206,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
   // Derive available phases from stellar nodes
   const phases = useMemo(() => {
     return nodes
-      .filter((n) => !isCardType(resolvedSchema, (n.data.type ?? n.data.role) as string))
+      .filter((n) => !isCardType(resolvedSchema, n.data.type as string))
       .map((n) => ({
         id: n.id,
         label: n.data.label,
@@ -238,7 +229,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
     for (const node of nodes) seen.set(node.id, node);
 
     for (const node of seen.values()) {
-      const nodeType = node.data.type ?? node.data.role;
+      const nodeType = node.data.type;
       // Skip stellar (phase) nodes — only show planets (tickets)
       if (!isCardType(resolvedSchema, nodeType)) continue;
       // Apply phase filter
@@ -260,15 +251,15 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
 
     // Sort all columns by priority ascending (lowest = next to run)
     for (const colId of columnIds) {
-      grouped[colId].sort((a, b) => a.data.priority - b.data.priority);
+      grouped[colId].sort((a, b) => ((a.data.properties?.priority as number) ?? 3) - ((b.data.properties?.priority as number) ?? 3));
     }
 
     // Sort completed column by completed_at descending (most recent first)
     const completedColId = columnIds[columnIds.length - 1];
     if (completedColId) {
       grouped[completedColId].sort((a, b) => {
-        const aTime = a.data.completed_at ?? "";
-        const bTime = b.data.completed_at ?? "";
+        const aTime = (a.data.properties?.completed_at as string) ?? "";
+        const bTime = (b.data.properties?.completed_at as string) ?? "";
         return bTime.localeCompare(aTime);
       });
     }
@@ -307,11 +298,8 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
       if (!treeId) return;
       const node = nodes.find((n) => n.id === nodeId);
       const mergedProps = { ...(node?.data.properties ?? {}), [groupBy]: columnValue };
-      const update: Partial<SkillNode> & { properties: Record<string, unknown> } = { properties: mergedProps, priority };
-      // Sync legacy status column if grouping by status
-      if (groupBy === "status" && LEGACY_STATUS_MAP[columnValue]) {
-        update.status = LEGACY_STATUS_MAP[columnValue];
-      }
+      const mergedWithPriority = { ...mergedProps, priority };
+      const update: Partial<SkillNode> = { properties: mergedWithPriority };
       updateNode(nodeId, update);
       await supabase
         .from("skill_nodes")
@@ -390,14 +378,14 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
         newPriority = 5;
       } else if (targetIndex <= 0) {
         // Above everything — one more than the highest
-        newPriority = (colNodes[0]?.data.priority ?? 5) + 1;
+        newPriority = (((colNodes[0]?.data.properties?.priority as number) ?? 5) ?? 5) + 1;
       } else if (targetIndex >= colNodes.length) {
         // Below everything — one less than the lowest
-        newPriority = Math.max(0, (colNodes[colNodes.length - 1]?.data.priority ?? 1) - 1);
+        newPriority = Math.max(0, ((colNodes[colNodes.length - 1]?.data.properties?.priority as number) ?? 1) - 1);
       } else {
         // Between two cards — midpoint
-        const above = colNodes[targetIndex - 1]?.data.priority ?? 5;
-        const below = colNodes[targetIndex]?.data.priority ?? 0;
+        const above = (colNodes[targetIndex - 1]?.data.properties?.priority as number) ?? 5;
+        const below = (colNodes[targetIndex]?.data.properties?.priority as number) ?? 0;
         newPriority = (above + below) / 2;
       }
 
@@ -628,7 +616,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
                 )}
 
                 {colNodes.map((node, index) => {
-                  const type = node.data.type ?? node.data.role;
+                  const type = node.data.type;
                   const typeColor = TYPE_COLORS[type] ?? "#475569";
                   const isPinned = node.id === pinnedNodeId;
                   const isBeingDragged = dragState?.nodeId === node.id;
@@ -705,7 +693,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
                             <span style={{
                               fontFamily: "monospace", fontSize: 9, color: "#64748b",
                               marginLeft: "auto"
-                            }}>priority {node.data.priority}</span>
+                            }}>priority {(node.data.properties?.priority as number) ?? 3}</span>
                             {/* Delete button — visible on hover */}
                             {hoverCardId === node.id && confirmDeleteId !== node.id && (
                               <button
@@ -810,7 +798,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
                               color: "#475569",
                             }}
                           >
-                            p{node.data.priority.toFixed ? node.data.priority.toFixed(1) : node.data.priority}
+                            p{(() => { const p = (node.data.properties?.priority as number) ?? 3; return typeof p === "number" && p.toFixed ? p.toFixed(1) : p; })()}
                           </span>
                           {node.data.icon && (
                             <>

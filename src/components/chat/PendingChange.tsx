@@ -30,22 +30,19 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
 
     switch (action) {
       case "add_node": {
-        const resolvedType = ((params.type ?? params.role) as SkillNode["type"]) ?? "planet";
+        const resolvedType = (params.type as string) ?? "planet";
         const node: SkillNode = {
           id: params.id as string,
           tree_id: treeId,
           label: params.label as string,
           description: (params.description as string) ?? null,
-          status: (params.status as SkillNode["status"]) ?? "backlog",
           type: resolvedType,
-          role: resolvedType,
           parent_id: (params.parent_id as string) ?? null,
-          priority: (params.priority as number) ?? 3,
-          position_x: 0,
-          position_y: 0,
           icon: null,
-          metadata: null,
-          properties: {},
+          properties: {
+            status: (params.status as string) ?? "backlog",
+            priority: (params.priority as number) ?? 3,
+          },
           content: { blocks: [] },
         };
         addNode(node);
@@ -74,14 +71,8 @@ export function PendingChange({ change, treeId }: PendingChangeProps) {
         const updates: Partial<SkillNode> = {};
         if (params.label) updates.label = params.label as string;
         if (params.description) updates.description = params.description as string;
-        if (params.status) updates.status = params.status as SkillNode["status"];
-        if (params.type ?? params.role) {
-          const t = ((params.type ?? params.role) as SkillNode["type"]);
-          updates.type = t;
-          updates.role = t;
-        }
+        if (params.type) updates.type = params.type as string;
         if (params.parent_id !== undefined) updates.parent_id = params.parent_id as string | null;
-        if (params.priority) updates.priority = params.priority as number;
         updateNode(nodeId, updates);
         const { error: updErr } = await supabase.from("skill_nodes").update(updates).eq("id", nodeId);
         if (updErr) { toast.error("Failed to update node"); setAccepting(false); return; }
