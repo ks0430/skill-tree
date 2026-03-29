@@ -153,30 +153,38 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 
   // Stat rows — no dates here, they're in props if set
   const STAT_COLORS: Record<string, string> = {
-    Phase:    "#818cf8", // indigo
-    Priority: "#f59e0b", // amber
-    Created:  "#64748b", // slate
-    Start:    "#22d3ee", // cyan
-    Due:      "#f87171", // red
-    Estimate: "#a78bfa", // violet
-    Commit:   "#34d399", // emerald
-    Done:     "#22c55e", // green
+    Phase:      "#818cf8", // indigo
+    Priority:   "#f59e0b", // amber
+    Complexity: "#f59e0b", // amber
+    Repo:       "#38bdf8", // sky
+    Created:    "#64748b", // slate
+    Start:      "#22d3ee", // cyan
+    Due:        "#f87171", // red
+    Estimate:   "#a78bfa", // violet
+    Model:      "#c084fc", // purple
+    Commit:     "#34d399", // emerald
+    Done:       "#22c55e", // green
+    PR:         "#60a5fa", // blue
   };
 
   const phaseDisplay = props.phase_name
     ? `${props.phase} · ${props.phase_name}`
     : String(props.phase ?? "—");
 
-  const stats: [string, string][] = [
-    ["Phase",    phaseDisplay],
-    ["Priority", String(props.priority ?? node.data.priority ?? "—")],
-    ["Created",  props.created_at ? props.created_at.slice(0, 10) : "—"],
-    ["Start",    props.start_date ? props.start_date.slice(0, 10) : "—"],
-    ["Due",      props.due_date ? props.due_date.slice(0, 10) : "—"],
-    ["Estimate", props.estimate ?? "—"],
-    ["Commit",   props.commit_hash ? props.commit_hash.slice(0, 8) : "—"],
-    ["Done",     props.completed_at ? props.completed_at.slice(0, 10) : "—"],
-  ].filter(([, v]) => v !== "—") as [string, string][];
+  const stats: [string, string, string?][] = ([
+    ["Phase",      phaseDisplay],
+    ["Priority",   String(props.priority ?? node.data.priority ?? "—")],
+    ["Complexity", props.complexity ? `${props.complexity}/5` : "—"],
+    ["Repo",       props.target_repo ?? "—"],
+    ["Created",    props.created_at ? props.created_at.slice(0, 10) : "—"],
+    ["Start",      props.start_date ? props.start_date.slice(0, 10) : "—"],
+    ["Due",        props.due_date ? props.due_date.slice(0, 10) : "—"],
+    ["Estimate",   props.estimate ?? "—"],
+    ["Model",      props.model_used ?? "—"],
+    ["Commit",     props.commit_hash ? props.commit_hash.slice(0, 8) : "—"],
+    ["Done",       props.completed_at ? props.completed_at.slice(0, 10) : "—"],
+    ["PR",         props.pr_url ?? "—", props.pr_url ?? undefined],
+  ] as [string, string, string?][]).filter(([, v]) => v !== "—");
 
   // View-only blocks (no checklist — checklist rendered separately)
   const textBlocks = content.blocks.filter(b => b.type !== "checklist");
@@ -254,17 +262,24 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
           borderBottom: "1px solid rgba(255,255,255,0.05)",
           display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 8px",
         }}>
-          {stats.map(([label, value]) => {
+          {stats.map(([label, value, href]) => {
             const color = STAT_COLORS[label] ?? "#64748b";
             return (
-              <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
                 <span style={{
                   fontFamily: "monospace", fontSize: 8, color,
                   textTransform: "uppercase", letterSpacing: "0.12em", flexShrink: 0,
                   background: `${color}18`, borderRadius: 2,
                   padding: "1px 4px", border: `1px solid ${color}40`,
                 }}>{label}</span>
-                <span style={{ fontFamily: "monospace", fontSize: 11, color: "#cbd5e1", fontWeight: 600 }}>{value}</span>
+                {href ? (
+                  <a href={href} target="_blank" rel="noopener noreferrer" style={{
+                    fontFamily: "monospace", fontSize: 11, color: "#60a5fa", fontWeight: 600,
+                    textDecoration: "underline", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>View PR</a>
+                ) : (
+                  <span style={{ fontFamily: "monospace", fontSize: 11, color: "#cbd5e1", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</span>
+                )}
               </div>
             );
           })}
