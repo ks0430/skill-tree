@@ -35,8 +35,7 @@
 - Node.js 18 — no packages requiring Node 20+.
 - Tailwind CSS v3 (not v4).
 - `frameloop="always"` for Three.js canvas.
-- Do NOT run `next build` to validate — user tests via `npm run dev`.
-- After code changes are committed and merged, **restart the dev server** by running: `pkill -f 'next-server' 2>/dev/null; sleep 2; cd /home/ubuntu/code/skillforge && npm run dev &`
+- Do NOT run `next build` to validate — app is deployed via Vercel (auto-deploys on push to master).
 
 ## Database
 
