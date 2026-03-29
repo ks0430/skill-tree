@@ -194,6 +194,69 @@ function DateRangeFilter({
   );
 }
 
+/* ── Filter chips summary row ──────────────────────────────────────────── */
+
+function formatChipValue(filter: Filter): string {
+  const { value } = filter;
+  if (Array.isArray(value)) {
+    return (value as string[]).map((v) => v.replace(/_/g, " ")).join(", ");
+  }
+  if (typeof value === "object" && value !== null) {
+    const range = value as { from?: string; to?: string };
+    if (range.from && range.to) return `${range.from} – ${range.to}`;
+    if (range.from) return `from ${range.from}`;
+    if (range.to) return `to ${range.to}`;
+    return "";
+  }
+  return String(value).replace(/_/g, " ");
+}
+
+function FilterChips({
+  filters,
+  onFiltersChange,
+}: {
+  filters: Filter[];
+  onFiltersChange: (filters: Filter[]) => void;
+}) {
+  if (filters.length === 0) return null;
+
+  function removeFilter(property: string) {
+    onFiltersChange(filters.filter((f) => f.property !== property));
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+      {filters.map((filter) => {
+        const label = filter.property.replace(/_/g, " ");
+        const valueStr = formatChipValue(filter);
+        if (!valueStr) return null;
+        return (
+          <span
+            key={filter.property}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-indigo-500/15 border border-indigo-500/30 text-indigo-300"
+          >
+            <span className="capitalize font-medium">{label}:</span>
+            <span className="capitalize">{valueStr}</span>
+            <button
+              onClick={() => removeFilter(filter.property)}
+              className="ml-0.5 text-indigo-400 hover:text-white transition-colors leading-none"
+              aria-label={`Remove ${label} filter`}
+            >
+              ✕
+            </button>
+          </span>
+        );
+      })}
+      <button
+        onClick={() => onFiltersChange([])}
+        className="text-[10px] text-slate-500 hover:text-white transition-colors px-1"
+      >
+        Clear all
+      </button>
+    </div>
+  );
+}
+
 /* ── Main FilterBar ────────────────────────────────────────────────────── */
 
 export function FilterBar({ schema, filters, onFiltersChange }: FilterBarProps) {
@@ -239,10 +302,9 @@ export function FilterBar({ schema, filters, onFiltersChange }: FilterBarProps) 
 
   if (filterableProps.length === 0) return null;
 
-  const hasActiveFilters = filters.length > 0;
-
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex flex-col">
+      <div className="flex items-center gap-2 flex-wrap">
       <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Filters</span>
 
       {filterableProps.map(([key, def]) => {
@@ -292,14 +354,8 @@ export function FilterBar({ schema, filters, onFiltersChange }: FilterBarProps) 
         return null;
       })}
 
-      {hasActiveFilters && (
-        <button
-          onClick={() => onFiltersChange([])}
-          className="text-[10px] text-slate-500 hover:text-white transition-colors ml-1"
-        >
-          Clear all
-        </button>
-      )}
+      </div>
+      <FilterChips filters={filters} onFiltersChange={onFiltersChange} />
     </div>
   );
 }
