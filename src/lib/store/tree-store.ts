@@ -1,3 +1,4 @@
+// Layout engine v1 — workflow test
 import { create } from "zustand";
 import type { SkillNode, SkillEdge, EdgeType, NodeStatus, NodeRole, TreeSchema, ViewConfig } from "@/types/skill-tree";
 import { resolveHierarchy, getNodeRender } from "@/types/skill-tree";
