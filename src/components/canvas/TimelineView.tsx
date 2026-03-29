@@ -168,7 +168,7 @@ function LazyTicketCard({
   );
 }
 
-const STORAGE_KEY_GROUP_BY = "timeline_group_by_phase";
+const STORAGE_KEY_PREFIX = "timeline-group-by-phase";
 
 export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const dateField = viewConfig?.date_field;
@@ -180,18 +180,20 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
   const [showOlderDates, setShowOlderDates] = useState(false);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set());
 
-  // Group-by-phase toggle — defaults to true (preserved behavior), persisted in localStorage
+  // Group-by-phase toggle — persisted in localStorage per view config id
+  const storageKey = `${STORAGE_KEY_PREFIX}-${viewConfig?.id ?? "default"}`;
   const [groupByPhase, setGroupByPhase] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
-    const stored = localStorage.getItem(STORAGE_KEY_GROUP_BY);
+    const stored = localStorage.getItem(storageKey);
     if (stored !== null) return stored === "true";
-    return viewConfig?.group_by !== undefined ? viewConfig.group_by === "phase" : true;
+    // Default: on if view config has group_by set, otherwise on
+    return true;
   });
 
   const toggleGroupByPhase = () => {
     setGroupByPhase((prev) => {
       const next = !prev;
-      localStorage.setItem(STORAGE_KEY_GROUP_BY, String(next));
+      localStorage.setItem(storageKey, String(next));
       return next;
     });
   };
@@ -282,6 +284,18 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
     const PHASE_COLORS = ["#6366f1","#22d3ee","#f59e0b","#a78bfa","#34d399","#f87171","#60a5fa","#fb923c"];
 
     return entries.map(([dateKey, groupNodes]) => {
+      if (!groupByPhase) {
+        // Flat list sorted by priority
+        const sorted = [...groupNodes].sort(
+          (a, b) => ((a.data.properties?.priority as number) ?? 99) - ((b.data.properties?.priority as number) ?? 99)
+        );
+        return {
+          dateKey,
+          dateLabel: dateKey === "Pending" ? "Pending / Not started" : formatDate(dateKey + "T00:00:00Z"),
+          phases: [{ phaseKey: "_flat", phaseLabel: "", color: "", nodes: sorted }],
+        };
+      }
+
       const phaseMap = new Map<string, Node3D[]>();
       groupNodes.forEach((n) => {
         const props = (n.data.properties ?? {}) as Record<string, unknown>;
@@ -316,7 +330,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
         phases,
       };
     });
-  }, [filtered, dateField]);
+  }, [filtered, dateField, groupByPhase]);
 
   // 90-day window: show last 90 days + all Pending; older dates load on demand
   const cutoffDate = useMemo(() => {
@@ -377,24 +391,23 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
             transition: "width 0.5s",
           }} />
         </div>
-        {/* Group by phase toggle */}
+        {/* Group-by-phase toggle */}
         <button
           onClick={toggleGroupByPhase}
           title={groupByPhase ? "Disable phase grouping" : "Enable phase grouping"}
           style={{
-            marginLeft: treeSchema ? 0 : "auto",
             fontFamily: "monospace", fontSize: 9,
-            background: groupByPhase ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
+            background: groupByPhase ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)",
             border: `1px solid ${groupByPhase ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
-            borderRadius: 20, padding: "4px 12px",
+            borderRadius: 4, padding: "4px 10px",
             color: groupByPhase ? "#818cf8" : "#475569",
-            cursor: "pointer", letterSpacing: "0.05em", transition: "all 0.15s",
-            whiteSpace: "nowrap",
+            cursor: "pointer", letterSpacing: "0.05em",
+            transition: "all 0.15s", whiteSpace: "nowrap",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = groupByPhase ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.06)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = groupByPhase ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)")}
+          onMouseEnter={(e) => (e.currentTarget.style.background = groupByPhase ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.07)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = groupByPhase ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)")}
         >
-          ⊞ Group by phase
+          ⬡ GROUP BY PHASE
         </button>
         {/* FilterBar */}
         {treeSchema && (
@@ -460,14 +473,15 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
               </span>
             </div>
 
-            {/* Phase sub-groups or flat list */}
-            {groupByPhase ? (
-              group.phases.map((phaseGroup) => {
-                const collapseKey = `${group.dateKey}:${phaseGroup.phaseKey}`;
-                const isCollapsed = collapsedPhases.has(collapseKey);
-                return (
-                  <div key={phaseGroup.phaseKey} style={{ marginBottom: 16 }}>
-                    {/* Phase label — clickable to collapse/expand */}
+            {/* Phase sub-groups (or flat list) */}
+            {group.phases.map((phaseGroup) => {
+              const isFlat = phaseGroup.phaseKey === "_flat";
+              const collapseKey = `${group.dateKey}:${phaseGroup.phaseKey}`;
+              const isCollapsed = !isFlat && collapsedPhases.has(collapseKey);
+              return (
+                <div key={phaseGroup.phaseKey} style={{ marginBottom: isFlat ? 0 : 16 }}>
+                  {/* Phase label — shown only when grouping is on */}
+                  {!isFlat && (
                     <div
                       onClick={() => togglePhaseCollapse(group.dateKey, phaseGroup.phaseKey)}
                       style={{
@@ -485,49 +499,29 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
                         {isCollapsed ? "▶" : "▼"}
                       </span>
                     </div>
+                  )}
 
-                    {/* Ticket grid — hidden when phase is collapsed */}
-                    {!isCollapsed && (
-                      <div style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                        gap: 8,
-                      }}>
-                        {phaseGroup.nodes.map((node) => (
-                          <LazyTicketCard
-                            key={node.id}
-                            node={node}
-                            pinnedNodeId={pinnedNodeId}
-                            flashNodeIds={flashNodeIds}
-                            setPinnedNode={setPinnedNode}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              /* Flat list — all tickets for this date sorted by priority */
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                gap: 8,
-              }}>
-                {group.phases
-                  .flatMap((p) => p.nodes)
-                  .sort((a, b) => ((a.data.properties?.priority as number) ?? 99) - ((b.data.properties?.priority as number) ?? 99))
-                  .map((node) => (
-                    <LazyTicketCard
-                      key={node.id}
-                      node={node}
-                      pinnedNodeId={pinnedNodeId}
-                      flashNodeIds={flashNodeIds}
-                      setPinnedNode={setPinnedNode}
-                    />
-                  ))}
-              </div>
-            )}
+                  {/* Ticket grid — hidden when phase is collapsed */}
+                  {!isCollapsed && (
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                      gap: 8,
+                    }}>
+                      {phaseGroup.nodes.map((node) => (
+                        <LazyTicketCard
+                          key={node.id}
+                          node={node}
+                          pinnedNodeId={pinnedNodeId}
+                          flashNodeIds={flashNodeIds}
+                          setPinnedNode={setPinnedNode}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
 
