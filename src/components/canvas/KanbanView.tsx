@@ -263,6 +263,16 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
       grouped[colId].sort((a, b) => a.data.priority - b.data.priority);
     }
 
+    // Sort completed column by completed_at descending (most recent first)
+    const completedColId = columnIds[columnIds.length - 1];
+    if (completedColId) {
+      grouped[completedColId].sort((a, b) => {
+        const aTime = a.data.completed_at ?? "";
+        const bTime = b.data.completed_at ?? "";
+        return bTime.localeCompare(aTime);
+      });
+    }
+
     // Apply limit — sort by created_at desc, keep latest N across all columns
     if (limit > 0) {
       const allFiltered = columnIds.flatMap((c) => grouped[c]);
