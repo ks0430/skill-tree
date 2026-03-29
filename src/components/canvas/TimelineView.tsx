@@ -185,7 +185,7 @@ export function TimelineView({ viewConfig }: { viewConfig?: ViewConfig } = {}) {
     if (typeof window === "undefined") return true;
     const stored = localStorage.getItem(STORAGE_KEY_GROUP_BY);
     if (stored !== null) return stored === "true";
-    return viewConfig?.phase_grouping ?? true;
+    return viewConfig?.group_by !== undefined ? viewConfig.group_by === "phase" : true;
   });
 
   const toggleGroupByPhase = () => {
