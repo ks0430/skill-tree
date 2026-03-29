@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Build game-style skill trees with AI",
 };
 
+const BUILD_TIMESTAMP = new Date().toISOString();
+
 export default function RootLayout({
   children,
 }: {
@@ -26,6 +28,9 @@ export default function RootLayout({
       <body className="min-h-screen antialiased">
         {children}
         <ThemeToggle />
+        <footer className="fixed bottom-1 left-1/2 -translate-x-1/2 text-[10px] opacity-20 pointer-events-none select-none" style={{ color: "var(--text-secondary)" }}>
+          build: {BUILD_TIMESTAMP}
+        </footer>
         <Toaster
           position="bottom-right"
           toastOptions={{
