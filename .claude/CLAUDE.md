@@ -43,6 +43,25 @@
 - Tables: `skill_trees`, `skill_nodes`, `skill_edges` (unused), `chat_messages`
 - RLS on all tables, scoped to `auth.uid()`
 - Composite PK on skill_nodes: `(id, tree_id)`
+- Valid statuses: `backlog`, `queued`, `in_progress`, `completed`
+
+## Ticket Management
+
+Tickets are stored in the `skill_nodes` table in Supabase — NOT in GitHub issues.
+**NEVER use `gh issue create` or GitHub issues for tickets.**
+
+When MCP tools are available, use them to manage tickets:
+- `skillforge_list_phases()` — list phases to find the right parent_id
+- `skillforge_create_ticket(...)` — create ticket (always use status "backlog")
+- `skillforge_list_tickets(status)` — list tickets by status
+- `skillforge_get_ticket(ticket_id)` — get ticket details
+- `skillforge_update_ticket(ticket_id, ...)` — update ticket fields
+
+Ticket flow: `backlog` → `queued` → `in_progress` → `completed`
+- New tickets start in `backlog`
+- User promotes to `queued` when ready for the coding agent
+- Coding agent picks from `queued` only
+- Ticket IDs (ITEM-NNN) are auto-generated
 
 ## Environment
 
