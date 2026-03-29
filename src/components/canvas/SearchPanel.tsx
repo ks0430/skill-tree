@@ -53,7 +53,7 @@ export function SearchPanel() {
   }, [nodes, query]);
 
   const grouped = useMemo(() => {
-    const et = (n: Node3D) => n.data.type ?? n.data.role;
+    const et = (n: Node3D) => n.data.type;
     const stellars = filtered.filter((n) => et(n) === "stellar");
     const planets = filtered.filter((n) => et(n) === "planet");
     const satellites = filtered.filter((n) => et(n) === "satellite");
@@ -128,11 +128,11 @@ export function SearchPanel() {
                 onClick={() => handleSelect(node)}
                 className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors flex items-center gap-2 group"
               >
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[node.data.status]}`} />
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[(node.data.properties?.status as string) ?? "backlog"]}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[9px] font-mono uppercase ${ROLE_COLORS[(node.data.type ?? node.data.role) as keyof typeof ROLE_COLORS]}`}>
-                      {ROLE_ICONS[(node.data.type ?? node.data.role) as keyof typeof ROLE_ICONS]}
+                    <span className={`text-[9px] font-mono uppercase ${ROLE_COLORS[node.data.type as keyof typeof ROLE_COLORS]}`}>
+                      {ROLE_ICONS[node.data.type as keyof typeof ROLE_ICONS]}
                     </span>
                     <span className="text-xs text-white truncate">
                       {node.data.label}

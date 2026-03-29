@@ -24,18 +24,18 @@ export function toolCallToPendingChange(toolCall: ToolCall): PendingChange[] {
 export function describeChange(change: PendingChange): string {
   const { action, params } = change;
   // prefer type over role for display (backward compat)
-  const nodeTag = (params.type ?? params.role) as string | undefined;
-  const roleTag = nodeTag ? `[${nodeTag}] ` : "";
+  const nodeTag = params.type as string | undefined;
+  const typeTag = nodeTag ? `[${nodeTag}] ` : "";
   switch (action) {
     case "add_node":
-      return `Add ${roleTag}"${params.label}"`;
+      return `Add ${typeTag}"${params.label}"`;
     case "remove_node":
       return `Remove "${params.id}"`;
     case "update_node": {
       const parts: string[] = [];
       if (params.label !== undefined) parts.push(`label: "${params.label}"`);
       if (params.description !== undefined) parts.push("description");
-      if (params.role !== undefined) parts.push(`role: ${params.role}`);
+      if (params.type !== undefined) parts.push(`type: ${params.type}`);
       if (params.parent_id !== undefined) parts.push(`parent: ${params.parent_id ?? "none"}`);
       return `Update "${params.id}"${parts.length ? `: ${parts.join(", ")}` : ""}`;
     }

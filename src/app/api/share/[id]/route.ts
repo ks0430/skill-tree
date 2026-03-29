@@ -19,7 +19,7 @@ export async function GET(
     supabase.from("skill_trees").select("id, name, description").eq("id", id).single(),
     supabase
       .from("skill_nodes")
-      .select("id, tree_id, label, description, status, type, role, parent_id, priority, position_x, position_y, icon, content")
+      .select("id, tree_id, label, description, type, parent_id, icon, properties, content")
       .eq("tree_id", id),
   ]);
 
@@ -32,7 +32,6 @@ export async function GET(
     nodes: (nodesRes.data ?? []).map((n) => ({
       ...n,
       content: n.content ?? { blocks: [] },
-      metadata: null,
     })),
   });
 }

@@ -1,6 +1,6 @@
 // Layout engine v1 — workflow test
 import { create } from "zustand";
-import type { SkillNode, SkillEdge, EdgeType, NodeStatus, NodeRole, TreeSchema, ViewConfig } from "@/types/skill-tree";
+import type { SkillNode, SkillEdge, EdgeType, NodeStatus, TreeSchema, ViewConfig } from "@/types/skill-tree";
 import { resolveHierarchy, getNodeRender } from "@/types/skill-tree";
 import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
@@ -111,9 +111,9 @@ function computeStellarPosition(index: number, total: number): [number, number, 
   return [Math.cos(angle) * radius, y, Math.sin(angle) * radius];
 }
 
-/** Resolve the effective role/type for layout — type column takes precedence over role. */
+/** Resolve the effective type for layout. */
 function nodeType(n: SkillNode): string {
-  return (n.type ?? n.role) as string;
+  return n.type;
 }
 
 /** Get the render tier for a node given the tree schema. */
@@ -172,7 +172,7 @@ export function layoutGalaxy(nodes: SkillNode[], schema?: TreeSchema): Node3D[] 
       const y = parentPos[1];
       positionMap.set(p.id, [x, y, z]);
 
-      const scale = 0.3 + (p.priority / 5) * 0.5;
+      const scale = 0.3 + (((p.properties?.priority as number) ?? 3) / 5) * 0.5;
       result.push({
         id: p.id, data: p, position: [x, y, z],
         orbitRadius, orbitAngle, orbitSpeed, orbitTilt, scale,
@@ -301,7 +301,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     const allData = existing.map((n) =>
       n.id === nodeId ? { ...n.data, ...data } : n.data
     );
-    if (data.type != null || data.role != null || data.parent_id != null || data.priority != null) {
+    if (data.type != null || data.parent_id != null) {
       set({ nodes: layoutGalaxy(allData, get().treeSchema ?? undefined) });
     } else {
       set({
@@ -316,28 +316,21 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     const currentNode = get().nodes.find((n) => n.id === nodeId);
     if (!currentNode) return;
 
-    // Read status options from tree schema, fallback to legacy cycle
     const schema = get().treeSchema;
     const statusOptions = schema?.properties?.status?.options ?? STATUS_CYCLE;
-    const currentStatus = currentNode.data.status;
+    const currentStatus = (currentNode.data.properties?.status as string) ?? "backlog";
     const idx = statusOptions.indexOf(currentStatus);
     const next = statusOptions[(idx + 1) % statusOptions.length] as NodeStatus;
     const completedAt = next === "completed" ? new Date().toISOString() : null;
 
-    // Update both legacy status column and properties
-    const mergedProps = { ...currentNode.data.properties, status: next };
+    const mergedProps = { ...currentNode.data.properties, status: next, completed_at: completedAt };
 
     set((state) => ({
       nodes: state.nodes.map((n) => {
         if (n.id !== nodeId) return n;
         return {
           ...n,
-          data: {
-            ...n.data,
-            status: next,
-            properties: mergedProps,
-            completed_at: completedAt,
-          },
+          data: { ...n.data, properties: mergedProps },
         };
       }),
     }));
@@ -345,7 +338,7 @@ export const useTreeStore = create<TreeState>((set, get) => ({
     const supabase = createClient();
     supabase
       .from("skill_nodes")
-      .update({ status: next, properties: mergedProps, completed_at: completedAt })
+      .update({ properties: mergedProps })
       .eq("id", nodeId)
       .eq("tree_id", currentNode.data.tree_id)
       .then(() => {});

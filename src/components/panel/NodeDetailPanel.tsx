@@ -108,7 +108,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
   // Play open sound on mount
   useEffect(() => { sfxPanelOpen(); }, []);
 
-  const status = (node.data.status ?? "backlog") as NodeStatus;
+  const status = ((node.data.properties?.status as string) ?? "backlog") as NodeStatus;
   const cfg = STATUS[status] ?? STATUS.backlog;
   const props = (node.data.properties ?? {}) as Record<string, string | null>;
   const { pos, onDown, onMove, onUp } = useDraggable();
@@ -173,7 +173,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
 
   const stats: [string, string, string?][] = ([
     ["Phase",      phaseDisplay],
-    ["Priority",   String(props.priority ?? node.data.priority ?? "—")],
+    ["Priority",   String(props.priority ?? "—")],
     ["Complexity", props.complexity ? `${props.complexity}/5` : "—"],
     ["Repo",       props.target_repo ?? "—"],
     ["Created",    props.created_at ? props.created_at.slice(0, 10) : "—"],
@@ -225,7 +225,7 @@ export function NodeDetailPanel({ node, pinned = false, onClose, readOnly = fals
         {/* Role tag + close */}
         <div className="flex items-center justify-between mb-1">
           <span style={{ fontFamily: "monospace", fontSize: 9, color: cfg.color, textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.9 }}>
-            {(node.data.type ?? node.data.role ?? "node").toUpperCase()}
+            {(node.data.type ?? "node").toUpperCase()}
           </span>
           <div className="flex items-center gap-2">
             {pinned && <span style={{ fontSize: 9, fontFamily: "monospace", color: "#64748b" }}>● PINNED</span>}

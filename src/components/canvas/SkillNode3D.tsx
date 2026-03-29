@@ -7,6 +7,8 @@ import * as THREE from "three";
 import { useTreeStore, type Node3D } from "@/lib/store/tree-store";
 import { createClient } from "@/lib/supabase/client";
 import type { NodeStatus } from "@/types/skill-tree";
+// Helper to read status from properties
+const nodeStatus = (node: Node3D): NodeStatus => ((node.data.properties?.status as string) ?? "backlog") as NodeStatus;
 import { getNodeRender } from "@/types/skill-tree";
 
 // ---------------------------------------------------------------------------
@@ -175,7 +177,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [unlockBurst, setUnlockBurst] = useState(false);
-  const prevStatusRef = useRef<NodeStatus>(node.data.status);
+  const prevStatusRef = useRef<NodeStatus>(nodeStatus(node));
   const toggleNodeStatus = useTreeStore((s) => s.toggleNodeStatus);
   const setHoveredNode = useTreeStore((s) => s.setHoveredNode);
   const setFocusTarget = useTreeStore((s) => s.setFocusTarget);
@@ -188,14 +190,15 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
 
   const treeSchema = useTreeStore((s) => s.treeSchema);
   const seed = useMemo(() => idSeed(node.id), [node.id]);
-  const effectiveRole = (node.data.type ?? node.data.role) as string;
+  const effectiveRole = node.data.type;
   const renderTier = useMemo(() => {
     if (!treeSchema) return undefined;
     return getNodeRender(treeSchema, effectiveRole) as string;
   }, [treeSchema, effectiveRole]);
   const planetType = useMemo(() => pickPlanetForRole(node.id, effectiveRole, renderTier), [node.id, effectiveRole, renderTier]);
   const config = useMemo(() => getPlanetConfig(planetType), [planetType]);
-  const brightness = STATUS_BRIGHTNESS[node.data.status];
+  const status = nodeStatus(node);
+  const brightness = STATUS_BRIGHTNESS[status];
   const parent = node.data.parent_id ? parentMap.get(node.data.parent_id) : null;
 
   interface Textures { surface?: THREE.CanvasTexture; clouds?: THREE.CanvasTexture; ring?: THREE.CanvasTexture; }
@@ -228,11 +231,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     // Status glow: backlog=none, in_progress=amber pulse, completed=green steady
     if (statusGlowRef.current) {
       const mat = statusGlowRef.current.material as THREE.MeshBasicMaterial;
-      if (node.data.status === "completed") {
+      if (status === "completed") {
         mat.color.set("#00ff88");
         mat.opacity = 0.18 + Math.sin(t * 1.2) * 0.04;
         statusGlowRef.current.visible = true;
-      } else if (node.data.status === "in_progress") {
+      } else if (status === "in_progress") {
         mat.color.set("#ffaa22");
         mat.opacity = 0.12 + Math.abs(Math.sin(t * 2.5)) * 0.22;
         statusGlowRef.current.visible = true;
@@ -289,11 +292,12 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
 
   // Detect backlog → in_progress transition and fire particle burst
   useEffect(() => {
-    if (prevStatusRef.current === "backlog" && node.data.status === "in_progress") {
+    const curStatus = nodeStatus(node);
+    if (prevStatusRef.current === "backlog" && curStatus === "in_progress") {
       setUnlockBurst(true);
     }
-    prevStatusRef.current = node.data.status;
-  }, [node.data.status]);
+    prevStatusRef.current = curStatus;
+  }, [node.data.properties?.status]);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -303,16 +307,12 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
     function onKeyDown(e: KeyboardEvent) {
       if (e.code === "Space" && hovered) {
         e.preventDefault();
-        const current = node.data.status;
-        const idx = STATUS_CYCLE.indexOf(current);
-        const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
         toggleNodeStatus(node.id);
-        supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [readOnly, hovered, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase]);
+  }, [readOnly, hovered, node.id, node.data.tree_id, toggleNodeStatus, supabase]);
 
   const onPointerEnter = useCallback((e: any) => {
     e.stopPropagation();
@@ -332,15 +332,11 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
   const onClick = useCallback((e: any) => {
     e.stopPropagation();
     if (!readOnly) {
-      const current = node.data.status;
-      const idx = STATUS_CYCLE.indexOf(current);
-      const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
       toggleNodeStatus(node.id);
-      supabase.from("skill_nodes").update({ status: next }).eq("id", node.id).eq("tree_id", node.data.tree_id).then();
     }
     setFocusTarget(node.id);
     setPinnedNode(isPinned ? null : node.id);
-  }, [readOnly, node.id, node.data.status, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, isPinned]);
+  }, [readOnly, node.id, node.data.tree_id, toggleNodeStatus, supabase, setFocusTarget, setPinnedNode, isPinned]);
 
   // Checklist progress
   const { checklistTotal, checklistDone } = useMemo(() => {
@@ -373,7 +369,7 @@ export const SkillNode3D = memo(function SkillNode3D({ node, parentMap, readOnly
 
   const ringTilt = useMemo(() => (seed % 40 + 15) * (Math.PI / 180), [seed]);
   const emissiveColor = config.atmosphereColor || "#ffffff";
-  const effectiveType = node.data.type ?? node.data.role;
+  const effectiveType = node.data.type;
   const labelSize = effectiveType === "stellar" ? 0.3 : effectiveType === "planet" ? 0.18 : 0.12;
   const labelOffset = node.scale * -1.3;
 

@@ -11,11 +11,9 @@ import { toast } from "sonner";
 
 interface ThumbnailNode {
   id: string;
-  /** type column (preferred) — falls back to role for legacy rows */
-  type: "stellar" | "planet" | "satellite";
-  role: "stellar" | "planet" | "satellite";
+  type: string;
   parent_id: string | null;
-  status: "backlog" | "in_progress" | "completed";
+  status: string;
 }
 
 interface TreeWithProgress extends SkillTree {
@@ -59,19 +57,20 @@ export default function DashboardPage() {
     const treeIds = treesData.map((t) => t.id);
     const { data: nodesData } = await supabase
       .from("skill_nodes")
-      .select("id, tree_id, status, type, role, parent_id")
+      .select("id, tree_id, type, parent_id, properties")
       .in("tree_id", treeIds);
 
     const countMap = new Map<string, { total: number; completed: number; inProgress: number; stellars: number }>();
     const thumbnailMap = new Map<string, ThumbnailNode[]>();
     (nodesData ?? []).forEach((n) => {
-      const effectiveType = (n.type ?? n.role) as "stellar" | "planet" | "satellite";
+      const effectiveType = n.type as string;
+      const status = ((n.properties as Record<string, unknown>)?.status as string) ?? "backlog";
       if (!countMap.has(n.tree_id))
         countMap.set(n.tree_id, { total: 0, completed: 0, inProgress: 0, stellars: 0 });
       const c = countMap.get(n.tree_id)!;
       c.total++;
-      if (n.status === "completed") c.completed++;
-      if (n.status === "in_progress") c.inProgress++;
+      if (status === "completed") c.completed++;
+      if (status === "in_progress") c.inProgress++;
       if (effectiveType === "stellar") c.stellars++;
 
       // Collect thumbnail nodes (stellar + planet only)
@@ -80,9 +79,8 @@ export default function DashboardPage() {
         thumbnailMap.get(n.tree_id)!.push({
           id: n.id,
           type: effectiveType,
-          role: effectiveType,
           parent_id: n.parent_id,
-          status: n.status,
+          status,
         });
       }
     });
