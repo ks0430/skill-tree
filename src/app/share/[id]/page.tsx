@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { useTreeStore, layoutGalaxy } from "@/lib/store/tree-store";
 import { ReadOnlyCanvas } from "@/components/canvas/ReadOnlyCanvas";
 import { CanvasErrorBoundary } from "@/components/ui/CanvasErrorBoundary";
@@ -51,9 +52,9 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
       <div className="flex flex-col items-center justify-center h-screen bg-[#0a0e1a] gap-4">
         <div className="text-6xl">🌌</div>
         <div className="text-slate-400 font-mono">Galaxy not found</div>
-        <a href="/" className="text-sm text-accent-blue hover:underline">
+        <Link href="/" className="text-sm text-accent-blue hover:underline">
           Back to SkillForge
-        </a>
+        </Link>
       </div>
     );
   }
@@ -70,12 +71,12 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
           <span className="text-[10px] text-slate-500 font-mono px-2 py-1 rounded border border-glass-border">
             Read-only
           </span>
-          <a
+          <Link
             href="/"
             className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-glass-border hover:border-accent-blue/40 transition-colors font-mono"
           >
             Open SkillForge
-          </a>
+          </Link>
         </div>
       </header>
 

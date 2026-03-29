@@ -2,7 +2,6 @@ import type { NodeStatus } from "@/types/skill-tree";
 
 const statusInfo: Partial<Record<NodeStatus, { label: string; bar: string }>> = {
   backlog:     { label: "Backlog", bar: "w-0" },
-  backlog:     { label: "Backlog", bar: "w-0" },
   queued:      { label: "Queued", bar: "w-1/4" },
   in_progress: { label: "In progress", bar: "w-1/2" },
   completed:   { label: "Fully learned", bar: "w-full" },
