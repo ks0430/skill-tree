@@ -42,6 +42,7 @@ export interface ViewConfig {
   filters?: Array<{ property: string; operator: string; value: unknown }>;
   sort_by?: string;
   sort_dir?: "asc" | "desc";
+  phase_grouping?: boolean; // timeline: show phase sub-groups within date sections
 }
 
 // ── Default schema & views (mirrors legacy hardcoded behavior) ──────────────
@@ -68,7 +69,7 @@ export const DEFAULT_SCHEMA: TreeSchema = {
 export const DEFAULT_VIEW_CONFIGS: ViewConfig[] = [
   { id: "solar",  name: "Solar System", type: "solar_system" },
   { id: "kanban", name: "Board",        type: "kanban", group_by: "status" },
-  { id: "gantt",  name: "Timeline",     type: "gantt",  date_field: "due_date" },
+  { id: "gantt",  name: "Timeline",     type: "gantt",  date_field: "due_date", group_by: "phase" },
 ];
 
 // ── Status & node type aliases ──────────────────────────────────────────────
