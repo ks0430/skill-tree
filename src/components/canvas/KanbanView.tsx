@@ -485,7 +485,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
               transition: "all 0.15s",
             }}
           >
-            {phaseFilter !== null ? `Phase ${phaseFilter}` : "All phases"}
+            {phaseFilter !== null ? (phases.find((p) => p.phase === phaseFilter)?.label ?? `Phase ${phaseFilter}`) : "All phases"}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
               style={{ transform: phaseDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
               <polyline points="6 9 12 15 18 9" />
@@ -505,7 +505,7 @@ export function KanbanView({ schema, viewConfig }: { schema?: TreeSchema; viewCo
               boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
               maxHeight: 260, overflowY: "auto",
             }}>
-              {[{ label: "All phases", value: null }, ...phases.map((p) => ({ label: `Phase ${p.phase}`, value: p.phase }))].map((opt) => (
+              {[{ label: "All phases", value: null }, ...phases.map((p) => ({ label: p.label, value: p.phase }))].map((opt) => (
                 <button
                   key={opt.value ?? "all"}
                   onClick={() => { setPhaseFilter(opt.value); setPhaseDropdownOpen(false); }}
