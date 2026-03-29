@@ -26,6 +26,9 @@ export default function RootLayout({
       <body className="min-h-screen antialiased">
         {children}
         <ThemeToggle />
+        <footer className="fixed bottom-0 left-0 p-1 text-[10px] opacity-30 pointer-events-none select-none" style={{ color: "var(--text-primary)" }}>
+          build: {new Date().toISOString()}
+        </footer>
         <Toaster
           position="bottom-right"
           toastOptions={{
