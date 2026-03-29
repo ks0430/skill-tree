@@ -4,6 +4,7 @@ import { resolveHierarchy, getNodeRender } from "@/types/skill-tree";
 import type { NodeContent } from "@/types/node-content";
 import type { PendingChange } from "@/types/chat";
 import { createClient } from "@/lib/supabase/client";
+// Workflow test — ITEM-166 verified 2026-03-29
 
 export interface Node3D {
   id: string;
